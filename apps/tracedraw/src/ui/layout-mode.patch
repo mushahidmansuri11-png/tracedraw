@@ -1,0 +1,303 @@
+diff -ru a/apps/tracedraw/lang/ar.toml b/apps/tracedraw/lang/ar.toml
+--- a/apps/tracedraw/lang/ar.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/ar.toml	2026-11-05 14:07:15.156764684 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "لا مواضع خاصة: موضع يسار كل {step}." # mt
+ options.default_tab_spacing = "تباعد الجدولة الافتراضي" # mt
+ options.default_tab_spacing_tip = "المسافة بين مواضع الجدولة في فقرة بلا مواضع خاصة بها. 12.7 مم (نصف بوصة)، كما في ملفات .cdr بلا مواضع." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/bn.toml b/apps/tracedraw/lang/bn.toml
+--- a/apps/tracedraw/lang/bn.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/bn.toml	2026-11-05 14:07:15.167292269 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "নিজস্ব স্টপ নেই: প্রতি {step} একটি বাম স্টপ।" # mt
+ options.default_tab_spacing = "ডিফল্ট ট্যাব ব্যবধান" # mt
+ options.default_tab_spacing_tip = "নিজস্ব স্টপ ছাড়া অনুচ্ছেদে ট্যাব স্টপগুলোর মধ্যে দূরত্ব। ১২.৭ মিমি (আধা ইঞ্চি), স্টপ ছাড়া .cdr ফাইলের মতো।" # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/cs.toml b/apps/tracedraw/lang/cs.toml
+--- a/apps/tracedraw/lang/cs.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/cs.toml	2026-11-05 14:07:15.165952097 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Žádné vlastní zarážky: levá zarážka každých {step}." # mt
+ options.default_tab_spacing = "Výchozí rozestup tabulátorů" # mt
+ options.default_tab_spacing_tip = "Jak daleko od sebe jsou zarážky tabulátoru v odstavci bez vlastních zarážek. 12,7 mm (půl palce), jako v souborech .cdr bez zarážek." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/de.toml b/apps/tracedraw/lang/de.toml
+--- a/apps/tracedraw/lang/de.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/de.toml	2026-11-05 14:07:15.178272009 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Keine eigenen Tabstopps: ein linker Tabstopp alle {step}." # mt
+ options.default_tab_spacing = "Standard-Tababstand" # mt
+ options.default_tab_spacing_tip = "Wie weit die Tabstopps in einem Absatz ohne eigene Tabstopps auseinanderliegen. 12,7 mm (ein halber Zoll), wie in .cdr-Dateien ohne Tabstopps." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/en.toml b/apps/tracedraw/lang/en.toml
+--- a/apps/tracedraw/lang/en.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/en.toml	2026-11-05 14:07:15.192629035 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "No stops of its own: a left stop every {step}."
+ options.default_tab_spacing = "Default tab spacing"
+ options.default_tab_spacing_tip = "How far apart the tab stops are in a paragraph with no stops of its own. 12.7 mm (half an inch), as in .cdr files without stops."
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/es.toml b/apps/tracedraw/lang/es.toml
+--- a/apps/tracedraw/lang/es.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/es.toml	2026-11-05 14:07:15.200712775 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Sin paradas propias: una parada izquierda cada {step}." # mt
+ options.default_tab_spacing = "Espaciado de tabulación predeterminado" # mt
+ options.default_tab_spacing_tip = "La distancia entre las paradas de tabulación de un párrafo sin paradas propias. 12,7 mm (media pulgada), como en los archivos .cdr sin paradas." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/fr.toml b/apps/tracedraw/lang/fr.toml
+--- a/apps/tracedraw/lang/fr.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/fr.toml	2026-11-05 14:07:15.191222464 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Aucun taquet propre : un taquet gauche tous les {step}." # mt
+ options.default_tab_spacing = "Espacement des tabulations par défaut" # mt
+ options.default_tab_spacing_tip = "L'écart entre les taquets d'un paragraphe sans taquets propres. 12,7 mm (un demi-pouce), comme dans les fichiers .cdr sans taquets." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/hi.toml b/apps/tracedraw/lang/hi.toml
+--- a/apps/tracedraw/lang/hi.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/hi.toml	2026-11-05 14:07:15.185791909 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "अपने स्टॉप नहीं: हर {step} पर एक बायाँ स्टॉप।" # mt
+ options.default_tab_spacing = "डिफ़ॉल्ट टैब अंतराल" # mt
+ options.default_tab_spacing_tip = "अपने स्टॉप के बिना अनुच्छेद में टैब स्टॉप के बीच की दूरी। 12.7 मिमी (आधा इंच), बिना स्टॉप वाली .cdr फ़ाइलों की तरह।" # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/id.toml b/apps/tracedraw/lang/id.toml
+--- a/apps/tracedraw/lang/id.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/id.toml	2026-11-05 14:07:15.187492216 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Tanpa stop sendiri: stop kiri setiap {step}." # mt
+ options.default_tab_spacing = "Jarak tab bawaan" # mt
+ options.default_tab_spacing_tip = "Jarak antar stop tab pada paragraf tanpa stop sendiri. 12,7 mm (setengah inci), seperti pada berkas .cdr tanpa stop." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/it.toml b/apps/tracedraw/lang/it.toml
+--- a/apps/tracedraw/lang/it.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/it.toml	2026-11-05 14:07:15.181171800 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Nessun arresto proprio: un arresto sinistro ogni {step}." # mt
+ options.default_tab_spacing = "Spaziatura tabulazioni predefinita" # mt
+ options.default_tab_spacing_tip = "La distanza tra gli arresti di tabulazione di un paragrafo senza arresti propri. 12,7 mm (mezzo pollice), come nei file .cdr senza arresti." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/ja.toml b/apps/tracedraw/lang/ja.toml
+--- a/apps/tracedraw/lang/ja.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/ja.toml	2026-11-05 14:07:15.205129223 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "独自のタブ位置なし: {step} ごとに左揃えタブ。" # mt
+ options.default_tab_spacing = "既定のタブ間隔" # mt
+ options.default_tab_spacing_tip = "独自のタブ位置がない段落でのタブ位置の間隔。12.7 mm (半インチ)、タブ位置のない .cdr ファイルと同じ。" # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/nl.toml b/apps/tracedraw/lang/nl.toml
+--- a/apps/tracedraw/lang/nl.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/nl.toml	2026-11-05 14:07:15.189350411 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Geen eigen tabstops: een linkertabstop elke {step}." # mt
+ options.default_tab_spacing = "Standaard tabafstand" # mt
+ options.default_tab_spacing_tip = "Hoe ver de tabstops uit elkaar liggen in een alinea zonder eigen tabstops. 12,7 mm (een halve inch), zoals in .cdr-bestanden zonder tabstops." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/pl.toml b/apps/tracedraw/lang/pl.toml
+--- a/apps/tracedraw/lang/pl.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/pl.toml	2026-11-05 14:07:15.198558890 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Brak własnych znaczników: lewy znacznik co {step}." # mt
+ options.default_tab_spacing = "Domyślny odstęp tabulatorów" # mt
+ options.default_tab_spacing_tip = "Odległość między znacznikami tabulacji w akapicie bez własnych znaczników. 12,7 mm (pół cala), jak w plikach .cdr bez znaczników." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/pt-BR.toml b/apps/tracedraw/lang/pt-BR.toml
+--- a/apps/tracedraw/lang/pt-BR.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/pt-BR.toml	2026-11-05 14:07:15.196752593 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Sem paradas próprias: uma parada à esquerda a cada {step}." # mt
+ options.default_tab_spacing = "Espaçamento padrão das tabulações" # mt
+ options.default_tab_spacing_tip = "A distância entre as paradas de tabulação de um parágrafo sem paradas próprias. 12,7 mm (meia polegada), como nos arquivos .cdr sem paradas." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/ru.toml b/apps/tracedraw/lang/ru.toml
+--- a/apps/tracedraw/lang/ru.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/ru.toml	2026-11-05 14:07:15.161729416 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Своих позиций нет: левая позиция каждые {step}." # mt
+ options.default_tab_spacing = "Шаг табуляции по умолчанию" # mt
+ options.default_tab_spacing_tip = "Расстояние между позициями табуляции в абзаце без собственных позиций. 12,7 мм (полдюйма), как в файлах .cdr без позиций." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/tr.toml b/apps/tracedraw/lang/tr.toml
+--- a/apps/tracedraw/lang/tr.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/tr.toml	2026-11-05 14:07:15.174950381 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "Kendi durağı yok: her {step} bir sol durak." # mt
+ options.default_tab_spacing = "Varsayılan sekme aralığı" # mt
+ options.default_tab_spacing_tip = "Kendi durakları olmayan bir paragrafta sekme duraklarının arası. 12,7 mm (yarım inç), duraksız .cdr dosyalarındaki gibi." # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/zh-CN.toml b/apps/tracedraw/lang/zh-CN.toml
+--- a/apps/tracedraw/lang/zh-CN.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/zh-CN.toml	2026-11-05 14:07:15.194739297 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "没有自己的制表位:每 {step} 一个左对齐制表位。" # mt
+ options.default_tab_spacing = "默认制表位间距" # mt
+ options.default_tab_spacing_tip = "没有自己制表位的段落中制表位之间的距离。12.7 毫米(半英寸),与没有制表位的 .cdr 文件相同。" # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/lang/zh-TW.toml b/apps/tracedraw/lang/zh-TW.toml
+--- a/apps/tracedraw/lang/zh-TW.toml	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/lang/zh-TW.toml	2026-11-05 14:07:15.202777104 +0000
+@@ -7639,3 +7639,7 @@
+ dialog.tab_default_grid = "沒有自己的定位點:每 {step} 一個靠左定位點。" # mt
+ options.default_tab_spacing = "預設定位點間距" # mt
+ options.default_tab_spacing_tip = "沒有自己定位點的段落中定位點之間的距離。12.7 公釐(半英吋),與沒有定位點的 .cdr 檔案相同。" # mt
++layout.mode = "Layout Mode"
++layout.mobile = "Mobile layout"
++layout.tablet = "Tablet layout"
++layout.desktop = "Desktop layout"
+diff -ru a/apps/tracedraw/src/ui/bars.rs b/apps/tracedraw/src/ui/bars.rs
+--- a/apps/tracedraw/src/ui/bars.rs	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/src/ui/bars.rs	2026-11-05 14:07:15.150178105 +0000
+@@ -895,6 +895,14 @@
+         }
+     });
+     sep(ui);
++    sub(ui, "layout.mode", |ui| {
++        for m in LayoutMode::ALL {
++            if item(ui, m.key(), "", true) {
++                apply_layout_mode(app, m);
++            }
++        }
++    });
++    sep(ui);
+     let locked = app.settings.bars.locked;
+     if check(ui, "bars.lock", "", locked) {
+         app.settings.bars.locked = !locked;
+@@ -918,6 +926,69 @@
+     crate::ui::bar_items::reset(app);
+ }
+ 
++/// The ready-made layouts of the "Layout Mode" menu: one tap sets the
++/// bars, the dockers and the button size for a phone, a tablet or a desktop.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum LayoutMode {
++    Mobile,
++    Tablet,
++    Desktop,
++}
++
++impl LayoutMode {
++    pub const ALL: [LayoutMode; 3] = [LayoutMode::Mobile, LayoutMode::Tablet, LayoutMode::Desktop];
++
++    pub fn key(self) -> &'static str {
++        match self {
++            LayoutMode::Mobile => "layout.mobile",
++            LayoutMode::Tablet => "layout.tablet",
++            LayoutMode::Desktop => "layout.desktop",
++        }
++    }
++}
++
++/// Set the bars, the dockers and the button size for `mode`.
++/// Mobile: the toolbox floats over the drawing, only the property bar and
++/// the palette stay docked, the dockers are closed, buttons are Large and
++/// the bars are locked (no drag by accident). Tablet: toolbox on the left,
++/// standard and property bars on top, no status bar, Large buttons.
++/// Desktop: the first layout again.
++pub fn apply_layout_mode(app: &mut App, mode: LayoutMode) {
++    use crate::settings::ButtonSize;
++    reset(app);
++    app.show_dockers = true;
++    app.settings.toolbox_button_size = None;
++    app.settings.bars.locked = false;
++    match mode {
++        LayoutMode::Desktop => {}
++        LayoutMode::Tablet => {
++            app.settings.button_size = ButtonSize::Large;
++            Bar::Status.set_visible(app, false);
++            Bar::Text.set_visible(app, false);
++            Bar::Zoom.set_visible(app, false);
++            Bar::Transform.set_visible(app, false);
++            Bar::TimeTracker.set_visible(app, false);
++        }
++        LayoutMode::Mobile => {
++            app.settings.button_size = ButtonSize::Large;
++            move_bar(app, Bar::Toolbox, Dock::Floating, Some(pos2(8.0, 150.0)));
++            for bar in [
++                Bar::Standard,
++                Bar::Status,
++                Bar::Text,
++                Bar::Zoom,
++                Bar::Transform,
++                Bar::TimeTracker,
++            ] {
++                bar.set_visible(app, false);
++            }
++            app.show_dockers = false;
++            app.show_left_dockers = false;
++            app.settings.bars.locked = true;
++        }
++    }
++}
++
+ /// Where the window drawing keeps the room the bars and dockers leave
+ /// (the drawing and its tabs) for the palette's drop bands.
+ pub const DRAWING_ROOM: &str = "bars_drawing_room";
+diff -ru a/apps/tracedraw/src/ui/menus.rs b/apps/tracedraw/src/ui/menus.rs
+--- a/apps/tracedraw/src/ui/menus.rs	2026-11-05 05:47:51.000000000 +0000
++++ b/apps/tracedraw/src/ui/menus.rs	2026-11-05 14:07:15.151180809 +0000
+@@ -4078,6 +4078,13 @@
+     if check(ui, "menu.effects.picker", "", app.effect_picker.open) {
+         app.effect_picker.open = !app.effect_picker.open;
+     }
++    sub(ui, "layout.mode", |ui| {
++        for m in crate::ui::bars::LayoutMode::ALL {
++            if item(ui, m.key(), "", true) {
++                crate::ui::bars::apply_layout_mode(app, m);
++            }
++        }
++    });
+     sub(ui, "menu.window.toolbars", |ui| {
+         toolbars_list(app, ui);
+         sep(ui);
