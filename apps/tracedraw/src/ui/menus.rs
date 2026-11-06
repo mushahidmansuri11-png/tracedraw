@@ -4078,6 +4078,13 @@ fn window_menu(app: &mut App, ui: &mut Ui) {
     if check(ui, "menu.effects.picker", "", app.effect_picker.open) {
         app.effect_picker.open = !app.effect_picker.open;
     }
+    sub(ui, "layout.mode", |ui| {
+        for m in crate::ui::bars::LayoutMode::ALL {
+            if item(ui, m.key(), "", true) {
+                crate::ui::bars::apply_layout_mode(app, m);
+            }
+        }
+    });
     sub(ui, "menu.window.toolbars", |ui| {
         toolbars_list(app, ui);
         sep(ui);

@@ -895,6 +895,14 @@ fn menu_body(app: &mut App, ui: &mut Ui, bar: Bar) {
         }
     });
     sep(ui);
+    sub(ui, "layout.mode", |ui| {
+        for m in LayoutMode::ALL {
+            if item(ui, m.key(), "", true) {
+                apply_layout_mode(app, m);
+            }
+        }
+    });
+    sep(ui);
     let locked = app.settings.bars.locked;
     if check(ui, "bars.lock", "", locked) {
         app.settings.bars.locked = !locked;
@@ -916,6 +924,69 @@ pub fn reset(app: &mut App) {
         b.set_visible(app, true);
     }
     crate::ui::bar_items::reset(app);
+}
+
+/// The ready-made layouts of the "Layout Mode" menu: one tap sets the
+/// bars, the dockers and the button size for a phone, a tablet or a desktop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LayoutMode {
+    Mobile,
+    Tablet,
+    Desktop,
+}
+
+impl LayoutMode {
+    pub const ALL: [LayoutMode; 3] = [LayoutMode::Mobile, LayoutMode::Tablet, LayoutMode::Desktop];
+
+    pub fn key(self) -> &'static str {
+        match self {
+            LayoutMode::Mobile => "layout.mobile",
+            LayoutMode::Tablet => "layout.tablet",
+            LayoutMode::Desktop => "layout.desktop",
+        }
+    }
+}
+
+/// Set the bars, the dockers and the button size for `mode`.
+/// Mobile: the toolbox floats over the drawing, only the property bar and
+/// the palette stay docked, the dockers are closed, buttons are Large and
+/// the bars are locked (no drag by accident). Tablet: toolbox on the left,
+/// standard and property bars on top, no status bar, Large buttons.
+/// Desktop: the first layout again.
+pub fn apply_layout_mode(app: &mut App, mode: LayoutMode) {
+    use crate::settings::ButtonSize;
+    reset(app);
+    app.show_dockers = true;
+    app.settings.toolbox_button_size = None;
+    app.settings.bars.locked = false;
+    match mode {
+        LayoutMode::Desktop => {}
+        LayoutMode::Tablet => {
+            app.settings.button_size = ButtonSize::Large;
+            Bar::Status.set_visible(app, false);
+            Bar::Text.set_visible(app, false);
+            Bar::Zoom.set_visible(app, false);
+            Bar::Transform.set_visible(app, false);
+            Bar::TimeTracker.set_visible(app, false);
+        }
+        LayoutMode::Mobile => {
+            app.settings.button_size = ButtonSize::Large;
+            move_bar(app, Bar::Toolbox, Dock::Floating, Some(pos2(8.0, 150.0)));
+            for bar in [
+                Bar::Standard,
+                Bar::Status,
+                Bar::Text,
+                Bar::Zoom,
+                Bar::Transform,
+                Bar::TimeTracker,
+            ] {
+                bar.set_visible(app, false);
+            }
+            app.show_dockers = false;
+            app.show_left_dockers = false;
+            app.settings.bars.locked = true;
+        }
+    }
 }
 
 /// Where the window drawing keeps the room the bars and dockers leave
