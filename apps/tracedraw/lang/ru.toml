@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "Нет" # mt
 dialog.tab_default_grid = "Своих позиций нет: левая позиция каждые {step}." # mt
 options.default_tab_spacing = "Шаг табуляции по умолчанию" # mt
 options.default_tab_spacing_tip = "Расстояние между позициями табуляции в абзаце без собственных позиций. 12,7 мм (полдюйма), как в файлах .cdr без позиций." # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

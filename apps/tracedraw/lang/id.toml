@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "Tidak ada" # mt
 dialog.tab_default_grid = "Tanpa stop sendiri: stop kiri setiap {step}." # mt
 options.default_tab_spacing = "Jarak tab bawaan" # mt
 options.default_tab_spacing_tip = "Jarak antar stop tab pada paragraf tanpa stop sendiri. 12,7 mm (setengah inci), seperti pada berkas .cdr tanpa stop." # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "কোনোটি নয়" # mt
 dialog.tab_default_grid = "নিজস্ব স্টপ নেই: প্রতি {step} একটি বাম স্টপ।" # mt
 options.default_tab_spacing = "ডিফল্ট ট্যাব ব্যবধান" # mt
 options.default_tab_spacing_tip = "নিজস্ব স্টপ ছাড়া অনুচ্ছেদে ট্যাব স্টপগুলোর মধ্যে দূরত্ব। ১২.৭ মিমি (আধা ইঞ্চি), স্টপ ছাড়া .cdr ফাইলের মতো।" # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

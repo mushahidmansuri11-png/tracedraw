@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "بلا" # mt
 dialog.tab_default_grid = "لا مواضع خاصة: موضع يسار كل {step}." # mt
 options.default_tab_spacing = "تباعد الجدولة الافتراضي" # mt
 options.default_tab_spacing_tip = "المسافة بين مواضع الجدولة في فقرة بلا مواضع خاصة بها. 12.7 مم (نصف بوصة)، كما في ملفات .cdr بلا مواضع." # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

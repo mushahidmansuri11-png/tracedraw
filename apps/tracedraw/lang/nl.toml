@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "Geen" # mt
 dialog.tab_default_grid = "Geen eigen tabstops: een linkertabstop elke {step}." # mt
 options.default_tab_spacing = "Standaard tabafstand" # mt
 options.default_tab_spacing_tip = "Hoe ver de tabstops uit elkaar liggen in een alinea zonder eigen tabstops. 12,7 mm (een halve inch), zoals in .cdr-bestanden zonder tabstops." # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

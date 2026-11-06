@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "Brak" # mt
 dialog.tab_default_grid = "Brak własnych znaczników: lewy znacznik co {step}." # mt
 options.default_tab_spacing = "Domyślny odstęp tabulatorów" # mt
 options.default_tab_spacing_tip = "Odległość między znacznikami tabulacji w akapicie bez własnych znaczników. 12,7 mm (pół cala), jak w plikach .cdr bez znaczników." # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

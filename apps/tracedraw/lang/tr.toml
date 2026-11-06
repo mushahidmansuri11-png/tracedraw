@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "Yok" # mt
 dialog.tab_default_grid = "Kendi durağı yok: her {step} bir sol durak." # mt
 options.default_tab_spacing = "Varsayılan sekme aralığı" # mt
 options.default_tab_spacing_tip = "Kendi durakları olmayan bir paragrafta sekme duraklarının arası. 12,7 mm (yarım inç), duraksız .cdr dosyalarındaki gibi." # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

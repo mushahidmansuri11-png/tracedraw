@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "Žádný" # mt
 dialog.tab_default_grid = "Žádné vlastní zarážky: levá zarážka každých {step}." # mt
 options.default_tab_spacing = "Výchozí rozestup tabulátorů" # mt
 options.default_tab_spacing_tip = "Jak daleko od sebe jsou zarážky tabulátoru v odstavci bez vlastních zarážek. 12,7 mm (půl palce), jako v souborech .cdr bez zarážek." # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

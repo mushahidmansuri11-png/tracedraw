@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "Aucun" # mt
 dialog.tab_default_grid = "Aucun taquet propre : un taquet gauche tous les {step}." # mt
 options.default_tab_spacing = "Espacement des tabulations par défaut" # mt
 options.default_tab_spacing_tip = "L'écart entre les taquets d'un paragraphe sans taquets propres. 12,7 mm (un demi-pouce), comme dans les fichiers .cdr sans taquets." # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

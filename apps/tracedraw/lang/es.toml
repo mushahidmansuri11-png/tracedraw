@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "Ninguno" # mt
 dialog.tab_default_grid = "Sin paradas propias: una parada izquierda cada {step}." # mt
 options.default_tab_spacing = "Espaciado de tabulación predeterminado" # mt
 options.default_tab_spacing_tip = "La distancia entre las paradas de tabulación de un párrafo sin paradas propias. 12,7 mm (media pulgada), como en los archivos .cdr sin paradas." # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

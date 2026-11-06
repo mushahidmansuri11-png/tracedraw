@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "無" # mt
 dialog.tab_default_grid = "沒有自己的定位點:每 {step} 一個靠左定位點。" # mt
 options.default_tab_spacing = "預設定位點間距" # mt
 options.default_tab_spacing_tip = "沒有自己定位點的段落中定位點之間的距離。12.7 公釐(半英吋),與沒有定位點的 .cdr 檔案相同。" # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

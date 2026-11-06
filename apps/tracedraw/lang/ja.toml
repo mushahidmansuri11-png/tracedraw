@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "なし" # mt
 dialog.tab_default_grid = "独自のタブ位置なし: {step} ごとに左揃えタブ。" # mt
 options.default_tab_spacing = "既定のタブ間隔" # mt
 options.default_tab_spacing_tip = "独自のタブ位置がない段落でのタブ位置の間隔。12.7 mm (半インチ)、タブ位置のない .cdr ファイルと同じ。" # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

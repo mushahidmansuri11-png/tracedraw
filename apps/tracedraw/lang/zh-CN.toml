@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "无" # mt
 dialog.tab_default_grid = "没有自己的制表位:每 {step} 一个左对齐制表位。" # mt
 options.default_tab_spacing = "默认制表位间距" # mt
 options.default_tab_spacing_tip = "没有自己制表位的段落中制表位之间的距离。12.7 毫米(半英寸),与没有制表位的 .cdr 文件相同。" # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"

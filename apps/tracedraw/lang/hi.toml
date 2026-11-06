@@ -7639,3 +7639,7 @@ dialog.tab_leader_none = "कोई नहीं" # mt
 dialog.tab_default_grid = "अपने स्टॉप नहीं: हर {step} पर एक बायाँ स्टॉप।" # mt
 options.default_tab_spacing = "डिफ़ॉल्ट टैब अंतराल" # mt
 options.default_tab_spacing_tip = "अपने स्टॉप के बिना अनुच्छेद में टैब स्टॉप के बीच की दूरी। 12.7 मिमी (आधा इंच), बिना स्टॉप वाली .cdr फ़ाइलों की तरह।" # mt
+layout.mode = "Layout Mode"
+layout.mobile = "Mobile layout"
+layout.tablet = "Tablet layout"
+layout.desktop = "Desktop layout"
