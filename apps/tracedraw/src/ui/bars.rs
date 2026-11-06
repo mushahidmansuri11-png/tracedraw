@@ -187,15 +187,15 @@ impl Bar {
 
     pub fn visible(self, app: &App) -> bool {
         match self {
-            Bar::Toolbox => app.show_toolbox,
+            Bar::Toolbox => app.show_toolbox && !app.collapse_tools,
             Bar::Palette => app.settings.palette.show_palette,
-            Bar::Standard => app.show_standard_toolbar,
-            Bar::Property => app.show_property_bar,
-            Bar::Status => app.show_status_bar,
-            Bar::Text => app.show_text_toolbar,
-            Bar::Zoom => app.show_zoom_toolbar,
-            Bar::Transform => app.show_transform_toolbar,
-            Bar::TimeTracker => app.settings.time_tracker.show_bar,
+            Bar::Standard => app.show_standard_toolbar && !app.collapse_bars,
+            Bar::Property => app.show_property_bar && !app.collapse_bars,
+            Bar::Status => app.show_status_bar && !app.collapse_bars,
+            Bar::Text => app.show_text_toolbar && !app.collapse_bars,
+            Bar::Zoom => app.show_zoom_toolbar && !app.collapse_bars,
+            Bar::Transform => app.show_transform_toolbar && !app.collapse_bars,
+            Bar::TimeTracker => app.settings.time_tracker.show_bar && !app.collapse_bars,
         }
     }
 
@@ -956,6 +956,8 @@ impl LayoutMode {
 pub fn apply_layout_mode(app: &mut App, mode: LayoutMode) {
     use crate::settings::ButtonSize;
     reset(app);
+    app.collapse_bars = false;
+    app.collapse_tools = false;
     app.show_dockers = true;
     app.settings.toolbox_button_size = None;
     app.settings.bars.locked = false;
@@ -963,6 +965,7 @@ pub fn apply_layout_mode(app: &mut App, mode: LayoutMode) {
         LayoutMode::Desktop => {}
         LayoutMode::Tablet => {
             app.settings.button_size = ButtonSize::Large;
+            app.settings.bars.locked = true;
             Bar::Status.set_visible(app, false);
             Bar::Text.set_visible(app, false);
             Bar::Zoom.set_visible(app, false);

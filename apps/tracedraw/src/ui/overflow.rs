@@ -279,6 +279,28 @@ fn strip(ui: &mut Ui, id_salt: &str, horizontal: bool, add: impl FnOnce(&mut Ui)
         if forward_resp.rich_tip(forward_tip).clicked() && can_forward {
             offset = next_offset(&items, content, room, offset);
         }
+        // A finger (or the mouse) pulling along the bar slides it, so the
+        // hidden items are reached by dragging the bar and not only by
+        // the small buttons. A click stays a click: the pull starts after
+        // 8 points of movement along the bar.
+        let pull = ui.input(|i| {
+            let p = &i.pointer;
+            match (p.press_origin(), p.latest_pos()) {
+                (Some(origin), Some(now)) if p.primary_down() => Some((origin, now, p.delta())),
+                _ => None,
+            }
+        });
+        if let Some((origin, now, delta)) = pull {
+            let (along, across, step) = if horizontal {
+                (now.x - origin.x, now.y - origin.y, delta.x)
+            } else {
+                (now.y - origin.y, now.x - origin.x, delta.y)
+            };
+            if full.intersect(panel).contains(origin) && along.abs() > 8.0 && along.abs() > across.abs() {
+                offset -= step;
+                ui.ctx().request_repaint();
+            }
+        }
         // The mouse wheel over the bar slides it.
         let over = ui.rect_contains_pointer(full.intersect(panel)) || bar_resp.hovered();
         if over {

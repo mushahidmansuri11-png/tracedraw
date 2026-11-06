@@ -279,6 +279,81 @@ pub fn root(app: &mut App, ui: &mut Ui) {
     }
 }
 
+/// Undo, Redo, Copy, Paste, Delete, the Panels list, Group, Ungroup and the
+/// right-click menu ("...") in
+/// a small panel at the bottom right over the drawing, within a thumb's
+/// reach on a phone or a tablet. It shows with the strip under the menu
+/// bar (toolbars locked, see `root_frame`).
+fn quick_actions(app: &mut App, ctx: &egui::Context) {
+    use crate::ui::icons::{self, Action};
+    if !(app.settings.bars.locked || app.collapse_bars || app.collapse_tools) {
+        return;
+    }
+    egui::Area::new(egui::Id::new("quick_actions"))
+        .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-8.0, -64.0))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                let icon_button = |ui: &mut Ui, action: Action, key: &str| -> bool {
+                    let (rect, resp) =
+                        ui.allocate_exact_size(egui::vec2(44.0, 44.0), Sense::click());
+                    let color = ui.style().interact(&resp).fg_stroke.color;
+                    icons::draw_action(ui.painter(), rect.shrink(8.0), action, color);
+                    resp.on_hover_text(tr(key)).clicked()
+                };
+                ui.horizontal(|ui| {
+                    if icon_button(ui, Action::Undo, "toolbar.undo") {
+                        app.undo();
+                    }
+                    if icon_button(ui, Action::Redo, "toolbar.redo") {
+                        app.redo();
+                    }
+                    if icon_button(ui, Action::Copy, "toolbar.copy") {
+                        app.copy_with_system();
+                    }
+                    if icon_button(ui, Action::Paste, "toolbar.paste") {
+                        app.paste_any();
+                    }
+                    if icon_button(ui, Action::Delete, "toolbar.delete") {
+                        app.delete_command();
+                    }
+                });
+                ui.horizontal(|ui| {
+                    if icon_button(ui, Action::Dockers, "toolbar.dockers") {
+                        app.show_dockers = !app.show_dockers;
+                    }
+                    let can_group = app.can_group();
+                    let group = egui::Button::new(tr("menu.object.group_group"));
+                    if ui
+                        .add_enabled_ui(can_group, |ui| ui.add_sized([86.0, 44.0], group))
+                        .inner
+                        .clicked()
+                    {
+                        app.group_selection();
+                    }
+                    let ungroup = egui::Button::new(tr("menu.object.group_ungroup"));
+                    if ui.add_sized([86.0, 44.0], ungroup).clicked() {
+                        app.ungroup_selection();
+                    }
+                    // The right-click menu of the drawing (for a selection,
+                    // the object menu; with none, the page menu) where a
+                    // touch screen has no right click.
+                    let more = ui
+                        .add_sized([44.0, 44.0], egui::Button::new("..."))
+                        .on_hover_text(tr("options.context_menu"));
+                    if more.clicked() {
+                        let screen = ctx.content_rect();
+                        let at = egui::pos2(
+                            (screen.right() - 240.0).max(screen.left()),
+                            (screen.center().y - 120.0).max(screen.top()),
+                        );
+                        app.context_menu = Some((at, app.view.to_page(at)));
+                    }
+                });
+            });
+        });
+}
+
 /// Tab with nothing of the window focused belongs to the drawing: it
 /// types a tab in the text being edited, goes to the next table cell,
 /// object or node. egui would also give the focus to the window's first
@@ -462,6 +537,38 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
         .response
         .rect;
     tab_focus::set_menu_bar(&ctx, menu_bar);
+    // The strip under the menu bar, with the toolbars locked (the phone
+    // and tablet layouts lock them): two buttons that fold the toolbars
+    // (with the status bar) and the toolbox away and bring them back, so
+    // the drawing gets the room on a small screen. Unlocked, the window
+    // is drawn as before.
+    if app.settings.bars.locked || app.collapse_bars || app.collapse_tools {
+        Panel::top("collapse_strip")
+            .frame(
+                Frame::new()
+                    .fill(Tokens::panel())
+                    .inner_margin(egui::Margin::symmetric(4, 2)),
+            )
+            .exact_size(30.0)
+            .resizable(false)
+            .show_separator_line(false)
+            .show(ui, |ui| {
+                ui.horizontal_centered(|ui| {
+                    if ui
+                        .selectable_label(!app.collapse_bars, tr("menu.window.toolbars"))
+                        .clicked()
+                    {
+                        app.collapse_bars = !app.collapse_bars;
+                    }
+                    if ui
+                        .selectable_label(!app.collapse_tools, tr("menu.window.toolbar_toolbox"))
+                        .clicked()
+                    {
+                        app.collapse_tools = !app.collapse_tools;
+                    }
+                });
+            });
+    }
     // The bars, where the layout puts them (see bars.rs). Outer panels
     // come first: the status bar (at the very bottom, or right under the
     // menu bar), then the toolbars, then the palettes and the toolbox.
@@ -484,7 +591,7 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
                 status::status_bar(app, ui)
             });
     };
-    if app.show_status_bar && status_dock == Dock::Top {
+    if app.show_status_bar && !app.collapse_bars && status_dock == Dock::Top {
         status_panel(app, ui, Panel::top("status_bar"));
     }
     // The toolbars along the top, in rows (a 36 px band for the standard
@@ -492,7 +599,7 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     // several side by side in a row where they were put (#837, #855).
     app.bar_rows.clear();
     bars::docked_rows(app, ui, Dock::Top);
-    if app.show_status_bar && status_dock == Dock::Bottom {
+    if app.show_status_bar && !app.collapse_bars && status_dock == Dock::Bottom {
         status_panel(app, ui, Panel::bottom("status_bar"));
     }
     bars::docked_rows(app, ui, Dock::Bottom);
@@ -540,7 +647,7 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     palette_bars::docked(app, ui, Dock::Right);
 
     // The toolbox: a column on a side, a row along the top or the bottom.
-    if app.show_toolbox {
+    if app.show_toolbox && !app.collapse_tools {
         let dock = bars_layout.dock(Bar::Toolbox);
         let frame = Frame::new()
             .fill(Tokens::panel())
@@ -595,7 +702,7 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
         palette_columns(app, ui, palette_dock == Dock::Left, palette_frame);
     }
 
-    if app.show_toolbox && bars_layout.dock(Bar::Toolbox).horizontal() {
+    if app.show_toolbox && !app.collapse_tools && bars_layout.dock(Bar::Toolbox).horizontal() {
         let dock = bars_layout.dock(Bar::Toolbox);
         let panel = if dock == Dock::Top {
             Panel::top("toolbox")
@@ -651,6 +758,7 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     // Floating bars over the window, and a bar being moved; the floating
     // dockers and a docker being moved likewise.
     bars::floating_bars(app, &ctx);
+    quick_actions(app, &ctx);
     let room = ui.available_rect_before_wrap();
     ctx.data_mut(|d| d.insert_temp(egui::Id::new(bars::DRAWING_ROOM), room));
     palette_bars::floating(app, &ctx);
