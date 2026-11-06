@@ -1063,6 +1063,10 @@ pub struct App {
     pub show_rulers: bool,
     pub show_grid: bool,
     pub show_status_bar: bool,
+    /// Collapsed with the strip under the menu bar (not saved): the
+    /// toolbars and the status bar, or the toolbox, out of the way.
+    pub collapse_bars: bool,
+    pub collapse_tools: bool,
     pub show_dockers: bool,
     pub docker_tab: DockerTab,
     pub flyout_open: Option<usize>,
@@ -2525,6 +2529,8 @@ impl App {
             show_rulers: true,
             show_grid: false,
             show_status_bar: true,
+            collapse_bars: false,
+            collapse_tools: false,
             show_dockers: true,
             docker_tab: DockerTab::Hints,
             flyout_open: None,
