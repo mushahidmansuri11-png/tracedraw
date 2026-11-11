@@ -1,0 +1,90 @@
+--- a/apps/tracedraw/src/ui/tracecut_cut.rs
++++ b/apps/tracedraw/src/ui/tracecut_cut.rs
+@@ -310,6 +310,16 @@
+ /// CNC Toolpath: the tool, the side and direction, the depths, the
+ /// rates, the origin and the holding tabs.
+ fn cnc_settings(ui: &mut Ui, units: Units, s: &mut CncSpec) {
++    let was_laser = s.laser;
++    row(ui, "", |ui| check(ui, &mut s.laser, "tracecut.cnc_laser"));
++    if s.laser {
++        // A router bit's width is no kerf: start on the line.
++        if !was_laser && s.tool_diameter > 1.0 {
++            s.tool_diameter = cnc::TOOL_RANGE.0;
++        }
++        laser_settings(ui, units, s);
++        return;
++    }
+     row(ui, &tr("tracecut.cnc_tool"), |ui| {
+         length(
+             ui,
+@@ -439,6 +449,70 @@
+     }
+ }
+ 
++/// CNC Toolpath in laser mode: the kerf, the side, the power, the passes,
++/// the speed and the origin. The program has no Z moves.
++fn laser_settings(ui: &mut Ui, units: Units, s: &mut CncSpec) {
++    row(ui, &tr("tracecut.cnc_kerf"), |ui| {
++        length(
++            ui,
++            units,
++            &mut s.tool_diameter,
++            cnc::TOOL_RANGE,
++            "tracecut.cnc_kerf",
++        )
++    });
++    row(ui, &tr("tracecut.cnc_side"), |ui| {
++        choice(
++            ui,
++            "cnc_side",
++            &mut s.side,
++            &[
++                (Side::Auto, "tracecut.cnc_side_auto"),
++                (Side::Outside, "tracecut.cnc_side_outside"),
++                (Side::Inside, "tracecut.cnc_side_inside"),
++                (Side::OnLine, "tracecut.cnc_side_on"),
++            ],
++            "tracecut.cnc_side",
++        )
++    });
++    row(ui, &tr("tracecut.cnc_laser_power"), |ui| {
++        let max = s.laser_max;
++        number(ui, &mut s.laser_power, (0.0, max), 0, "tracecut.cnc_laser_power")
++    });
++    row(ui, &tr("tracecut.cnc_laser_max"), |ui| {
++        number(
++            ui,
++            &mut s.laser_max,
++            cnc::LASER_MAX_RANGE,
++            0,
++            "tracecut.cnc_laser_max",
++        )
++    });
++    row(ui, &tr("tracecut.cnc_laser_passes"), |ui| {
++        count(
++            ui,
++            &mut s.laser_passes,
++            cnc::LASER_PASSES_RANGE,
++            "tracecut.cnc_laser_passes",
++        )
++    });
++    row(ui, &tr("tracecut.cnc_feed"), |ui| {
++        number(ui, &mut s.feed, cnc::RATE_RANGE, 0, "tracecut.cnc_feed")
++    });
++    row(ui, &tr("tracecut.cnc_origin"), |ui| {
++        choice(
++            ui,
++            "cnc_origin",
++            &mut s.zero,
++            &[
++                (Zero::JobCorner, "tracecut.cnc_origin_corner"),
++                (Zero::Origin, "tracecut.cnc_origin_ruler"),
++            ],
++            "tracecut.cnc_origin",
++        )
++    });
++}
++
+ /// Plotter Output: the machine and its knife, the order, where the job
+ /// goes, and the test cut.
+ fn plotter(ui: &mut Ui, units: Units, st: &mut TraceCutState) -> Option<Action> {

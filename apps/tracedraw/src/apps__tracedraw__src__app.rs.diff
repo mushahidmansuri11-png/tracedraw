@@ -1,0 +1,20 @@
+--- a/apps/tracedraw/src/app.rs
++++ b/apps/tracedraw/src/app.rs
+@@ -1245,6 +1245,9 @@
+     pub eyedropper_apply: bool,
+     /// Bitmap sample box side in pixels: 1, 2 or 5.
+     pub eyedropper_sample: u32,
++    /// The colour eyedroppers hand back CMYK for what they read as RGB
++    /// (picture pixels, RGB fills), so a print job keeps its inks.
++    pub eyedropper_cmyk: bool,
+     /// The colour eyedroppers' readout beside the pointer (#990).
+     pub eyedropper_hover: crate::eyedropper::HoverReadout,
+     pub canvas_rect: egui::Rect,
+@@ -2767,6 +2770,7 @@
+             eyedropper_groups: Default::default(),
+             eyedropper_apply: false,
+             eyedropper_sample: 1,
++            eyedropper_cmyk: false,
+             eyedropper_hover: Default::default(),
+             canvas_rect: egui::Rect::NOTHING,
+             pointer_page: None,
