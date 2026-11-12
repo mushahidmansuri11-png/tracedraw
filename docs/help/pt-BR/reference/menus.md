@@ -225,6 +225,8 @@ próprios atalhos; veja
 | [[menu.object.front_minus_back]] | [Combinar formas: soldar, aparar e interseção](../lines-shapes/shaping.md) |
 | [[menu.object.back_minus_front]] | [Combinar formas: soldar, aparar e interseção](../lines-shapes/shaping.md) |
 | [[menu.object.boundary]] | [Combinar formas: soldar, aparar e interseção](../lines-shapes/shaping.md) |
+| [[menu.object.divide]] | [Combinar formas: soldar, aparar e interseção](../lines-shapes/shaping.md) |
+| [[menu.object.exclude]] | [Combinar formas: soldar, aparar e interseção](../lines-shapes/shaping.md) |
 | [[menu.object.shaping_docker]] | [Combinar formas: soldar, aparar e interseção](../lines-shapes/shaping.md) |
 | [[menu.object.combine]] | [Organizar objetos e camadas](../objects/objects-and-layers.md) |
 | [[menu.object.break_apart]] | [Organizar objetos e camadas](../objects/objects-and-layers.md) |

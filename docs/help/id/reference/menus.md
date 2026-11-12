@@ -224,6 +224,8 @@ Anda sendiri; lihat [Opsi kustomisasi](../customize/customization.md#commands).
 | [[menu.object.front_minus_back]] | [Combining shapes: weld, trim and intersect](../lines-shapes/shaping.md) |
 | [[menu.object.back_minus_front]] | [Combining shapes: weld, trim and intersect](../lines-shapes/shaping.md) |
 | [[menu.object.boundary]] | [Combining shapes: weld, trim and intersect](../lines-shapes/shaping.md) |
+| [[menu.object.divide]] | [Combining shapes: weld, trim and intersect](../lines-shapes/shaping.md) |
+| [[menu.object.exclude]] | [Combining shapes: weld, trim and intersect](../lines-shapes/shaping.md) |
 | [[menu.object.shaping_docker]] | [Combining shapes: weld, trim and intersect](../lines-shapes/shaping.md) |
 | [[menu.object.combine]] | [Organizing objects and layers](../objects/objects-and-layers.md) |
 | [[menu.object.break_apart]] | [Organizing objects and layers](../objects/objects-and-layers.md) |

@@ -224,6 +224,8 @@ only the Welcome Screen is open. The menus can show your own shortcuts; see
 | [[menu.object.front_minus_back]] | [Shaping](../lines-shapes/shaping.md) |
 | [[menu.object.back_minus_front]] | [Shaping](../lines-shapes/shaping.md) |
 | [[menu.object.boundary]] | [Shaping](../lines-shapes/shaping.md) |
+| [[menu.object.divide]] | [Shaping](../lines-shapes/shaping.md) |
+| [[menu.object.exclude]] | [Shaping](../lines-shapes/shaping.md) |
 | [[menu.object.shaping_docker]] | [Shaping](../lines-shapes/shaping.md) |
 | [[menu.object.combine]] | [Objects and layers](../objects/objects-and-layers.md) |
 | [[menu.object.break_apart]] | [Objects and layers](../objects/objects-and-layers.md) |

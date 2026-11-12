@@ -29,6 +29,8 @@ não se sobrepõem), nada muda e a barra de status avisa.
 | [[menu.object.front_minus_back]] | 2 objetos | o objeto da frente sem os de trás |
 | [[menu.object.back_minus_front]] | 2 objetos | o objeto de trás sem os da frente |
 | [[menu.object.boundary]] | 1 objeto | um contorno em volta de toda a seleção |
+| [[menu.object.divide]] | 2 objetos | cada pedaço separado em que os objetos se cortam |
+| [[menu.object.exclude]] | 2 objetos | só as áreas cobertas por um número ímpar de objetos |
 
 Pelo menu e pela barra de propriedades, [[menu.object.weld]] remove os
 originais, [[menu.object.trim]] mantém as origens, [[menu.object.intersect]]

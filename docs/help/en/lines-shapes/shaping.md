@@ -27,6 +27,8 @@ overlap), nothing changes and the status bar says so.
 | [[menu.object.front_minus_back]] | 2 objects | the front object without the ones behind it |
 | [[menu.object.back_minus_front]] | 2 objects | the back object without the ones in front of it |
 | [[menu.object.boundary]] | 1 object | an outline around the whole selection |
+| [[menu.object.divide]] | 2 objects | every separate piece the objects cut each other into |
+| [[menu.object.exclude]] | 2 objects | only the areas an odd number of the objects cover |
 
 From the menu and the property bar, [[menu.object.weld]] removes the
 originals, [[menu.object.trim]] keeps the sources, [[menu.object.intersect]]
