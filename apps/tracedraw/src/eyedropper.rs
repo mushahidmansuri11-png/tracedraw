@@ -259,8 +259,25 @@ impl App {
     }
 
     /// [`App::sample_color_at`] with the pictures decoded by `decode`
-    /// (the hover readout keeps the last one decoded).
+    /// (the hover readout keeps the last one decoded). With the
+    /// eyedropper's CMYK option on, a colour read as RGB comes back as
+    /// CMYK.
     fn sample_color_with(
+        &self,
+        p: Point,
+        outline: bool,
+        decode: &mut dyn FnMut(&tracedraw_core::SharedBytes) -> Option<Picture>,
+    ) -> Option<Color> {
+        let c = self.sample_color_raw(p, outline, decode)?;
+        Some(if self.eyedropper_cmyk && matches!(c, Color::Rgb { .. }) {
+            c.convert_to("CMYK")
+        } else {
+            c
+        })
+    }
+
+    /// The colour under `p` in the model it is stored or read in.
+    fn sample_color_raw(
         &self,
         p: Point,
         outline: bool,

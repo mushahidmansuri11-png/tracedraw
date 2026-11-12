@@ -1,0 +1,1330 @@
+--- a/apps/tracedraw/lang/ar.toml
++++ b/apps/tracedraw/lang/ar.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "تحرير الظل" # mt
+ docker.shadow_summary = "{kind}، العتامة {opacity} %" # mt
+ docker.edit_shadow_tip = "أداة الظل المسقط على هذا الكائن: اسحب مقابض الظل، أو غيّر إعداداته في شريط الخصائص." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/bn.toml
++++ b/apps/tracedraw/lang/bn.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "ছায়া সম্পাদনা" # mt
+ docker.shadow_summary = "{kind}, অস্বচ্ছতা {opacity} %" # mt
+ docker.edit_shadow_tip = "এই বস্তুর উপর ড্রপ শ্যাডো টুল: ছায়ার হ্যান্ডেলগুলো টানুন, অথবা প্রপার্টি বারে এর সেটিংস বদলান।" # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/cs.toml
++++ b/apps/tracedraw/lang/cs.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Upravit stín" # mt
+ docker.shadow_summary = "{kind}, krytí {opacity} %" # mt
+ docker.edit_shadow_tip = "Nástroj Vržený stín na tomto objektu: táhněte úchyty stínu nebo změňte jeho nastavení na panelu vlastností." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/de.toml
++++ b/apps/tracedraw/lang/de.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Schatten bearbeiten" # mt
+ docker.shadow_summary = "{kind}, Deckkraft {opacity} %" # mt
+ docker.edit_shadow_tip = "Das Schlagschatten-Werkzeug für dieses Objekt: Ziehen Sie die Griffe des Schattens oder ändern Sie seine Einstellungen in der Eigenschaftsleiste." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/en.toml
++++ b/apps/tracedraw/lang/en.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Edit Shadow"
+ docker.shadow_summary = "{kind}, opacity {opacity} %"
+ docker.edit_shadow_tip = "The Drop Shadow tool on this object: drag the shadow's handles, or change its settings on the property bar."
++toolbar.sample_cmyk = "CMYK"
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks."
++tracecut.cnc_laser = "Laser mode"
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf."
++tracecut.cnc_kerf = "Kerf width"
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line."
++tracecut.cnc_laser_power = "Laser power (S)"
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below."
++tracecut.cnc_laser_max = "Laser max S"
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)."
++tracecut.cnc_laser_passes = "Laser passes"
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path."
++menu.object.divide = "Divide"
++menu.object.exclude = "Exclude"
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it"
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects"
+--- a/apps/tracedraw/lang/es.toml
++++ b/apps/tracedraw/lang/es.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Editar sombra" # mt
+ docker.shadow_summary = "{kind}, opacidad {opacity} %" # mt
+ docker.edit_shadow_tip = "La herramienta Sombra paralela sobre este objeto: arrastre los tiradores de la sombra o cambie sus ajustes en la barra de propiedades." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/fr.toml
++++ b/apps/tracedraw/lang/fr.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Modifier l’ombre" # mt
+ docker.shadow_summary = "{kind}, opacité {opacity} %" # mt
+ docker.edit_shadow_tip = "L’outil Ombre portée sur cet objet : faites glisser les poignées de l’ombre ou changez ses réglages dans la barre de propriétés." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/hi.toml
++++ b/apps/tracedraw/lang/hi.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "छाया संपादित करें" # mt
+ docker.shadow_summary = "{kind}, अपारदर्शिता {opacity} %" # mt
+ docker.edit_shadow_tip = "इस ऑब्जेक्ट पर ड्रॉप शैडो टूल: छाया के हैंडल खींचें, या प्रॉपर्टी बार पर उसकी सेटिंग बदलें।" # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "रंग को RGB की जगह CMYK में लें, ताकि प्रिंट होने वाला रंग अपनी स्याही बनाए रखे।" # mt
++tracecut.cnc_laser = "लेज़र मोड" # mt
++tracecut.cnc_laser_desc = "लेज़र के लिए प्रोग्राम लिखें: बीम तय पावर पर आउटलाइन का अनुसरण करती है, कोई Z मूव नहीं, और आधा कर्फ़ बाहर।" # mt
++tracecut.cnc_kerf = "कर्फ़ चौड़ाई" # mt
++tracecut.cnc_kerf_desc = "बीम जितनी चौड़ाई जलाती है। पथ आउटलाइन से उसकी आधी दूरी पर चलता है; 0 लाइन पर काटता है।" # mt
++tracecut.cnc_laser_power = "लेज़र पावर (S)" # mt
++tracecut.cnc_laser_power_desc = "कटाई के समय M4 के साथ भेजा जाने वाला S मान, 0 से नीचे दिए अधिकतम तक।" # mt
++tracecut.cnc_laser_max = "लेज़र अधिकतम S" # mt
++tracecut.cnc_laser_max_desc = "वह S मान जिसे आपका कंट्रोलर पूरी पावर मानता है (अक्सर 1000 या 255)।" # mt
++tracecut.cnc_laser_passes = "लेज़र पास" # mt
++tracecut.cnc_laser_passes_desc = "बीम पूरे पथ पर कितनी बार चलेगी।" # mt
++menu.object.divide = "विभाजित करें" # mt
++menu.object.exclude = "बाहर रखें" # mt
++docker.divide_hint = "ओवरलैप करते ऑब्जेक्ट को हर अलग टुकड़े में बाँटें, हर टुकड़ा अपने ऊपर के सामने वाले ऑब्जेक्ट का रूप रखता है" # mt
++docker.exclude_hint = "केवल वे क्षेत्र रखें जो चुने गए ऑब्जेक्ट की विषम संख्या में आते हैं" # mt
+--- a/apps/tracedraw/lang/id.toml
++++ b/apps/tracedraw/lang/id.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Edit bayangan" # mt
+ docker.shadow_summary = "{kind}, opasitas {opacity} %" # mt
+ docker.edit_shadow_tip = "Alat Bayangan Jatuh pada objek ini: seret pegangan bayangan, atau ubah pengaturannya di bilah properti." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/it.toml
++++ b/apps/tracedraw/lang/it.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Modifica ombra" # mt
+ docker.shadow_summary = "{kind}, opacità {opacity} %" # mt
+ docker.edit_shadow_tip = "Lo strumento Ombra esterna su questo oggetto: trascinate le maniglie dell’ombra o cambiatene le impostazioni nella barra delle proprietà." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/ja.toml
++++ b/apps/tracedraw/lang/ja.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "影を編集" # mt
+ docker.shadow_summary = "{kind}、不透明度 {opacity} %" # mt
+ docker.edit_shadow_tip = "このオブジェクトにドロップシャドウツールを使います。影のハンドルをドラッグするか、プロパティバーで設定を変更します。" # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/lo.toml
++++ b/apps/tracedraw/lang/lo.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "ແກ້ໄຂເງົາ" # mt
+ docker.shadow_summary = "{kind}, ຄວາມທຶບ {opacity} %" # mt
+ docker.edit_shadow_tip = "ເຄື່ອງມືເງົາຕົກໃສ່ວັດຖຸນີ້: ລາກຈັບຂອງເງົາ ຫຼື ປ່ຽນການຕັ້ງຄ່າຂອງມັນໃນແຖບຄຸນສົມບັດ." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/nl.toml
++++ b/apps/tracedraw/lang/nl.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Schaduw bewerken" # mt
+ docker.shadow_summary = "{kind}, dekking {opacity} %" # mt
+ docker.edit_shadow_tip = "Het gereedschap Slagschaduw op dit object: sleep de grepen van de schaduw of wijzig de instellingen op de eigenschappenbalk." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/pl.toml
++++ b/apps/tracedraw/lang/pl.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Edytuj cień" # mt
+ docker.shadow_summary = "{kind}, krycie {opacity} %" # mt
+ docker.edit_shadow_tip = "Narzędzie Cień na tym obiekcie: przeciągnij uchwyty cienia lub zmień jego ustawienia na pasku właściwości." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/pt-BR.toml
++++ b/apps/tracedraw/lang/pt-BR.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Editar sombra" # mt
+ docker.shadow_summary = "{kind}, opacidade {opacity} %" # mt
+ docker.edit_shadow_tip = "A ferramenta Sombra projetada neste objeto: arraste as alças da sombra ou altere as configurações na barra de propriedades." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/ru.toml
++++ b/apps/tracedraw/lang/ru.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Изменить тень" # mt
+ docker.shadow_summary = "{kind}, непрозрачность {opacity} %" # mt
+ docker.edit_shadow_tip = "Инструмент «Тень» для этого объекта: перетащите маркеры тени или измените её параметры на панели свойств." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/tr.toml
++++ b/apps/tracedraw/lang/tr.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "Gölgeyi düzenle" # mt
+ docker.shadow_summary = "{kind}, opaklık %{opacity}" # mt
+ docker.edit_shadow_tip = "Bu nesnede Gölge aracı: gölgenin tutamaçlarını sürükleyin veya ayarlarını özellik çubuğunda değiştirin." # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/zh-CN.toml
++++ b/apps/tracedraw/lang/zh-CN.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "编辑阴影" # mt
+ docker.shadow_summary = "{kind}，不透明度 {opacity} %" # mt
+ docker.edit_shadow_tip = "对此对象使用阴影工具：拖动阴影的控制柄，或在属性栏中更改其设置。" # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/lang/zh-TW.toml
++++ b/apps/tracedraw/lang/zh-TW.toml
+@@ -8353,3 +8353,19 @@
+ context.edit_shadow = "編輯陰影" # mt
+ docker.shadow_summary = "{kind}，不透明度 {opacity} %" # mt
+ docker.edit_shadow_tip = "對此物件使用陰影工具：拖曳陰影的控制點，或在屬性列中變更其設定。" # mt
++toolbar.sample_cmyk = "CMYK" # mt
++toolbar.sample_cmyk_desc = "Sample the color as CMYK instead of RGB, so a printed color keeps its inks." # mt
++tracecut.cnc_laser = "Laser mode" # mt
++tracecut.cnc_laser_desc = "Write the program for a laser: the beam follows the outlines at a set power with no Z moves, offset by half the kerf." # mt
++tracecut.cnc_kerf = "Kerf width" # mt
++tracecut.cnc_kerf_desc = "The width of the cut the beam burns. The path runs half of it away from the outline; 0 cuts on the line." # mt
++tracecut.cnc_laser_power = "Laser power (S)" # mt
++tracecut.cnc_laser_power_desc = "The S value sent with M4 while the laser cuts, from 0 to the maximum below." # mt
++tracecut.cnc_laser_max = "Laser max S" # mt
++tracecut.cnc_laser_max_desc = "The S value your controller treats as full power (often 1000 or 255)." # mt
++tracecut.cnc_laser_passes = "Laser passes" # mt
++tracecut.cnc_laser_passes_desc = "How many times the beam runs the whole path." # mt
++menu.object.divide = "Divide" # mt
++menu.object.exclude = "Exclude" # mt
++docker.divide_hint = "Split overlapping objects into every separate piece, each keeping the look of the front object over it" # mt
++docker.exclude_hint = "Keep only the areas that belong to an odd number of the selected objects" # mt
+--- a/apps/tracedraw/src/app.rs
++++ b/apps/tracedraw/src/app.rs
+@@ -1245,6 +1245,9 @@
+     pub eyedropper_apply: bool,
+     /// Bitmap sample box side in pixels: 1, 2 or 5.
+     pub eyedropper_sample: u32,
++    /// The colour eyedroppers hand back CMYK for what they read as RGB
++    /// (picture pixels, RGB fills), so a print job keeps its inks.
++    pub eyedropper_cmyk: bool,
+     /// The colour eyedroppers' readout beside the pointer (#990).
+     pub eyedropper_hover: crate::eyedropper::HoverReadout,
+     pub canvas_rect: egui::Rect,
+@@ -2767,6 +2770,7 @@
+             eyedropper_groups: Default::default(),
+             eyedropper_apply: false,
+             eyedropper_sample: 1,
++            eyedropper_cmyk: false,
+             eyedropper_hover: Default::default(),
+             canvas_rect: egui::Rect::NOTHING,
+             pointer_page: None,
+--- a/apps/tracedraw/src/eyedropper.rs
++++ b/apps/tracedraw/src/eyedropper.rs
+@@ -259,11 +259,28 @@
+     }
+ 
+     /// [`App::sample_color_at`] with the pictures decoded by `decode`
+-    /// (the hover readout keeps the last one decoded).
++    /// (the hover readout keeps the last one decoded). With the
++    /// eyedropper's CMYK option on, a colour read as RGB comes back as
++    /// CMYK.
+     fn sample_color_with(
+         &self,
+         p: Point,
+         outline: bool,
++        decode: &mut dyn FnMut(&tracedraw_core::SharedBytes) -> Option<Picture>,
++    ) -> Option<Color> {
++        let c = self.sample_color_raw(p, outline, decode)?;
++        Some(if self.eyedropper_cmyk && matches!(c, Color::Rgb { .. }) {
++            c.convert_to("CMYK")
++        } else {
++            c
++        })
++    }
++
++    /// The colour under `p` in the model it is stored or read in.
++    fn sample_color_raw(
++        &self,
++        p: Point,
++        outline: bool,
+         decode: &mut dyn FnMut(&tracedraw_core::SharedBytes) -> Option<Picture>,
+     ) -> Option<Color> {
+         let s = self.leaf_to_read(p)?;
+--- a/apps/tracedraw/src/ops.rs
++++ b/apps/tracedraw/src/ops.rs
+@@ -848,10 +848,12 @@
+     FrontMinusBack,
+     BackMinusFront,
+     Boundary,
++    Divide,
++    Exclude,
+ }
+ 
+ impl Shaping {
+-    pub const ALL: [Shaping; 7] = [
++    pub const ALL: [Shaping; 9] = [
+         Shaping::Weld,
+         Shaping::Trim,
+         Shaping::Intersect,
+@@ -859,6 +861,8 @@
+         Shaping::FrontMinusBack,
+         Shaping::BackMinusFront,
+         Shaping::Boundary,
++        Shaping::Divide,
++        Shaping::Exclude,
+     ];
+ 
+     /// Whether the operation can leave its source objects or its target
+@@ -888,6 +892,8 @@
+             Shaping::FrontMinusBack => "front_minus_back",
+             Shaping::BackMinusFront => "back_minus_front",
+             Shaping::Boundary => "boundary",
++            Shaping::Divide => "divide",
++            Shaping::Exclude => "exclude",
+         }
+     }
+ 
+@@ -1077,6 +1083,10 @@
+         // Z-order: lowest index first within the layer.
+         let mut ordered = shapes.clone();
+         ordered.sort_by_key(|s| doc.locate(s.id).map(|(_, i)| i).unwrap_or(0));
++        if op == Shaping::Divide {
++            self.divide_shapes(&ordered);
++            return;
++        }
+         let target = shapes.last().cloned().unwrap_or_else(|| ordered[0].clone());
+         // The object that keeps its attributes and is cut: the target, the
+         // front one (Front Minus Back) or the back one (Back Minus Front).
+@@ -1225,6 +1235,12 @@
+                     .iter()
+                     .skip(1)
+                     .fold(paths[0].clone(), |acc, p| overlay(&acc, p, Op::Trim)),
++                Shaping::Exclude => paths
++                    .iter()
++                    .skip(1)
++                    .fold(paths[0].clone(), |acc, p| overlay(&acc, p, Op::Exclude)),
++                // Handled before, in `divide_shapes`.
++                Shaping::Divide => return,
+             }
+         };
+         if result.elements().is_empty() {
+@@ -1481,11 +1497,63 @@
+             Shaping::BackMinusFront => "Back Minus Front",
+             Shaping::Boundary => "Boundary",
+             Shaping::Simplify => "Simplify",
++            Shaping::Divide => "Divide",
++            Shaping::Exclude => "Exclude",
+         };
+         if let Err(e) = self.engine.run_batch(label, &cmds) {
+             self.status = e.to_string();
+             return;
+         }
++        self.select(ids);
++    }
++}
++
++impl App {
++    /// Divide: the closed objects (back to front) cut each other into every
++    /// separate piece; a piece takes the fill, outline and opacity of the
++    /// frontmost object that covers it, and the originals are replaced.
++    fn divide_shapes(&mut self, ordered: &[Shape]) {
++        let closed: Vec<&Shape> = ordered
++            .iter()
++            .filter(|s| !matches!(s.kind, ShapeKind::Path { closed: false, .. }))
++            .collect();
++        if closed.len() < 2 {
++            self.status = crate::i18n::tr("status.shaping_open_cutter");
++            return;
++        }
++        let paths: Vec<tracedraw_core::BezPath> = closed.iter().map(|s| shaping_area(s)).collect();
++        let parts = tracedraw_core::shaping::divide(&paths);
++        if parts.is_empty() {
++            self.status = crate::i18n::tr("status.shaping_empty");
++            return;
++        }
++        let Some(layer) = self.active_layer() else {
++            return;
++        };
++        let mut ids = Vec::new();
++        let mut cmds = Vec::new();
++        for (path, from) in parts {
++            let src = closed[from.min(closed.len() - 1)];
++            // A group has no look of its own: the first filled object in it.
++            let look = group_leaves(src)
++                .into_iter()
++                .find(|l| !matches!(l.fill, tracedraw_core::Fill::None))
++                .unwrap_or_else(|| src.clone());
++            let id = self.engine.new_shape_id();
++            let mut shape = Shape::new(id, ShapeKind::Path { path, closed: true });
++            shape.fill = look.fill.for_result(look.transform, &shape.page_path());
++            shape.stroke = look.stroke.clone();
++            shape.opacity = look.opacity;
++            ids.push(id);
++            cmds.push(Command::AddShape { layer, shape });
++        }
++        cmds.push(Command::DeleteShapes {
++            shapes: closed.iter().map(|s| s.id).collect(),
++        });
++        if let Err(e) = self.engine.run_batch("Divide", &cmds) {
++            self.status = e.to_string();
++            return;
++        }
+         self.select(ids);
+     }
+ }
+--- a/apps/tracedraw/src/ops2.rs
++++ b/apps/tracedraw/src/ops2.rs
+@@ -4217,6 +4217,8 @@
+         let Some(layer) = self.active_layer() else {
+             return;
+         };
++        let before = self.selection_bounds();
++        let originals = self.selection.clone();
+         let mut cmds = Vec::new();
+         let mut new_sel = Vec::new();
+         for k in 1..=sr.copies.max(1) {
+@@ -4228,10 +4230,24 @@
+                 cmds.push(Command::AddShape { layer, shape: c });
+             }
+         }
+-        if let Err(e) = self.engine.run_batch("Step and Repeat", &cmds) {
+-            self.status = e.to_string();
+-        }
++        let done = match self.engine.run_batch("Step and Repeat", &cmds) {
++            Ok(_) => true,
++            Err(e) => {
++                self.status = e.to_string();
++                false
++            }
++        };
+         self.selection = new_sel;
++        // Edit > Repeat adds one more copy a step further on.
++        if let (true, Some(before)) = (done, before) {
++            self.note_repeatable_from(
++                crate::app::Repeatable::Copy {
++                    transform: Affine::translate((dx, dy)),
++                    before,
++                },
++                originals,
++            );
++        }
+     }
+ }
+ 
+--- a/apps/tracedraw/src/theme.rs
++++ b/apps/tracedraw/src/theme.rs
+@@ -301,41 +301,41 @@
+ }
+ 
+ const LIGHT: Palette = Palette {
+-    panel: rgb(0xF4F4F4),
+-    menu_bar: rgb(0xD8D8D8),
+-    panel_dark: rgb(0xE1E1E1),
+-    border: rgb(0xD8D8D8),
+-    icon_off: rgb(0xC8C8C8),
+-    text: rgb(0x1E1E1E),
+-    text_dim: rgb(0x6E6E6E),
+-    page_shadow: rgb(0xBFBFBF),
+-    page_border: rgb(0xAAAAAA),
+-    ruler_bg: rgb(0xF4F4F4),
+-    tool_active: rgb(0xCCE4F7),
+-    tool_hover: rgb(0xE5F1FB),
+-    icon: rgb(0x2A2A2A),
+-    button: rgb(0xE1E1E1),
+-    control_border: rgb(0xADADAD),
+-    slider_rail: rgb(0xC4C4C4),
++    panel: rgb(0xF7F8FA),
++    menu_bar: rgb(0xFFFFFF),
++    panel_dark: rgb(0xEEF0F3),
++    border: rgb(0xE3E6EB),
++    icon_off: rgb(0xC5CAD3),
++    text: rgb(0x1F2430),
++    text_dim: rgb(0x6B7280),
++    page_shadow: rgb(0xC9CDD6),
++    page_border: rgb(0xB8BEC9),
++    ruler_bg: rgb(0xF7F8FA),
++    tool_active: rgb(0xDBE7FF),
++    tool_hover: rgb(0xEEF3FF),
++    icon: rgb(0x2B3140),
++    button: rgb(0xEDEFF3),
++    control_border: rgb(0xCDD2DA),
++    slider_rail: rgb(0xD5D9E0),
+     field: rgb(0xFFFFFF),
+     menu: rgb(0xFFFFFF),
+-    menu_gutter: rgb(0xF4F4F4),
+-    menu_hover: rgb(0xE0F0FF),
+-    menu_hover_line: rgb(0x00ADFE),
+-    menu_text_off: rgb(0xC8C8C8),
++    menu_gutter: rgb(0xF7F8FA),
++    menu_hover: rgb(0xE8F0FF),
++    menu_hover_line: rgb(0x3B82F6),
++    menu_text_off: rgb(0xC5CAD3),
+     title_bar: rgb(0xFFFFFF),
+-    window_border: rgb(0xB2B2B2),
+-    selected_row: rgb(0xCCE8FF),
+-    hovered_row: rgb(0xE5F3FF),
+-    selected_row_line: rgb(0x99D1FF),
+-    control_fill: rgb(0xEAEAEA),
+-    tab_strip: rgb(0xEAEAEA),
+-    tab: rgb(0xD8D8D8),
+-    tab_active: rgb(0xCEE3FF),
+-    ruler_tick: rgb(0x8C8C8C),
+-    ruler_label: rgb(0x767676),
+-    ruler_marker: rgb(0x0B0B0B),
+-    desktop: rgb(0xFFFFFF),
++    window_border: rgb(0xD5D9E0),
++    selected_row: rgb(0xDBE7FF),
++    hovered_row: rgb(0xEEF3FF),
++    selected_row_line: rgb(0x9DBCFA),
++    control_fill: rgb(0xEDEFF3),
++    tab_strip: rgb(0xEEF0F3),
++    tab: rgb(0xE3E6EB),
++    tab_active: rgb(0xDBE7FF),
++    ruler_tick: rgb(0x9AA1AD),
++    ruler_label: rgb(0x6B7280),
++    ruler_marker: rgb(0x111827),
++    desktop: rgb(0xEBEDF1),
+ };
+ 
+ const MEDIUM_LIGHT: Palette = Palette {
+@@ -415,41 +415,41 @@
+ };
+ 
+ const DARK: Palette = Palette {
+-    panel: rgb(0x2B2B2B),
+-    menu_bar: rgb(0x1F1F1F),
+-    panel_dark: rgb(0x252525),
+-    border: rgb(0x1A1A1A),
+-    icon_off: rgb(0x5A5A5A),
+-    text: rgb(0xE0E0E0),
+-    text_dim: rgb(0x9A9A9A),
+-    page_shadow: rgb(0x1A1A1A),
+-    page_border: rgb(0x111111),
+-    ruler_bg: rgb(0x2B2B2B),
+-    tool_active: rgb(0x2A5C8A),
+-    tool_hover: rgb(0x3A3A3A),
+-    icon: rgb(0xD8D8D8),
+-    button: rgb(0x3A3A3A),
+-    control_border: rgb(0x505050),
+-    slider_rail: rgb(0x4A4A4A),
+-    field: rgb(0x1E1E1E),
+-    menu: rgb(0x2B2B2B),
+-    menu_gutter: rgb(0x262626),
+-    menu_hover: rgb(0x2A5C8A),
+-    menu_hover_line: rgb(0x3D7AB8),
+-    menu_text_off: rgb(0x6A6A6A),
+-    title_bar: rgb(0x1F1F1F),
+-    window_border: rgb(0x0F0F0F),
+-    selected_row: rgb(0x2A5C8A),
+-    hovered_row: rgb(0x353535),
+-    selected_row_line: rgb(0x3D7AB8),
+-    control_fill: rgb(0x333333),
+-    tab_strip: rgb(0x252525),
+-    tab: rgb(0x333333),
+-    tab_active: rgb(0x2A5C8A),
+-    ruler_tick: rgb(0x8A8A8A),
+-    ruler_label: rgb(0xA8A8A8),
+-    ruler_marker: rgb(0xF0F0F0),
+-    desktop: rgb(0x3D3D3D),
++    panel: rgb(0x1E2128),
++    menu_bar: rgb(0x171A20),
++    panel_dark: rgb(0x191C22),
++    border: rgb(0x2B2F38),
++    icon_off: rgb(0x4B515E),
++    text: rgb(0xE6E8EC),
++    text_dim: rgb(0x9AA1AD),
++    page_shadow: rgb(0x0E1014),
++    page_border: rgb(0x0A0B0E),
++    ruler_bg: rgb(0x1E2128),
++    tool_active: rgb(0x2F4F8F),
++    tool_hover: rgb(0x2A2F3A),
++    icon: rgb(0xDDE1E8),
++    button: rgb(0x2A2F3A),
++    control_border: rgb(0x3A404C),
++    slider_rail: rgb(0x3A404C),
++    field: rgb(0x14161B),
++    menu: rgb(0x1E2128),
++    menu_gutter: rgb(0x191C22),
++    menu_hover: rgb(0x2F4F8F),
++    menu_hover_line: rgb(0x5B8DEF),
++    menu_text_off: rgb(0x5B6270),
++    title_bar: rgb(0x171A20),
++    window_border: rgb(0x0E1014),
++    selected_row: rgb(0x2F4F8F),
++    hovered_row: rgb(0x262B35),
++    selected_row_line: rgb(0x5B8DEF),
++    control_fill: rgb(0x2A2F3A),
++    tab_strip: rgb(0x191C22),
++    tab: rgb(0x2A2F3A),
++    tab_active: rgb(0x2F4F8F),
++    ruler_tick: rgb(0x7B8290),
++    ruler_label: rgb(0xA0A6B2),
++    ruler_marker: rgb(0xF5F6F8),
++    desktop: rgb(0x2B2F38),
+ };
+ 
+ pub struct Tokens;
+@@ -526,12 +526,12 @@
+ 
+ impl Tokens {
+     /// Accents, the page and the selection stay the same in every theme.
+-    pub const ACCENT: Color32 = Color32::from_rgb(0x00, 0x78, 0xD7);
++    pub const ACCENT: Color32 = Color32::from_rgb(0x25, 0x63, 0xEB);
+     pub const PAGE: Color32 = Color32::WHITE;
+     /// Screen offset of the page shadow, pixels.
+     pub const PAGE_SHADOW_OFFSET: egui::Vec2 = egui::vec2(6.0, 4.0);
+     pub const HANDLE: Color32 = Color32::from_rgb(0x1E, 0x1E, 0x1E);
+-    pub const SELECTION: Color32 = Color32::from_rgb(0x00, 0x78, 0xD7);
++    pub const SELECTION: Color32 = Color32::from_rgb(0x25, 0x63, 0xEB);
+     /// The outline that shows where a dragged selection would go.
+     pub const DRAG_OUTLINE: Color32 = Color32::from_rgb(0x1E, 0x64, 0xFF);
+ 
+@@ -797,12 +797,13 @@
+         v.hyperlink_color = col(c.hot_light);
+         v.warn_fg_color = col(c.hot_light);
+     }
+-    v.widgets.noninteractive.corner_radius = 2.0.into();
+-    v.widgets.inactive.corner_radius = 2.0.into();
+-    v.widgets.hovered.corner_radius = 2.0.into();
+-    v.widgets.active.corner_radius = 2.0.into();
+-    v.window_corner_radius = 2.0.into();
+-    v.menu_corner_radius = 2.0.into();
++    v.widgets.noninteractive.corner_radius = 6.0.into();
++    v.widgets.inactive.corner_radius = 6.0.into();
++    v.widgets.hovered.corner_radius = 6.0.into();
++    v.widgets.active.corner_radius = 6.0.into();
++    v.widgets.open.corner_radius = 6.0.into();
++    v.window_corner_radius = 10.0.into();
++    v.menu_corner_radius = 8.0.into();
+     v
+ }
+ 
+--- a/apps/tracedraw/src/ui/color_docker.rs
++++ b/apps/tracedraw/src/ui/color_docker.rs
+@@ -930,15 +930,29 @@
+     let mut changed = false;
+     ui.horizontal(|ui| {
+         ui.label(tr("docker.hex"));
+-        let mut hex = c.to_hex();
+-        if ui
++        // What is typed lives in the UI memory while the field has the
++        // keys: a text rebuilt from the colour every frame wiped each
++        // key press, so no code could be typed.
++        let id = egui::Id::new("color_docker_hex_text");
++        let typed: Option<String> = ui.data(|d| d.get_temp(id));
++        let mut hex = typed.unwrap_or_else(|| c.to_hex());
++        let resp = ui
+             .add(egui::TextEdit::singleline(&mut hex).desired_width(64.0))
+-            .rich_tip(crate::ui::tips::keyed("docker.hex_color"))
+-            .lost_focus()
+-        {
++            .rich_tip(crate::ui::tips::keyed("docker.hex_color"));
++        if resp.has_focus() || resp.changed() {
++            ui.data_mut(|d| d.insert_temp(id, hex.clone()));
++        }
++        if resp.lost_focus() {
++            ui.data_mut(|d| d.remove::<String>(id));
+             if let Some(nc) = Color::from_hex(&hex) {
+                 if nc.to_hex() != c.to_hex() {
+-                    *c = nc;
++                    // A code is RGB; a colour edited in CMYK stays CMYK.
++                    let model = crate::ui::color_picker::edit_model(*c);
++                    *c = if model == "RGB" {
++                        nc
++                    } else {
++                        nc.convert_to(model)
++                    };
+                     changed = true;
+                 }
+             }
+--- a/apps/tracedraw/src/ui/menus.rs
++++ b/apps/tracedraw/src/ui/menus.rs
+@@ -617,6 +617,8 @@
+         "menu.object.front_minus_back" => Pic::FrontMinusBack,
+         "menu.object.back_minus_front" => Pic::BackMinusFront,
+         "menu.object.boundary" => Pic::Boundary,
++        "menu.object.divide" => Pic::Divide,
++        "menu.object.exclude" => Pic::Combine,
+         "menu.object.to_front_of_page" => Pic::ToFront,
+         "menu.object.to_front_of_layer" => Pic::ToFront,
+         "menu.object.to_back_of_page" => Pic::ToBack,
+@@ -3545,6 +3547,8 @@
+                 true,
+             ),
+             ("menu.object.boundary", Shaping::Boundary, false),
++            ("menu.object.divide", Shaping::Divide, true),
++            ("menu.object.exclude", Shaping::Exclude, true),
+         ] {
+             let on = if need_two {
+                 op.ready(app.selection.len())
+--- a/apps/tracedraw/src/ui/propbar.rs
++++ b/apps/tracedraw/src/ui/propbar.rs
+@@ -113,6 +113,7 @@
+     FrontMinusBack,
+     BackMinusFront,
+     Boundary,
++    Divide,
+     AlignDistribute,
+     // Text: alignments, bullets, drop cap, the Text docker, editing, and
+     // wrapping paragraph text around an object.
+@@ -1165,6 +1166,14 @@
+             v.push(p(0.5, 11.0));
+             dashed(v);
+         }
++        Pic::Divide => {
++            // Three separate pieces, each filled and outlined on its own.
++            fill_polygon(painter, &back_minus_front(), color, edge);
++            fill_polygon(painter, &front_minus_back(), color, edge);
++            fill_polygon(painter, &both(), color, edge);
++            outline(square.to_vec(), thin);
++            outline(circle(), thin);
++        }
+         Pic::Combine => {
+             // One object with both outlines: where they overlap is a hole.
+             fill_polygon(painter, &back_minus_front(), color, edge);
+@@ -3198,6 +3207,20 @@
+             Shaping::Boundary,
+             false,
+         ),
++        (
++            Pic::Divide,
++            "menu.object.divide",
++            "docker.divide_hint",
++            Shaping::Divide,
++            true,
++        ),
++        (
++            Pic::Combine,
++            "menu.object.exclude",
++            "docker.exclude_hint",
++            Shaping::Exclude,
++            true,
++        ),
+     ] {
+         let on = if need_many {
+             op.ready(shapes.len())
+--- a/apps/tracedraw/src/ui/shaping_docker.rs
++++ b/apps/tracedraw/src/ui/shaping_docker.rs
+@@ -43,6 +43,8 @@
+             "menu.object.boundary",
+             "docker.boundary_hint",
+         ),
++        Shaping::Divide => (Pic::Divide, "menu.object.divide", "docker.divide_hint"),
++        Shaping::Exclude => (Pic::Combine, "menu.object.exclude", "docker.exclude_hint"),
+     }
+ }
+ 
+--- a/apps/tracedraw/src/ui/toolbar.rs
++++ b/apps/tracedraw/src/ui/toolbar.rs
+@@ -1642,6 +1642,13 @@
+                         }
+                     }
+                 });
++                if ui
++                    .selectable_label(app.eyedropper_cmyk, tr("toolbar.sample_cmyk"))
++                    .rich_tip(crate::ui::tips::keyed("toolbar.sample_cmyk"))
++                    .clicked()
++                {
++                    app.eyedropper_cmyk = !app.eyedropper_cmyk;
++                }
+                 vsep(ui);
+                 if let Some(c) = app.eyedropper_color {
+                     let (r, _) =
+--- a/apps/tracedraw/src/ui/tracecut_cut.rs
++++ b/apps/tracedraw/src/ui/tracecut_cut.rs
+@@ -310,6 +310,16 @@
+ /// CNC Toolpath: the tool, the side and direction, the depths, the
+ /// rates, the origin and the holding tabs.
+ fn cnc_settings(ui: &mut Ui, units: Units, s: &mut CncSpec) {
++    let was_laser = s.laser;
++    row(ui, "", |ui| check(ui, &mut s.laser, "tracecut.cnc_laser"));
++    if s.laser {
++        // A router bit's width is no kerf: start on the line.
++        if !was_laser && s.tool_diameter > 1.0 {
++            s.tool_diameter = cnc::TOOL_RANGE.0;
++        }
++        laser_settings(ui, units, s);
++        return;
++    }
+     row(ui, &tr("tracecut.cnc_tool"), |ui| {
+         length(
+             ui,
+@@ -439,6 +449,70 @@
+     }
+ }
+ 
++/// CNC Toolpath in laser mode: the kerf, the side, the power, the passes,
++/// the speed and the origin. The program has no Z moves.
++fn laser_settings(ui: &mut Ui, units: Units, s: &mut CncSpec) {
++    row(ui, &tr("tracecut.cnc_kerf"), |ui| {
++        length(
++            ui,
++            units,
++            &mut s.tool_diameter,
++            cnc::TOOL_RANGE,
++            "tracecut.cnc_kerf",
++        )
++    });
++    row(ui, &tr("tracecut.cnc_side"), |ui| {
++        choice(
++            ui,
++            "cnc_side",
++            &mut s.side,
++            &[
++                (Side::Auto, "tracecut.cnc_side_auto"),
++                (Side::Outside, "tracecut.cnc_side_outside"),
++                (Side::Inside, "tracecut.cnc_side_inside"),
++                (Side::OnLine, "tracecut.cnc_side_on"),
++            ],
++            "tracecut.cnc_side",
++        )
++    });
++    row(ui, &tr("tracecut.cnc_laser_power"), |ui| {
++        let max = s.laser_max;
++        number(ui, &mut s.laser_power, (0.0, max), 0, "tracecut.cnc_laser_power")
++    });
++    row(ui, &tr("tracecut.cnc_laser_max"), |ui| {
++        number(
++            ui,
++            &mut s.laser_max,
++            cnc::LASER_MAX_RANGE,
++            0,
++            "tracecut.cnc_laser_max",
++        )
++    });
++    row(ui, &tr("tracecut.cnc_laser_passes"), |ui| {
++        count(
++            ui,
++            &mut s.laser_passes,
++            cnc::LASER_PASSES_RANGE,
++            "tracecut.cnc_laser_passes",
++        )
++    });
++    row(ui, &tr("tracecut.cnc_feed"), |ui| {
++        number(ui, &mut s.feed, cnc::RATE_RANGE, 0, "tracecut.cnc_feed")
++    });
++    row(ui, &tr("tracecut.cnc_origin"), |ui| {
++        choice(
++            ui,
++            "cnc_origin",
++            &mut s.zero,
++            &[
++                (Zero::JobCorner, "tracecut.cnc_origin_corner"),
++                (Zero::Origin, "tracecut.cnc_origin_ruler"),
++            ],
++            "tracecut.cnc_origin",
++        )
++    });
++}
++
+ /// Plotter Output: the machine and its knife, the order, where the job
+ /// goes, and the test cut.
+ fn plotter(ui: &mut Ui, units: Units, st: &mut TraceCutState) -> Option<Action> {
+--- a/apps/tracedraw/src/ui/transform_docker.rs
++++ b/apps/tracedraw/src/ui/transform_docker.rs
+@@ -300,6 +300,7 @@
+         return;
+     }
+     let shapes = app.selected_shapes();
++    let originals = app.selection.clone();
+     let Some(layer) = app.active_layer() else {
+         return;
+     };
+@@ -323,6 +324,15 @@
+         return;
+     }
+     app.select(last);
++    // Edit > Repeat makes one more copy, a step further on, rather than
++    // replaying an older move on the original.
++    app.note_repeatable_from(
++        crate::app::Repeatable::Copy {
++            transform: t,
++            before: b,
++        },
++        originals,
++    );
+     if let Some(c) = keep_centre {
+         app.set_pivot(c);
+     }
+--- a/crates/core/src/shaping.rs
++++ b/crates/core/src/shaping.rs
+@@ -242,6 +242,43 @@
+     out
+ }
+ 
++/// Every separate piece the closed `paths` (back to front) cut each other
++/// into, with the index of the frontmost path that covers it. Together the
++/// pieces cover what the paths cover together and none overlaps another
++/// (Divide, as the pathfinder of the other drawing programs has it). Tiny
++/// slivers left by rounding are dropped.
++pub fn divide(paths: &[BezPath]) -> Vec<(BezPath, usize)> {
++    use crate::geometry::Shape as _;
++    fn pieces_of(p: &BezPath) -> Vec<BezPath> {
++        if p.elements().is_empty() {
++            return Vec::new();
++        }
++        slice_open(p, &[])
++            .into_iter()
++            .filter(|q| q.area().abs() > 1e-6)
++            .collect()
++    }
++    let mut regions: Vec<(BezPath, usize)> = Vec::new();
++    for (i, q) in paths.iter().enumerate() {
++        let mut next: Vec<(BezPath, usize)> = Vec::new();
++        let mut rest = q.clone();
++        for (r, k) in &regions {
++            for piece in pieces_of(&overlay(r, q, Op::Intersect)) {
++                next.push((piece, i));
++            }
++            for piece in pieces_of(&overlay(r, q, Op::Trim)) {
++                next.push((piece, *k));
++            }
++            rest = overlay(&rest, r, Op::Trim);
++        }
++        for piece in pieces_of(&rest) {
++            next.push((piece, i));
++        }
++        regions = next;
++    }
++    regions
++}
++
+ /// The closed `region` split along the open `cutters` (all in one
+ /// space), each separate piece (its outline with its holes) a path of its
+ /// own, the curves of the region and of the cutters kept (#1005). Only a
+@@ -4053,6 +4090,24 @@
+     }
+ 
+     #[test]
++    fn divide_two_overlapping_squares_into_three_pieces() {
++        use crate::geometry::Shape as _;
++        let parts = divide(&[square(0.0), square(5.0)]);
++        assert_eq!(parts.len(), 3);
++        let total: f64 = parts.iter().map(|(p, _)| p.area().abs()).sum();
++        assert!((total - 150.0).abs() < 0.01, "total {total}");
++        // The overlap and the front square's own part belong to the front one.
++        assert_eq!(parts.iter().filter(|(_, i)| *i == 1).count(), 2);
++        assert_eq!(parts.iter().filter(|(_, i)| *i == 0).count(), 1);
++    }
++
++    #[test]
++    fn divide_separate_squares_leaves_them_whole() {
++        let parts = divide(&[square(0.0), square(50.0)]);
++        assert_eq!(parts.len(), 2);
++    }
++
++    #[test]
+     fn weld_two_overlapping_squares() {
+         let w = overlay(&square(0.0), &square(5.0), Op::Weld);
+         let b = w.bounding_box();
+--- a/crates/tracecut/src/cnc.rs
++++ b/crates/tracecut/src/cnc.rs
+@@ -99,6 +99,16 @@
+     pub tab_width: f64,
+     /// Thickness of the material each tab leaves.
+     pub tab_height: f64,
++    /// Laser cutting: the program has no Z moves and no spindle; the
++    /// laser burns along the toolpath at `laser_power` and `feed`, `laser_passes`
++    /// times. `tool_diameter` is then the kerf (0 cuts on the line).
++    pub laser: bool,
++    /// Laser power as the S value of the controller (0 to `laser_max`).
++    pub laser_power: f64,
++    /// The S value of full power (1000 for GRBL, 255 for Marlin).
++    pub laser_max: f64,
++    /// How many times the laser goes over each toolpath.
++    pub laser_passes: u32,
+ }
+ 
+ impl Default for CncSpec {
+@@ -119,6 +129,10 @@
+             tab_count: 4,
+             tab_width: 5.0,
+             tab_height: 1.5,
++            laser: false,
++            laser_power: 1000.0,
++            laser_max: 1000.0,
++            laser_passes: 1,
+         }
+     }
+ }
+@@ -132,6 +146,8 @@
+ pub const TOLERANCE_RANGE: (f64, f64) = (0.001, 1.0);
+ pub const TAB_COUNT_RANGE: (u32, u32) = (1, 100);
+ pub const TAB_RANGE: (f64, f64) = (0.01, 500.0);
++pub const LASER_MAX_RANGE: (f64, f64) = (1.0, 100_000.0);
++pub const LASER_PASSES_RANGE: (u32, u32) = (1, 100);
+ 
+ /// The most passes one toolpath gets.
+ pub const MAX_PASSES: usize = 1000;
+@@ -153,6 +169,14 @@
+             tab_count: self.tab_count.clamp(TAB_COUNT_RANGE.0, TAB_COUNT_RANGE.1),
+             tab_width: c(self.tab_width, d.tab_width, TAB_RANGE),
+             tab_height: c(self.tab_height, d.tab_height, TAB_RANGE),
++            laser_max: c(self.laser_max, d.laser_max, LASER_MAX_RANGE),
++            laser_power: fin(self.laser_power, d.laser_power).clamp(
++                0.0,
++                c(self.laser_max, d.laser_max, LASER_MAX_RANGE),
++            ),
++            laser_passes: self
++                .laser_passes
++                .clamp(LASER_PASSES_RANGE.0, LASER_PASSES_RANGE.1),
+             ..*self
+         }
+     }
+@@ -523,6 +547,9 @@
+ /// The program that cuts `objects` (page-space outlines per object) as
+ /// `spec` says; `origin` is where X0 Y0 goes with [`Zero::Origin`].
+ pub fn program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Program {
++    if spec.laser {
++        return laser_program(objects, spec, origin);
++    }
+     let spec = spec.clamped();
+     let all: Vec<BezPath> = objects.iter().flatten().cloned().collect();
+     let corner = crate::cut::bounds(&all)
+@@ -650,6 +677,102 @@
+     }
+ }
+ 
++/// The G-code that cuts `objects` with a laser: `G21 G90 G94`, then for
++/// every toolpath a `G0` to its start with the laser off, `M4 S<power>`
++/// (dynamic power, which GRBL scales with the speed), `G1` along it at
++/// the feed rate `laser_passes` times and `M5`; `M30` at the end. There
++/// are no Z moves. The toolpaths are those of the router program with the
++/// kerf as the tool diameter; a kerf of 0 cuts on the line.
++fn laser_program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Program {
++    let kerf = fin(spec.tool_diameter, 0.0).clamp(0.0, TOOL_RANGE.1);
++    let mut spec = spec.clamped();
++    spec.tabs = false;
++    if kerf <= TOOL_RANGE.0 {
++        spec.side = Side::OnLine;
++    }
++    spec.tool_diameter = kerf.max(TOOL_RANGE.0);
++    let all: Vec<BezPath> = objects.iter().flatten().cloned().collect();
++    let corner = crate::cut::bounds(&all)
++        .map(|b| Point::new(b.x0, b.y0))
++        .unwrap_or(Point::ZERO);
++    let zero = match spec.zero {
++        Zero::JobCorner => corner,
++        Zero::Origin if finite(origin) => origin,
++        Zero::Origin => Point::ZERO,
++    };
++    let (paths, skipped) = toolpaths(objects, &spec, zero);
++    let mut w = Writer {
++        out: String::new(),
++        zero,
++        feed: spec.feed,
++        plunge: spec.feed,
++        at: zero,
++        z: 0.0,
++        f: None,
++        cut_length: 0.0,
++        minutes: 0.0,
++    };
++    w.line("(TraceDraw laser cut)");
++    let head = format!(
++        "(Units mm, kerf {} mm, power S{:.0} of {:.0}, {} passes, {} toolpaths)",
++        num(kerf),
++        spec.laser_power,
++        spec.laser_max,
++        spec.laser_passes,
++        paths.len()
++    );
++    w.line(&head);
++    w.line("(X0 Y0 at the origin chosen; set the laser max S to match the controller)");
++    w.line("G21");
++    w.line("G90");
++    w.line("G94");
++    w.line("M5");
++    let mut rapids = Vec::new();
++    for (i, t) in paths.iter().enumerate() {
++        let Some(&start) = t.pts.first() else {
++            continue;
++        };
++        let name = match t.side {
++            Side::Outside => "outside",
++            Side::Inside => "inside",
++            _ => "on the line",
++        };
++        let s = format!("(Toolpath {}: {name})", i + 1);
++        w.line(&s);
++        let mut ring = t.pts.clone();
++        if t.closed {
++            ring.push(start);
++        }
++        for _ in 0..spec.laser_passes {
++            if (w.at - start).hypot() > 1e-9 {
++                rapids.push((w.at, start));
++            }
++            w.rapid_xy(start);
++            let on = format!("M4 S{:.0}", spec.laser_power);
++            w.line(&on);
++            for seg in ring.windows(2) {
++                w.feed_xy(seg[1]);
++            }
++            w.line("M5");
++        }
++    }
++    if (w.at - zero).hypot() > 1e-9 {
++        rapids.push((w.at, zero));
++    }
++    w.rapid_xy(zero);
++    w.line("M30");
++    Program {
++        gcode: w.out,
++        passes: spec.laser_passes as usize,
++        cut_length: w.cut_length,
++        minutes: w.minutes,
++        toolpaths: paths,
++        rapids,
++        skipped,
++        zero,
++    }
++}
++
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+@@ -681,6 +804,25 @@
+     }
+ 
+     #[test]
++    fn a_laser_program_has_power_passes_and_no_z() {
++        let s = CncSpec {
++            laser: true,
++            tool_diameter: 0.0,
++            laser_power: 600.0,
++            laser_passes: 2,
++            feed: 1200.0,
++            ..Default::default()
++        };
++        let p = program(&[vec![rect(0.0, 0.0, 10.0, 10.0)]], &s, Point::ZERO);
++        assert!(!p.gcode.contains('Z'), "{}", p.gcode);
++        assert_eq!(p.gcode.matches("M4 S600").count(), 2, "{}", p.gcode);
++        assert!(p.gcode.contains(" F1200"), "{}", p.gcode);
++        assert!(p.gcode.trim_end().ends_with("M30"));
++        // On the line: the rectangle's own corners.
++        assert!(p.gcode.contains("X10.000 Y10.000"), "{}", p.gcode);
++    }
++
++    #[test]
+     fn a_rectangle_is_cut_a_tool_radius_outside() {
+         let r = Rect::new(0.0, 0.0, 100.0, 50.0);
+         let (paths, skipped) =

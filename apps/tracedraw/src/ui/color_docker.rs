@@ -930,15 +930,29 @@ fn hex_row(ui: &mut Ui, c: &mut Color) -> bool {
     let mut changed = false;
     ui.horizontal(|ui| {
         ui.label(tr("docker.hex"));
-        let mut hex = c.to_hex();
-        if ui
+        // What is typed lives in the UI memory while the field has the
+        // keys: a text rebuilt from the colour every frame wiped each
+        // key press, so no code could be typed.
+        let id = egui::Id::new("color_docker_hex_text");
+        let typed: Option<String> = ui.data(|d| d.get_temp(id));
+        let mut hex = typed.unwrap_or_else(|| c.to_hex());
+        let resp = ui
             .add(egui::TextEdit::singleline(&mut hex).desired_width(64.0))
-            .rich_tip(crate::ui::tips::keyed("docker.hex_color"))
-            .lost_focus()
-        {
+            .rich_tip(crate::ui::tips::keyed("docker.hex_color"));
+        if resp.has_focus() || resp.changed() {
+            ui.data_mut(|d| d.insert_temp(id, hex.clone()));
+        }
+        if resp.lost_focus() {
+            ui.data_mut(|d| d.remove::<String>(id));
             if let Some(nc) = Color::from_hex(&hex) {
                 if nc.to_hex() != c.to_hex() {
-                    *c = nc;
+                    // A code is RGB; a colour edited in CMYK stays CMYK.
+                    let model = crate::ui::color_picker::edit_model(*c);
+                    *c = if model == "RGB" {
+                        nc
+                    } else {
+                        nc.convert_to(model)
+                    };
                     changed = true;
                 }
             }

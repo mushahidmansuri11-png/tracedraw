@@ -301,41 +301,41 @@ struct Palette {
 }
 
 const LIGHT: Palette = Palette {
-    panel: rgb(0xF4F4F4),
-    menu_bar: rgb(0xD8D8D8),
-    panel_dark: rgb(0xE1E1E1),
-    border: rgb(0xD8D8D8),
-    icon_off: rgb(0xC8C8C8),
-    text: rgb(0x1E1E1E),
-    text_dim: rgb(0x6E6E6E),
-    page_shadow: rgb(0xBFBFBF),
-    page_border: rgb(0xAAAAAA),
-    ruler_bg: rgb(0xF4F4F4),
-    tool_active: rgb(0xCCE4F7),
-    tool_hover: rgb(0xE5F1FB),
-    icon: rgb(0x2A2A2A),
-    button: rgb(0xE1E1E1),
-    control_border: rgb(0xADADAD),
-    slider_rail: rgb(0xC4C4C4),
+    panel: rgb(0xF7F8FA),
+    menu_bar: rgb(0xFFFFFF),
+    panel_dark: rgb(0xEEF0F3),
+    border: rgb(0xE3E6EB),
+    icon_off: rgb(0xC5CAD3),
+    text: rgb(0x1F2430),
+    text_dim: rgb(0x6B7280),
+    page_shadow: rgb(0xC9CDD6),
+    page_border: rgb(0xB8BEC9),
+    ruler_bg: rgb(0xF7F8FA),
+    tool_active: rgb(0xDBE7FF),
+    tool_hover: rgb(0xEEF3FF),
+    icon: rgb(0x2B3140),
+    button: rgb(0xEDEFF3),
+    control_border: rgb(0xCDD2DA),
+    slider_rail: rgb(0xD5D9E0),
     field: rgb(0xFFFFFF),
     menu: rgb(0xFFFFFF),
-    menu_gutter: rgb(0xF4F4F4),
-    menu_hover: rgb(0xE0F0FF),
-    menu_hover_line: rgb(0x00ADFE),
-    menu_text_off: rgb(0xC8C8C8),
+    menu_gutter: rgb(0xF7F8FA),
+    menu_hover: rgb(0xE8F0FF),
+    menu_hover_line: rgb(0x3B82F6),
+    menu_text_off: rgb(0xC5CAD3),
     title_bar: rgb(0xFFFFFF),
-    window_border: rgb(0xB2B2B2),
-    selected_row: rgb(0xCCE8FF),
-    hovered_row: rgb(0xE5F3FF),
-    selected_row_line: rgb(0x99D1FF),
-    control_fill: rgb(0xEAEAEA),
-    tab_strip: rgb(0xEAEAEA),
-    tab: rgb(0xD8D8D8),
-    tab_active: rgb(0xCEE3FF),
-    ruler_tick: rgb(0x8C8C8C),
-    ruler_label: rgb(0x767676),
-    ruler_marker: rgb(0x0B0B0B),
-    desktop: rgb(0xFFFFFF),
+    window_border: rgb(0xD5D9E0),
+    selected_row: rgb(0xDBE7FF),
+    hovered_row: rgb(0xEEF3FF),
+    selected_row_line: rgb(0x9DBCFA),
+    control_fill: rgb(0xEDEFF3),
+    tab_strip: rgb(0xEEF0F3),
+    tab: rgb(0xE3E6EB),
+    tab_active: rgb(0xDBE7FF),
+    ruler_tick: rgb(0x9AA1AD),
+    ruler_label: rgb(0x6B7280),
+    ruler_marker: rgb(0x111827),
+    desktop: rgb(0xEBEDF1),
 };
 
 const MEDIUM_LIGHT: Palette = Palette {
@@ -415,41 +415,41 @@ const MEDIUM_DARK: Palette = Palette {
 };
 
 const DARK: Palette = Palette {
-    panel: rgb(0x2B2B2B),
-    menu_bar: rgb(0x1F1F1F),
-    panel_dark: rgb(0x252525),
-    border: rgb(0x1A1A1A),
-    icon_off: rgb(0x5A5A5A),
-    text: rgb(0xE0E0E0),
-    text_dim: rgb(0x9A9A9A),
-    page_shadow: rgb(0x1A1A1A),
-    page_border: rgb(0x111111),
-    ruler_bg: rgb(0x2B2B2B),
-    tool_active: rgb(0x2A5C8A),
-    tool_hover: rgb(0x3A3A3A),
-    icon: rgb(0xD8D8D8),
-    button: rgb(0x3A3A3A),
-    control_border: rgb(0x505050),
-    slider_rail: rgb(0x4A4A4A),
-    field: rgb(0x1E1E1E),
-    menu: rgb(0x2B2B2B),
-    menu_gutter: rgb(0x262626),
-    menu_hover: rgb(0x2A5C8A),
-    menu_hover_line: rgb(0x3D7AB8),
-    menu_text_off: rgb(0x6A6A6A),
-    title_bar: rgb(0x1F1F1F),
-    window_border: rgb(0x0F0F0F),
-    selected_row: rgb(0x2A5C8A),
-    hovered_row: rgb(0x353535),
-    selected_row_line: rgb(0x3D7AB8),
-    control_fill: rgb(0x333333),
-    tab_strip: rgb(0x252525),
-    tab: rgb(0x333333),
-    tab_active: rgb(0x2A5C8A),
-    ruler_tick: rgb(0x8A8A8A),
-    ruler_label: rgb(0xA8A8A8),
-    ruler_marker: rgb(0xF0F0F0),
-    desktop: rgb(0x3D3D3D),
+    panel: rgb(0x1E2128),
+    menu_bar: rgb(0x171A20),
+    panel_dark: rgb(0x191C22),
+    border: rgb(0x2B2F38),
+    icon_off: rgb(0x4B515E),
+    text: rgb(0xE6E8EC),
+    text_dim: rgb(0x9AA1AD),
+    page_shadow: rgb(0x0E1014),
+    page_border: rgb(0x0A0B0E),
+    ruler_bg: rgb(0x1E2128),
+    tool_active: rgb(0x2F4F8F),
+    tool_hover: rgb(0x2A2F3A),
+    icon: rgb(0xDDE1E8),
+    button: rgb(0x2A2F3A),
+    control_border: rgb(0x3A404C),
+    slider_rail: rgb(0x3A404C),
+    field: rgb(0x14161B),
+    menu: rgb(0x1E2128),
+    menu_gutter: rgb(0x191C22),
+    menu_hover: rgb(0x2F4F8F),
+    menu_hover_line: rgb(0x5B8DEF),
+    menu_text_off: rgb(0x5B6270),
+    title_bar: rgb(0x171A20),
+    window_border: rgb(0x0E1014),
+    selected_row: rgb(0x2F4F8F),
+    hovered_row: rgb(0x262B35),
+    selected_row_line: rgb(0x5B8DEF),
+    control_fill: rgb(0x2A2F3A),
+    tab_strip: rgb(0x191C22),
+    tab: rgb(0x2A2F3A),
+    tab_active: rgb(0x2F4F8F),
+    ruler_tick: rgb(0x7B8290),
+    ruler_label: rgb(0xA0A6B2),
+    ruler_marker: rgb(0xF5F6F8),
+    desktop: rgb(0x2B2F38),
 };
 
 pub struct Tokens;
@@ -526,12 +526,12 @@ tokens!(
 
 impl Tokens {
     /// Accents, the page and the selection stay the same in every theme.
-    pub const ACCENT: Color32 = Color32::from_rgb(0x00, 0x78, 0xD7);
+    pub const ACCENT: Color32 = Color32::from_rgb(0x25, 0x63, 0xEB);
     pub const PAGE: Color32 = Color32::WHITE;
     /// Screen offset of the page shadow, pixels.
     pub const PAGE_SHADOW_OFFSET: egui::Vec2 = egui::vec2(6.0, 4.0);
     pub const HANDLE: Color32 = Color32::from_rgb(0x1E, 0x1E, 0x1E);
-    pub const SELECTION: Color32 = Color32::from_rgb(0x00, 0x78, 0xD7);
+    pub const SELECTION: Color32 = Color32::from_rgb(0x25, 0x63, 0xEB);
     /// The outline that shows where a dragged selection would go.
     pub const DRAG_OUTLINE: Color32 = Color32::from_rgb(0x1E, 0x64, 0xFF);
 
@@ -797,12 +797,13 @@ pub fn visuals() -> Visuals {
         v.hyperlink_color = col(c.hot_light);
         v.warn_fg_color = col(c.hot_light);
     }
-    v.widgets.noninteractive.corner_radius = 2.0.into();
-    v.widgets.inactive.corner_radius = 2.0.into();
-    v.widgets.hovered.corner_radius = 2.0.into();
-    v.widgets.active.corner_radius = 2.0.into();
-    v.window_corner_radius = 2.0.into();
-    v.menu_corner_radius = 2.0.into();
+    v.widgets.noninteractive.corner_radius = 6.0.into();
+    v.widgets.inactive.corner_radius = 6.0.into();
+    v.widgets.hovered.corner_radius = 6.0.into();
+    v.widgets.active.corner_radius = 6.0.into();
+    v.widgets.open.corner_radius = 6.0.into();
+    v.window_corner_radius = 10.0.into();
+    v.menu_corner_radius = 8.0.into();
     v
 }
 

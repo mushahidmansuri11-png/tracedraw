@@ -242,6 +242,43 @@ fn open_polylines(path: &BezPath) -> Vec<Vec<[f64; 2]>> {
     out
 }
 
+/// Every separate piece the closed `paths` (back to front) cut each other
+/// into, with the index of the frontmost path that covers it. Together the
+/// pieces cover what the paths cover together and none overlaps another
+/// (Divide, as the pathfinder of the other drawing programs has it). Tiny
+/// slivers left by rounding are dropped.
+pub fn divide(paths: &[BezPath]) -> Vec<(BezPath, usize)> {
+    use crate::geometry::Shape as _;
+    fn pieces_of(p: &BezPath) -> Vec<BezPath> {
+        if p.elements().is_empty() {
+            return Vec::new();
+        }
+        slice_open(p, &[])
+            .into_iter()
+            .filter(|q| q.area().abs() > 1e-6)
+            .collect()
+    }
+    let mut regions: Vec<(BezPath, usize)> = Vec::new();
+    for (i, q) in paths.iter().enumerate() {
+        let mut next: Vec<(BezPath, usize)> = Vec::new();
+        let mut rest = q.clone();
+        for (r, k) in &regions {
+            for piece in pieces_of(&overlay(r, q, Op::Intersect)) {
+                next.push((piece, i));
+            }
+            for piece in pieces_of(&overlay(r, q, Op::Trim)) {
+                next.push((piece, *k));
+            }
+            rest = overlay(&rest, r, Op::Trim);
+        }
+        for piece in pieces_of(&rest) {
+            next.push((piece, i));
+        }
+        regions = next;
+    }
+    regions
+}
+
 /// The closed `region` split along the open `cutters` (all in one
 /// space), each separate piece (its outline with its holes) a path of its
 /// own, the curves of the region and of the cutters kept (#1005). Only a
@@ -4050,6 +4087,24 @@ mod tests {
         assert!((d - 50.0).abs() < 2.0, "{d}");
         let hair = crate::style::Stroke::hairline(crate::Color::BLACK);
         assert!(stroke_area(&line, &hair).elements().is_empty());
+    }
+
+    #[test]
+    fn divide_two_overlapping_squares_into_three_pieces() {
+        use crate::geometry::Shape as _;
+        let parts = divide(&[square(0.0), square(5.0)]);
+        assert_eq!(parts.len(), 3);
+        let total: f64 = parts.iter().map(|(p, _)| p.area().abs()).sum();
+        assert!((total - 150.0).abs() < 0.01, "total {total}");
+        // The overlap and the front square's own part belong to the front one.
+        assert_eq!(parts.iter().filter(|(_, i)| *i == 1).count(), 2);
+        assert_eq!(parts.iter().filter(|(_, i)| *i == 0).count(), 1);
+    }
+
+    #[test]
+    fn divide_separate_squares_leaves_them_whole() {
+        let parts = divide(&[square(0.0), square(50.0)]);
+        assert_eq!(parts.len(), 2);
     }
 
     #[test]

@@ -113,6 +113,7 @@ pub enum Pic {
     FrontMinusBack,
     BackMinusFront,
     Boundary,
+    Divide,
     AlignDistribute,
     // Text: alignments, bullets, drop cap, the Text docker, editing, and
     // wrapping paragraph text around an object.
@@ -1164,6 +1165,14 @@ fn draw_arrange_pic(painter: &Painter, r: Rect, pic: Pic, color: Color32) {
             v.extend(arc(10.0, 10.0, 6.0, -80.0, 170.0));
             v.push(p(0.5, 11.0));
             dashed(v);
+        }
+        Pic::Divide => {
+            // Three separate pieces, each filled and outlined on its own.
+            fill_polygon(painter, &back_minus_front(), color, edge);
+            fill_polygon(painter, &front_minus_back(), color, edge);
+            fill_polygon(painter, &both(), color, edge);
+            outline(square.to_vec(), thin);
+            outline(circle(), thin);
         }
         Pic::Combine => {
             // One object with both outlines: where they overlap is a hole.
@@ -3197,6 +3206,20 @@ pub fn arrange_part(app: &mut App, ui: &mut Ui) -> bool {
             "docker.boundary_hint",
             Shaping::Boundary,
             false,
+        ),
+        (
+            Pic::Divide,
+            "menu.object.divide",
+            "docker.divide_hint",
+            Shaping::Divide,
+            true,
+        ),
+        (
+            Pic::Combine,
+            "menu.object.exclude",
+            "docker.exclude_hint",
+            Shaping::Exclude,
+            true,
         ),
     ] {
         let on = if need_many {

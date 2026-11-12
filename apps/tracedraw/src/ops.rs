@@ -848,10 +848,12 @@ pub enum Shaping {
     FrontMinusBack,
     BackMinusFront,
     Boundary,
+    Divide,
+    Exclude,
 }
 
 impl Shaping {
-    pub const ALL: [Shaping; 7] = [
+    pub const ALL: [Shaping; 9] = [
         Shaping::Weld,
         Shaping::Trim,
         Shaping::Intersect,
@@ -859,6 +861,8 @@ impl Shaping {
         Shaping::FrontMinusBack,
         Shaping::BackMinusFront,
         Shaping::Boundary,
+        Shaping::Divide,
+        Shaping::Exclude,
     ];
 
     /// Whether the operation can leave its source objects or its target
@@ -888,6 +892,8 @@ impl Shaping {
             Shaping::FrontMinusBack => "front_minus_back",
             Shaping::BackMinusFront => "back_minus_front",
             Shaping::Boundary => "boundary",
+            Shaping::Divide => "divide",
+            Shaping::Exclude => "exclude",
         }
     }
 
@@ -1077,6 +1083,10 @@ impl App {
         // Z-order: lowest index first within the layer.
         let mut ordered = shapes.clone();
         ordered.sort_by_key(|s| doc.locate(s.id).map(|(_, i)| i).unwrap_or(0));
+        if op == Shaping::Divide {
+            self.divide_shapes(&ordered);
+            return;
+        }
         let target = shapes.last().cloned().unwrap_or_else(|| ordered[0].clone());
         // The object that keeps its attributes and is cut: the target, the
         // front one (Front Minus Back) or the back one (Back Minus Front).
@@ -1225,6 +1235,12 @@ impl App {
                     .iter()
                     .skip(1)
                     .fold(paths[0].clone(), |acc, p| overlay(&acc, p, Op::Trim)),
+                Shaping::Exclude => paths
+                    .iter()
+                    .skip(1)
+                    .fold(paths[0].clone(), |acc, p| overlay(&acc, p, Op::Exclude)),
+                // Handled before, in `divide_shapes`.
+                Shaping::Divide => return,
             }
         };
         if result.elements().is_empty() {
@@ -1481,8 +1497,60 @@ impl App {
             Shaping::BackMinusFront => "Back Minus Front",
             Shaping::Boundary => "Boundary",
             Shaping::Simplify => "Simplify",
+            Shaping::Divide => "Divide",
+            Shaping::Exclude => "Exclude",
         };
         if let Err(e) = self.engine.run_batch(label, &cmds) {
+            self.status = e.to_string();
+            return;
+        }
+        self.select(ids);
+    }
+}
+
+impl App {
+    /// Divide: the closed objects (back to front) cut each other into every
+    /// separate piece; a piece takes the fill, outline and opacity of the
+    /// frontmost object that covers it, and the originals are replaced.
+    fn divide_shapes(&mut self, ordered: &[Shape]) {
+        let closed: Vec<&Shape> = ordered
+            .iter()
+            .filter(|s| !matches!(s.kind, ShapeKind::Path { closed: false, .. }))
+            .collect();
+        if closed.len() < 2 {
+            self.status = crate::i18n::tr("status.shaping_open_cutter");
+            return;
+        }
+        let paths: Vec<tracedraw_core::BezPath> = closed.iter().map(|s| shaping_area(s)).collect();
+        let parts = tracedraw_core::shaping::divide(&paths);
+        if parts.is_empty() {
+            self.status = crate::i18n::tr("status.shaping_empty");
+            return;
+        }
+        let Some(layer) = self.active_layer() else {
+            return;
+        };
+        let mut ids = Vec::new();
+        let mut cmds = Vec::new();
+        for (path, from) in parts {
+            let src = closed[from.min(closed.len() - 1)];
+            // A group has no look of its own: the first filled object in it.
+            let look = group_leaves(src)
+                .into_iter()
+                .find(|l| !matches!(l.fill, tracedraw_core::Fill::None))
+                .unwrap_or_else(|| src.clone());
+            let id = self.engine.new_shape_id();
+            let mut shape = Shape::new(id, ShapeKind::Path { path, closed: true });
+            shape.fill = look.fill.for_result(look.transform, &shape.page_path());
+            shape.stroke = look.stroke.clone();
+            shape.opacity = look.opacity;
+            ids.push(id);
+            cmds.push(Command::AddShape { layer, shape });
+        }
+        cmds.push(Command::DeleteShapes {
+            shapes: closed.iter().map(|s| s.id).collect(),
+        });
+        if let Err(e) = self.engine.run_batch("Divide", &cmds) {
             self.status = e.to_string();
             return;
         }

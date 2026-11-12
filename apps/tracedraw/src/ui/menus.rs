@@ -617,6 +617,8 @@ fn menu_pic(key: &str) -> Option<crate::ui::propbar::Pic> {
         "menu.object.front_minus_back" => Pic::FrontMinusBack,
         "menu.object.back_minus_front" => Pic::BackMinusFront,
         "menu.object.boundary" => Pic::Boundary,
+        "menu.object.divide" => Pic::Divide,
+        "menu.object.exclude" => Pic::Combine,
         "menu.object.to_front_of_page" => Pic::ToFront,
         "menu.object.to_front_of_layer" => Pic::ToFront,
         "menu.object.to_back_of_page" => Pic::ToBack,
@@ -3545,6 +3547,8 @@ fn object_menu(app: &mut App, ui: &mut Ui) {
                 true,
             ),
             ("menu.object.boundary", Shaping::Boundary, false),
+            ("menu.object.divide", Shaping::Divide, true),
+            ("menu.object.exclude", Shaping::Exclude, true),
         ] {
             let on = if need_two {
                 op.ready(app.selection.len())

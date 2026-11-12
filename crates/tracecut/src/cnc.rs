@@ -99,6 +99,16 @@ pub struct CncSpec {
     pub tab_width: f64,
     /// Thickness of the material each tab leaves.
     pub tab_height: f64,
+    /// Laser cutting: the program has no Z moves and no spindle; the
+    /// laser burns along the toolpath at `laser_power` and `feed`, `laser_passes`
+    /// times. `tool_diameter` is then the kerf (0 cuts on the line).
+    pub laser: bool,
+    /// Laser power as the S value of the controller (0 to `laser_max`).
+    pub laser_power: f64,
+    /// The S value of full power (1000 for GRBL, 255 for Marlin).
+    pub laser_max: f64,
+    /// How many times the laser goes over each toolpath.
+    pub laser_passes: u32,
 }
 
 impl Default for CncSpec {
@@ -119,6 +129,10 @@ impl Default for CncSpec {
             tab_count: 4,
             tab_width: 5.0,
             tab_height: 1.5,
+            laser: false,
+            laser_power: 1000.0,
+            laser_max: 1000.0,
+            laser_passes: 1,
         }
     }
 }
@@ -132,6 +146,8 @@ pub const SPINDLE_RANGE: (f64, f64) = (0.0, 100_000.0);
 pub const TOLERANCE_RANGE: (f64, f64) = (0.001, 1.0);
 pub const TAB_COUNT_RANGE: (u32, u32) = (1, 100);
 pub const TAB_RANGE: (f64, f64) = (0.01, 500.0);
+pub const LASER_MAX_RANGE: (f64, f64) = (1.0, 100_000.0);
+pub const LASER_PASSES_RANGE: (u32, u32) = (1, 100);
 
 /// The most passes one toolpath gets.
 pub const MAX_PASSES: usize = 1000;
@@ -153,6 +169,14 @@ impl CncSpec {
             tab_count: self.tab_count.clamp(TAB_COUNT_RANGE.0, TAB_COUNT_RANGE.1),
             tab_width: c(self.tab_width, d.tab_width, TAB_RANGE),
             tab_height: c(self.tab_height, d.tab_height, TAB_RANGE),
+            laser_max: c(self.laser_max, d.laser_max, LASER_MAX_RANGE),
+            laser_power: fin(self.laser_power, d.laser_power).clamp(
+                0.0,
+                c(self.laser_max, d.laser_max, LASER_MAX_RANGE),
+            ),
+            laser_passes: self
+                .laser_passes
+                .clamp(LASER_PASSES_RANGE.0, LASER_PASSES_RANGE.1),
             ..*self
         }
     }
@@ -523,6 +547,9 @@ impl Writer {
 /// The program that cuts `objects` (page-space outlines per object) as
 /// `spec` says; `origin` is where X0 Y0 goes with [`Zero::Origin`].
 pub fn program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Program {
+    if spec.laser {
+        return laser_program(objects, spec, origin);
+    }
     let spec = spec.clamped();
     let all: Vec<BezPath> = objects.iter().flatten().cloned().collect();
     let corner = crate::cut::bounds(&all)
@@ -650,6 +677,102 @@ pub fn program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Progr
     }
 }
 
+/// The G-code that cuts `objects` with a laser: `G21 G90 G94`, then for
+/// every toolpath a `G0` to its start with the laser off, `M4 S<power>`
+/// (dynamic power, which GRBL scales with the speed), `G1` along it at
+/// the feed rate `laser_passes` times and `M5`; `M30` at the end. There
+/// are no Z moves. The toolpaths are those of the router program with the
+/// kerf as the tool diameter; a kerf of 0 cuts on the line.
+fn laser_program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Program {
+    let kerf = fin(spec.tool_diameter, 0.0).clamp(0.0, TOOL_RANGE.1);
+    let mut spec = spec.clamped();
+    spec.tabs = false;
+    if kerf <= TOOL_RANGE.0 {
+        spec.side = Side::OnLine;
+    }
+    spec.tool_diameter = kerf.max(TOOL_RANGE.0);
+    let all: Vec<BezPath> = objects.iter().flatten().cloned().collect();
+    let corner = crate::cut::bounds(&all)
+        .map(|b| Point::new(b.x0, b.y0))
+        .unwrap_or(Point::ZERO);
+    let zero = match spec.zero {
+        Zero::JobCorner => corner,
+        Zero::Origin if finite(origin) => origin,
+        Zero::Origin => Point::ZERO,
+    };
+    let (paths, skipped) = toolpaths(objects, &spec, zero);
+    let mut w = Writer {
+        out: String::new(),
+        zero,
+        feed: spec.feed,
+        plunge: spec.feed,
+        at: zero,
+        z: 0.0,
+        f: None,
+        cut_length: 0.0,
+        minutes: 0.0,
+    };
+    w.line("(TraceDraw laser cut)");
+    let head = format!(
+        "(Units mm, kerf {} mm, power S{:.0} of {:.0}, {} passes, {} toolpaths)",
+        num(kerf),
+        spec.laser_power,
+        spec.laser_max,
+        spec.laser_passes,
+        paths.len()
+    );
+    w.line(&head);
+    w.line("(X0 Y0 at the origin chosen; set the laser max S to match the controller)");
+    w.line("G21");
+    w.line("G90");
+    w.line("G94");
+    w.line("M5");
+    let mut rapids = Vec::new();
+    for (i, t) in paths.iter().enumerate() {
+        let Some(&start) = t.pts.first() else {
+            continue;
+        };
+        let name = match t.side {
+            Side::Outside => "outside",
+            Side::Inside => "inside",
+            _ => "on the line",
+        };
+        let s = format!("(Toolpath {}: {name})", i + 1);
+        w.line(&s);
+        let mut ring = t.pts.clone();
+        if t.closed {
+            ring.push(start);
+        }
+        for _ in 0..spec.laser_passes {
+            if (w.at - start).hypot() > 1e-9 {
+                rapids.push((w.at, start));
+            }
+            w.rapid_xy(start);
+            let on = format!("M4 S{:.0}", spec.laser_power);
+            w.line(&on);
+            for seg in ring.windows(2) {
+                w.feed_xy(seg[1]);
+            }
+            w.line("M5");
+        }
+    }
+    if (w.at - zero).hypot() > 1e-9 {
+        rapids.push((w.at, zero));
+    }
+    w.rapid_xy(zero);
+    w.line("M30");
+    Program {
+        gcode: w.out,
+        passes: spec.laser_passes as usize,
+        cut_length: w.cut_length,
+        minutes: w.minutes,
+        toolpaths: paths,
+        rapids,
+        skipped,
+        zero,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -678,6 +801,25 @@ mod tests {
         } else {
             (p.x - r.x0).min(r.x1 - p.x).min(p.y - r.y0).min(r.y1 - p.y)
         }
+    }
+
+    #[test]
+    fn a_laser_program_has_power_passes_and_no_z() {
+        let s = CncSpec {
+            laser: true,
+            tool_diameter: 0.0,
+            laser_power: 600.0,
+            laser_passes: 2,
+            feed: 1200.0,
+            ..Default::default()
+        };
+        let p = program(&[vec![rect(0.0, 0.0, 10.0, 10.0)]], &s, Point::ZERO);
+        assert!(!p.gcode.contains('Z'), "{}", p.gcode);
+        assert_eq!(p.gcode.matches("M4 S600").count(), 2, "{}", p.gcode);
+        assert!(p.gcode.contains(" F1200"), "{}", p.gcode);
+        assert!(p.gcode.trim_end().ends_with("M30"));
+        // On the line: the rectangle's own corners.
+        assert!(p.gcode.contains("X10.000 Y10.000"), "{}", p.gcode);
     }
 
     #[test]

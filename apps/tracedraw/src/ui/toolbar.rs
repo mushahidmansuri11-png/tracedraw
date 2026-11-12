@@ -1642,6 +1642,13 @@ pub fn property_bar(app: &mut App, ui: &mut Ui) {
                         }
                     }
                 });
+                if ui
+                    .selectable_label(app.eyedropper_cmyk, tr("toolbar.sample_cmyk"))
+                    .rich_tip(crate::ui::tips::keyed("toolbar.sample_cmyk"))
+                    .clicked()
+                {
+                    app.eyedropper_cmyk = !app.eyedropper_cmyk;
+                }
                 vsep(ui);
                 if let Some(c) = app.eyedropper_color {
                     let (r, _) =
