@@ -99,6 +99,7 @@ impl ZoomGlide {
     }
 
     /// The time the glide takes to reach 90 %, seconds.
+    #[cfg(test)]
     pub fn glide(&self) -> f32 {
         self.glide
     }

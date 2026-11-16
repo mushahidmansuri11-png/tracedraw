@@ -107,6 +107,7 @@ pub struct SystemInsets {
 
 /// The activity's answer, "top bottom left right tl tr br bl" in pixels
 /// (`TraceDrawActivity.getScreenInsets`); `None` when it has none yet.
+#[cfg(any(target_os = "android", test))]
 pub fn parse_system(answer: &str) -> Option<SystemInsets> {
     let v: Vec<f32> = answer
         .split_whitespace()

@@ -14,6 +14,7 @@ tracedraw-core = { path = "../../crates/core" }
 tracedraw-render = { path = "../../crates/render" }
 
 [target.'cfg(windows)'.dependencies]
+tracedraw-text = { path = "../../crates/text" }
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",

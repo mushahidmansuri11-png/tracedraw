@@ -1022,6 +1022,7 @@ pub enum DesktopOnly {
 }
 
 impl DesktopOnly {
+    #[cfg(test)]
     pub const ALL: [DesktopOnly; 3] = [
         DesktopOnly::Splash,
         DesktopOnly::HardwareAcceleration,
