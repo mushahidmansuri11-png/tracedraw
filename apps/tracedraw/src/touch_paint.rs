@@ -201,19 +201,7 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: Rect) {
                             app.open_outline_pen();
                             done = true;
                         }
-                        // The palette's colours are shown on demand.
-                        let shown = app.touch_paint_palette;
-                        let b = egui::Button::new(tr("touch_panels.palette"))
-                            .min_size(CELL)
-                            .selected(shown);
-                        if ui.add(b).on_hover_text(tr("touch_panels.palette_tip")).clicked() {
-                            app.touch_paint_palette = !shown;
-                        }
                     });
-                    if app.touch_paint_palette {
-                        ui.add_space(4.0);
-                        colours(app, ui);
-                    }
                 });
         });
     if done {
