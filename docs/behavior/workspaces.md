@@ -18,8 +18,9 @@ gesture drops what the first finger had begun, so it neither drags an
 object nor draws a marquee. Picking another workspace brings the
 interface back to the size chosen.
 
-With a finger only (#1611, #1707): the standard toolbar's Delete deletes
-the selection and its Panels button shows the dockers (Properties and
+With a finger only (#1611, #1707, #1499): the standard toolbar's Delete deletes
+the selection, its Shift, Ctrl and Alt buttons hold those keys down
+until they are tapped again (a tap adds to the selection with Shift held) and its Panels button shows the dockers (Properties and
 the rest); a finger held still on the drawing for 0.8 s is the right
 click (egui's long press), so it opens the menu of the object under it
 (picking it) or of the page, with Delete, Copy, Order, Group and the
@@ -34,7 +35,8 @@ pixels, Android's line between phone and tablet layouts, in either
 orientation) the interface is not enlarged: a 360 dp phone would be
 257 points wide, too narrow for any bar (#1301, #1691). The phone
 layout: the bars, the property bar, the toolbox and the palette slide
-with their « and » buttons (or the wheel and a drag); the menu titles
+with their « and » buttons, the wheel, or a finger dragged along them
+(#1997, `toolbars.md`, "Bars longer than the window"); the menu titles
 that do not fit go under » at the end of the menu bar; an open panel is
 a sheet over the whole room beside its tab strip instead of a column
 beside the drawing; the Welcome Screen's tabs wrap and Get Started puts
@@ -109,7 +111,9 @@ Checks: `app::tests::a_closed_docker_stays_closed_the_next_time`.
 With objects selected: the first one's kind and box, a row of buttons,
 then its sections, in this order: Outline, Fill, Transparency, then
 what the kind has (Rectangle: its corners; a bitmap: its effects; text:
-its character settings), then Summary. Each section has a header bar
+its character settings), then Summary (the selection in figures, Wrap
+paragraph text and Lock Object, see `properties-docker.md`). Each
+section has a header bar
 with a triangle; the buttons (the outline pen, the fill bucket, the
 transparency checker, a rectangle, "fx", "A", "i") show which sections
 are open and open or close them, as a click on a header does. Sections

@@ -167,10 +167,11 @@ impl Area {
 }
 
 /// The closed rings of one path in the normalised frame: closed
-/// subpaths flattened, open ones by their boxes (grown a little so they
-/// have an area).
-fn rings_of(path: &BezPath, norm: Affine, tol: f64) -> Vec<Vec<Point>> {
+/// subpaths flattened, then open ones by their boxes (grown a little so
+/// they have an area), with how many of the rings are closed subpaths.
+fn rings_of(path: &BezPath, norm: Affine, tol: f64) -> (Vec<Vec<Point>>, usize) {
     let mut rings = Vec::new();
+    let mut boxes = Vec::new();
     for sp in subpaths(path) {
         let p = norm * sp.path.clone();
         if sp.closed {
@@ -185,7 +186,7 @@ fn rings_of(path: &BezPath, norm: Affine, tol: f64) -> Vec<Vec<Point>> {
             rings.push(ring);
         } else {
             let b = p.bounding_box().inflate(0.01, 0.01);
-            rings.push(vec![
+            boxes.push(vec![
                 Point::new(b.x0, b.y0),
                 Point::new(b.x1, b.y0),
                 Point::new(b.x1, b.y1),
@@ -193,7 +194,9 @@ fn rings_of(path: &BezPath, norm: Affine, tol: f64) -> Vec<Vec<Point>> {
             ]);
         }
     }
-    rings
+    let closed = rings.len();
+    rings.extend(boxes);
+    (rings, closed)
 }
 
 fn rings_to_path(rings: &[Vec<Point>]) -> BezPath {
@@ -211,28 +214,30 @@ fn rings_to_path(rings: &[Vec<Point>]) -> BezPath {
     p
 }
 
-fn path_to_rings(p: &BezPath) -> Vec<Vec<Point>> {
+/// The closed rings of a path, curves flattened within `tol` (a curve
+/// read by its end points alone would cut across the outside of its
+/// bulge and leave part of the outline out of the region).
+fn path_to_rings(p: &BezPath, tol: f64) -> Vec<Vec<Point>> {
     let mut out = Vec::new();
     let mut cur: Vec<Point> = Vec::new();
-    for el in p.elements() {
-        match *el {
-            PathEl::MoveTo(q) => {
-                if !cur.is_empty() {
-                    out.push(std::mem::take(&mut cur));
-                }
-                cur.push(q);
+    flatten(p, tol, &mut |el| match el {
+        PathEl::MoveTo(q) => {
+            if !cur.is_empty() {
+                out.push(std::mem::take(&mut cur));
             }
-            PathEl::LineTo(q) => cur.push(q),
-            PathEl::QuadTo(_, q) | PathEl::CurveTo(_, _, q) => cur.push(q),
-            PathEl::ClosePath => {
-                if !cur.is_empty() {
-                    out.push(std::mem::take(&mut cur));
-                }
-            }
+            cur.push(q);
         }
-    }
+        PathEl::LineTo(q) => cur.push(q),
+        PathEl::ClosePath if !cur.is_empty() => out.push(std::mem::take(&mut cur)),
+        _ => {}
+    });
     if !cur.is_empty() {
         out.push(cur);
+    }
+    for r in &mut out {
+        if r.len() > 1 && r.first() == r.last() {
+            r.pop();
+        }
     }
     out
 }
@@ -260,8 +265,14 @@ fn grown_region(
 ) -> Option<Region> {
     let mut all: Vec<Point> = Vec::new();
     let mut union: Option<BezPath> = None;
+    let mut add = |piece: BezPath| {
+        union = Some(match union.take() {
+            None => piece,
+            Some(u) => shaping::overlay(&u, &piece, shaping::Op::Weld),
+        });
+    };
     for path in paths {
-        let rings = rings_of(path, norm, tol / 20.0);
+        let (mut rings, closed) = rings_of(path, norm, tol / 20.0);
         all.extend(
             rings
                 .iter()
@@ -269,25 +280,32 @@ fn grown_region(
                 .copied()
                 .filter(|p| p.x.is_finite() && p.y.is_finite()),
         );
+        // The boxes of open curves are pieces of their own: read
+        // even-odd with the closed outlines, a box inside one would cut
+        // a hole other parts could be nested into.
+        let boxes = rings.split_off(closed.min(rings.len()));
         let mut region = Region::new(rings);
         if !s.holes {
             region = region.outer_only();
         }
-        if region.is_empty() {
-            continue;
+        if !region.is_empty() {
+            add(rings_to_path(&region.rings));
         }
-        let piece = rings_to_path(&region.rings);
-        union = Some(match union {
-            None => piece,
-            Some(u) => shaping::overlay(&u, &piece, shaping::Op::Weld),
-        });
+        for b in boxes {
+            let b = Region::new(vec![b]);
+            if !b.is_empty() {
+                add(rings_to_path(&b.rings));
+            }
+        }
     }
     if all.is_empty() {
         return None;
     }
     let union = union.unwrap_or_default();
-    let grown = shaping::offset(&union, d);
-    let simple: Vec<Vec<Point>> = path_to_rings(&grown)
+    // The offset as the polygon it is worked out as: fitted curves read
+    // by their end points cut the outside of every bulge off the region.
+    let grown = shaping::offset_polygon(&union, d);
+    let simple: Vec<Vec<Point>> = path_to_rings(&grown, tol / 20.0)
         .iter()
         .map(|r| simplify_ring(r, tol / 4.0))
         .collect();
@@ -814,6 +832,18 @@ mod tests {
     }
 
     #[test]
+    fn an_open_line_inside_an_outline_makes_no_hole() {
+        // A 60 mm square with an open zigzag drawn inside it, in one path.
+        let mut a = square(0.0, 0.0, 60.0);
+        a.move_to((10.0, 10.0));
+        a.line_to((50.0, 30.0));
+        a.line_to((10.0, 50.0));
+        let parts = vec![vec![a], vec![square(100.0, 100.0, 20.0)]];
+        let l = nest_shapes(&parts, &settings(62.0, 62.0, 2.0), &mut never());
+        assert_eq!((l.placed(), l.sheets), (2, 2), "{:?}", l.placements);
+    }
+
+    #[test]
     fn spacing_and_margin_are_kept() {
         let parts = vec![vec![square(0.0, 0.0, 20.0)], vec![square(0.0, 0.0, 20.0)]];
         let mut s = settings(100.0, 30.0, 4.0);
@@ -848,6 +878,216 @@ mod tests {
             .collect();
         let dist = (centres[0] - centres[1]).hypot();
         assert!((23.0 - 1e-6..=24.0).contains(&dist), "{dist}");
+    }
+
+    /// A star with `n` points between radii `r` and `r / 2.5`.
+    fn star(n: usize, r: f64) -> BezPath {
+        let pts: Vec<(f64, f64)> = (0..2 * n)
+            .map(|i| {
+                let a = i as f64 * std::f64::consts::PI / n as f64 + 0.3;
+                let rr = if i % 2 == 0 { r } else { r / 2.5 };
+                (rr * a.cos(), rr * a.sin())
+            })
+            .collect();
+        poly(&pts)
+    }
+
+    #[test]
+    fn irregular_turned_shapes_never_overlap_and_stay_on_the_sheet() {
+        use tracedraw_core::geometry::Ellipse;
+        // Large round outlines: the grown regions come back from the
+        // offset as curves, which must be followed, not cut across.
+        let mut parts: Vec<Vec<BezPath>> = Vec::new();
+        for i in 0..14 {
+            let k = (i % 5) as f64;
+            let shape = match i % 4 {
+                0 => Circle::new((0.0, 0.0), 30.0 + 8.0 * k).to_path(0.01),
+                1 => star(5 + i % 3, 35.0 + 6.0 * k),
+                2 => Ellipse::new((0.0, 0.0), (55.0 + 5.0 * k, 18.0), 0.4).to_path(0.01),
+                _ => poly(&[
+                    (0.0, 0.0),
+                    (90.0 + 10.0 * k, 0.0),
+                    (90.0 + 10.0 * k, 20.0),
+                    (25.0, 20.0),
+                    (25.0, 60.0),
+                    (0.0, 60.0),
+                ]),
+            };
+            parts.push(vec![shape]);
+        }
+        for (rotations, corner) in [
+            (Rotations::Quarter, super::super::Corner::BottomLeft),
+            (Rotations::Eighth, super::super::Corner::TopRight),
+        ] {
+            let mut s = settings(400.0, 300.0, 2.0);
+            s.tolerance = 1.0;
+            s.rotations = rotations;
+            s.sheet.margin = 5.0;
+            s.sheet.corner = corner;
+            s.rounds = 3;
+            let l = nest_shapes(&parts, &s, &mut never());
+            assert_eq!(l.placed(), parts.len(), "{rotations:?}");
+            let m = moved(&parts, &l);
+            no_overlaps(&m);
+            for (p, pl) in m.iter().zip(l.placements.iter().flatten()) {
+                let sheet = s.sheet.sheet_rect(pl.sheet, 0.0).inset(-5.0);
+                let b = p.bounding_box();
+                assert!(
+                    b.x0 >= sheet.x0 - 1e-6
+                        && b.y0 >= sheet.y0 - 1e-6
+                        && b.x1 <= sheet.x1 + 1e-6
+                        && b.y1 <= sheet.y1 + 1e-6,
+                    "{rotations:?}: {b:?} outside {sheet:?}"
+                );
+            }
+            // The spacing is kept between every pair, not only their
+            // areas apart: grown by just under half of it, they still
+            // do not meet.
+            let grown: Vec<BezPath> = m.iter().map(|p| shaping::offset(p, 0.95)).collect();
+            no_overlaps(&grown);
+        }
+    }
+
+    /// The outline of `p` as straight edges, curves flattened finely.
+    fn edges_of(p: &BezPath) -> Vec<(Point, Point)> {
+        path_to_rings(p, 0.005)
+            .iter()
+            .flat_map(|r| (0..r.len()).map(move |i| (r[i], r[(i + 1) % r.len()])))
+            .collect()
+    }
+
+    /// The distance from `p` to the segment `ab`.
+    fn to_segment(p: Point, a: Point, b: Point) -> f64 {
+        let ab = b - a;
+        let len2 = ab.hypot2();
+        let t = if len2 > 0.0 {
+            ((p - a).dot(ab) / len2).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        (p - (a + ab * t)).hypot()
+    }
+
+    /// How close two outlines come: 0 when their edges cross or one
+    /// lies inside the other's area (even-odd, so a piece in a hole is
+    /// apart from the ring around it).
+    fn clearance(a: &BezPath, b: &BezPath) -> f64 {
+        let (ea, eb) = (edges_of(a), edges_of(b));
+        let inside = |edges: &[(Point, Point)], p: Point| {
+            edges
+                .iter()
+                .filter(|(u, v)| {
+                    (u.y > p.y) != (v.y > p.y)
+                        && p.x < u.x + (p.y - u.y) / (v.y - u.y) * (v.x - u.x)
+                })
+                .count()
+                % 2
+                == 1
+        };
+        if ea.iter().any(|(p, _)| inside(&eb, *p)) || eb.iter().any(|(p, _)| inside(&ea, *p)) {
+            return 0.0;
+        }
+        let mut best = f64::INFINITY;
+        for (p, q) in &ea {
+            for (r, s) in &eb {
+                if super::super::poly::segments_meet(*p, *q, *r, *s) {
+                    return 0.0;
+                }
+                best = best
+                    .min(to_segment(*p, *r, *s))
+                    .min(to_segment(*q, *r, *s))
+                    .min(to_segment(*r, *p, *q))
+                    .min(to_segment(*s, *p, *q));
+            }
+        }
+        best
+    }
+
+    /// At every accuracy from fine to coarse, in quarter and eighth
+    /// turns, with and without spacing: no two placed objects cross or
+    /// come closer than the spacing (their true outlines measured, not
+    /// the nesting's own regions), every placed object lies on its sheet
+    /// within the margin, and an object larger than the sheet is left
+    /// out (reported, never placed past the edge).
+    #[test]
+    fn placed_objects_never_cross_and_stay_on_their_sheet_at_any_accuracy() {
+        use tracedraw_core::geometry::{Ellipse, RoundedRect};
+        let mut parts: Vec<Vec<BezPath>> = Vec::new();
+        for i in 0..18 {
+            let k = (i % 4) as f64;
+            let shape = match i % 6 {
+                0 => Circle::new((0.0, 0.0), 12.0 + 4.0 * k).to_path(0.01),
+                1 => star(5 + i % 3, 18.0 + 3.0 * k),
+                2 => Ellipse::new((0.0, 0.0), (28.0 + 3.0 * k, 9.0), 0.7).to_path(0.01),
+                3 => RoundedRect::new(0.0, 0.0, 30.0 + 5.0 * k, 14.0, 6.0).to_path(0.01),
+                4 => {
+                    // A ring: smaller objects may go into its hole.
+                    let mut ring = Circle::new((0.0, 0.0), 26.0).to_path(0.01);
+                    ring.extend(
+                        Circle::new((0.0, 0.0), 19.0)
+                            .to_path(0.01)
+                            .reverse_subpaths(),
+                    );
+                    ring
+                }
+                _ => poly(&[
+                    (0.0, 0.0),
+                    (40.0 + 5.0 * k, 0.0),
+                    (40.0 + 5.0 * k, 8.0),
+                    (10.0, 8.0),
+                    (10.0, 30.0),
+                    (0.0, 30.0),
+                ]),
+            };
+            parts.push(vec![shape]);
+        }
+        // Too large for the sheet whatever its turn.
+        parts.push(vec![square(0.0, 0.0, 400.0)]);
+        for (tolerance, spacing, rotations) in [
+            (0.1, 2.0, Rotations::Quarter),
+            (1.0, 2.0, Rotations::Eighth),
+            (1.0, 0.0, Rotations::Quarter),
+            (3.0, 1.0, Rotations::Eighth),
+        ] {
+            let mut s = settings(160.0, 120.0, spacing);
+            s.tolerance = tolerance;
+            s.rotations = rotations;
+            s.sheet.margin = 4.0;
+            s.rounds = 2;
+            let l = nest_shapes(&parts, &s, &mut never());
+            let case = format!("accuracy {tolerance}, spacing {spacing}, {rotations:?}");
+            assert!(l.placements[parts.len() - 1].is_none(), "{case}: too large");
+            assert_eq!(l.placed(), parts.len() - 1, "{case}");
+            let placed: Vec<(usize, BezPath)> = parts
+                .iter()
+                .zip(&l.placements)
+                .filter_map(|(p, pl)| {
+                    let pl = pl.as_ref()?;
+                    Some((pl.sheet, pl.transform * p[0].clone()))
+                })
+                .collect();
+            for (i, (sa, a)) in placed.iter().enumerate() {
+                let sheet = s.sheet.sheet_rect(*sa, 0.0).inset(-4.0);
+                let b = a.bounding_box();
+                assert!(
+                    b.x0 >= sheet.x0 - 1e-6
+                        && b.y0 >= sheet.y0 - 1e-6
+                        && b.x1 <= sheet.x1 + 1e-6
+                        && b.y1 <= sheet.y1 + 1e-6,
+                    "{case}: {b:?} off {sheet:?}"
+                );
+                for (sb, c) in &placed[i + 1..] {
+                    if sa != sb {
+                        continue;
+                    }
+                    let gap = clearance(a, c);
+                    assert!(
+                        gap > 0.0 && gap >= spacing - 0.01,
+                        "{case}: two objects {gap} mm apart"
+                    );
+                }
+            }
+        }
     }
 
     /// A larger job for timing by hand:

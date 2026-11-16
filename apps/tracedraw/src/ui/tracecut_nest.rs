@@ -231,6 +231,15 @@ pub fn settings(ui: &mut Ui, units: Units, st: &mut TraceCutState) {
                     "tracecut.cost_pieces",
                 )
             });
+            row(ui, &tr("tracecut.cost_piercing"), |ui| {
+                number(
+                    ui,
+                    &mut s.pierce_price,
+                    (0.0, 1e9),
+                    2,
+                    "tracecut.cost_piercing",
+                )
+            });
             row(ui, &tr("tracecut.cost_hours"), |ui| {
                 number(ui, &mut s.hour_price, (0.0, 1e9), 2, "tracecut.cost_hours")
             });

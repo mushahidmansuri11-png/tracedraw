@@ -22,6 +22,19 @@ sprawdzić, co się zmieniło, i wymienia najważniejsze nowości ostatnich wers
 
 ## Najważniejsze nowości ostatnich wersji {#highlights}
 
+- **Wytłaczanie, cienie i seria poprawek.** [[menu.effects > menu.effects.extrude]] utrzymuje bryłę obróconą w przestrzeni na miejscu, a fazy na tekście już się nie zawijają; cienie zachowują otwory pierścieni i padają od wytłoczonego obiektu razem z jego bryłą; [[menu.edit > menu.edit.select_similar]] zagląda do grup; [[menu.bitmaps > menu.bitmaps.convert_to_bitmap]] zachowuje miejsce obrazu w stosie; [[menu.view > menu.view.navigator]] jest poleceniem menu z klawiszem N; pliki .cdr otwierają się z tabelami, a tajskie nazwy plików pokazują swoje litery.
+- **Ścieżki CNC, eksport i zaznaczanie.** [[menu.tools > menu.tools.tracecut]] tworzy G-code dla frezarki CNC i rysuje oczka, pudełka na wczepy i gięte kasety; [[menu.file > menu.file.export]] najpierw pyta o plik, a potem pokazuje opcje formatu, a [[menu.file > menu.file.export_with_options]] pokazuje je zawsze; [[menu.edit > menu.edit.select_similar]] i [[menu.edit > menu.edit.invert_selection]] zmieniają zaznaczenie; [[menu.object > menu.object.insert > menu.object.add_dimensions]] wymiaruje zaznaczenie; nowe są wypełnienia proceduralne, przyciski OpenType i interfejs po laotańsku.
+- **Strony widzące i połączony tekst.** [[menu.layout > menu.layout.facing_pages]] pokazuje strony obok siebie jako rozkładówki; [[menu.text > menu.text.link_content]] łączy teksty, aby pisanie w jednym zmieniało pozostałe; wielostronicowy PDF pyta, które strony zaimportować; [[menu.edit > menu.edit.step_and_repeat]] może wypełnić stronę kopiami.
+- **Dotyk i telefony.** Przyciski Shift, Ctrl i Alt na pasku standardowym
+  pozostają wciśnięte dla palca; na Androidzie interfejs omija wycięcie
+  aparatu i zaokrąglone rogi; Apple Pencil działa w Safari na iPadzie.
+- **Pliki.** Pliki .cdr zachowują regułę wypełnienia nakładających się
+  krzywych i otwierają się z tabulatorami, tekstem w wielu kolumnach,
+  prowadnicami wspólnymi dla wszystkich stron i obiektami strony wzorcowej.
+- **Obrazy, drukowanie i obszar roboczy.** Przycinanie pikseli obrazu w
+  narzędziu Kadrowanie i [[menu.bitmaps > menu.bitmaps.crop_to_frame]]
+  przycinają piksele obrazu; druk w skali szarości i w odwrotnej kolejności;
+  [[menu.view > menu.view.scrollbars]] ukrywa paski przewijania.
 - **TraceCut.** [[menu.tools > menu.tools.tracecut]] otwiera narzędzia dla
   ploterów tnących: wyjście na ploter, linie cięcia, rozmieszczanie i pomiary.
   Zobacz [TraceCut](../objects/tracecut.md).

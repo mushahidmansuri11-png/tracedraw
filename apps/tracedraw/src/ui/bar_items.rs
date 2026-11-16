@@ -188,7 +188,10 @@ pub struct Slot {
 pub fn customizing(app: &App, ctx: &egui::Context) -> bool {
     let options = matches!(app.dialog, crate::ui::dialogs::Dialog::Options)
         && app.options_page.set() == crate::ui::options::OptionsSet::Customization;
-    options || ctx.input(|i| i.modifiers.alt)
+    // Alt held from the toolbar (#1499) is no Alt held on the keyboard:
+    // the bars would take its own button's tap as the start of a move.
+    let alt = ctx.input(|i| i.modifiers.alt) && !crate::touch_modifiers::alt_from_toolbar(app);
+    options || alt
 }
 
 /// Draw `bar`'s buttons with `draw` (each one's id, the bar's id as a
@@ -229,7 +232,8 @@ pub fn draw_bar(app: &mut App, ui: &mut Ui, bar: ItemBar, draw: fn(&mut App, &mu
                     egui::StrokeKind::Inside,
                 );
             }
-            if resp.drag_started() {
+            // Not while a finger slides the bar along (#1997).
+            if resp.drag_started() && !crate::ui::overflow::finger_sliding(ui.ctx()) {
                 app.bar_item_drag = Some(ItemDrag {
                     item: id.to_string(),
                     from: Some((bar, i)),

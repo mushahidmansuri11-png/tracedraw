@@ -45,12 +45,71 @@ const MAJOR_TICK: f32 = 6.0;
 const RAIL_H: f32 = 20.0;
 /// The narrowest groove.
 const MIN_RAIL_W: f32 = 40.0;
+/// A row at most this wide is a docker's or a dialog's, whose sliders
+/// take the rest of the row; a wider one is a bar's.
+const ROW_FILL_MAX: f32 = 640.0;
+/// The shortest groove a row gives when it has little room left.
+const MIN_ROW_RAIL_W: f32 = 80.0;
 /// The number box with its spin arrows.
 const BOX_W: f32 = field::DEFAULT_WIDTH;
 /// Points between the groove and the box.
 const BOX_GAP: f32 = 6.0;
 /// Fewest points between two ticks that are drawn.
 const MIN_TICK_PX: f64 = 5.0;
+
+/// The wheel turned over `rect` (hovered, no focus needed), as over a
+/// number field (#1335): the change it asks for, `step` a notch (Ctrl
+/// `fine`, Shift ten steps); the panel around does not scroll then.
+/// `wheel_id` keeps the part of a notch a touchpad gave.
+fn hover_wheel(ui: &Ui, rect: Rect, wheel_id: egui::Id, step: f64, fine: f64) -> Option<f64> {
+    if !ui.rect_contains_pointer(rect) {
+        ui.data_mut(|d| d.remove::<f32>(wheel_id));
+        return None;
+    }
+    let notches = field::wheel_steps(ui, wheel_id).filter(|n| *n != 0)?;
+    let mods = ui.input(|i| {
+        i.raw
+            .events
+            .iter()
+            .rev()
+            .find_map(|e| match e {
+                egui::Event::MouseWheel { modifiers, .. } => Some(*modifiers),
+                _ => None,
+            })
+            .unwrap_or(i.modifiers)
+    });
+    let step = if mods.command {
+        fine
+    } else if mods.shift {
+        step * 10.0
+    } else {
+        step
+    };
+    Some(f64::from(notches) * step)
+}
+
+/// The wheel over a plain `egui::Slider` (its response `resp`, value and
+/// range) steps it on hover as over this module's [`Slider`]: `step` a
+/// notch, Ctrl a tenth, Shift ten (#1335). Marks `resp` changed.
+pub(crate) fn wheel_on_hover<N: Numeric>(
+    ui: &Ui,
+    resp: &mut Response,
+    value: &mut N,
+    range: RangeInclusive<N>,
+    step: f64,
+) {
+    let Some(delta) = hover_wheel(ui, resp.rect, resp.id.with("wheel"), step, step / 10.0) else {
+        return;
+    };
+    let (min, max) = (range.start().to_f64(), range.end().to_f64());
+    let old = value.to_f64();
+    let v = (old + delta).clamp(min.min(max), max.max(min));
+    if v != old && v.is_finite() {
+        *value = N::from_f64(v);
+        resp.mark_changed();
+        ui.ctx().request_repaint();
+    }
+}
 
 /// A slider; built like `egui::Slider`, drawn as the bars and dockers
 /// want it (see the module notes).
@@ -72,6 +131,9 @@ pub struct Slider<'a, N: Numeric> {
     mixed: bool,
     /// The groove's length when the layout does not decide it.
     length: Option<f32>,
+    /// Points kept free at the end of a row for what follows the slider
+    /// there (a unit list, a label): see [`Self::reserve`].
+    reserve: f32,
 }
 
 impl<'a, N: Numeric> Slider<'a, N> {
@@ -93,6 +155,7 @@ impl<'a, N: Numeric> Slider<'a, N> {
             vertical: false,
             mixed: false,
             length: None,
+            reserve: 0.0,
         }
     }
 
@@ -181,6 +244,14 @@ impl<'a, N: Numeric> Slider<'a, N> {
     /// `Spacing::slider_width` in a row (a bar).
     pub fn width(mut self, width: f32) -> Self {
         self.length = Some(width);
+        self
+    }
+
+    /// In a row of a docker or a dialog the groove takes the rest of the
+    /// row, as one alone in a column does; `points` are kept free after
+    /// it (and its number box) for the controls that follow in the row.
+    pub fn reserve(mut self, points: f32) -> Self {
+        self.reserve = points.max(0.0);
         self
     }
 
@@ -428,6 +499,14 @@ impl<N: Numeric> Widget for Slider<'_, N> {
                     ui.spacing().slider_width
                 }
             }
+            // In a row of a docker or a dialog (narrower than a bar across
+            // the window): the rest of the row, so no slider there is a
+            // short one beside a long one in a column.
+            None if ui.max_rect().width() <= ROW_FILL_MAX && ui.available_width().is_finite() => {
+                (ui.available_width() - box_w - self.reserve)
+                    .max(ui.spacing().slider_width.min(MIN_ROW_RAIL_W))
+                    .max(MIN_RAIL_W)
+            }
             None => ui.spacing().slider_width.max(MIN_RAIL_W),
         };
         if self.vertical {
@@ -510,8 +589,12 @@ impl<N: Numeric> Slider<'_, N> {
         if enabled {
             // The pointer: a press or a drag puts the thumb there. It
             // does not take the keyboard focus (and gives up one Tab
-            // gave), so the canvas keeps its shortcuts.
-            if let Some(p) = resp.interact_pointer_pos() {
+            // gave), so the canvas keeps its shortcuts. A finger sliding
+            // the bar the slider is on leaves the thumb alone (#1997).
+            if let Some(p) = resp
+                .interact_pointer_pos()
+                .filter(|_| !crate::ui::overflow::finger_sliding(ui.ctx()))
+            {
                 let along = if self.vertical { p.y } else { p.x };
                 if len.abs() > 0.0 {
                     v = self.snapped(self.value_at((along - a) as f64 / len));
@@ -573,33 +656,14 @@ impl<N: Numeric> Slider<'_, N> {
             // (#1335), a step a notch (Ctrl a tenth, Shift ten); the
             // panel around does not scroll with it then. Beside the
             // slider the wheel is left to the panel.
-            let wheel_id = resp.id.with("wheel");
-            if ui.rect_contains_pointer(rect) {
-                if let Some(notches) = field::wheel_steps(ui, wheel_id) {
-                    if notches != 0 {
-                        let mods = ui.input(|i| {
-                            i.raw
-                                .events
-                                .iter()
-                                .rev()
-                                .find_map(|e| match e {
-                                    egui::Event::MouseWheel { modifiers, .. } => Some(*modifiers),
-                                    _ => None,
-                                })
-                                .unwrap_or(i.modifiers)
-                        });
-                        let step = if mods.command {
-                            self.fine_step()
-                        } else if mods.shift {
-                            self.key_step() * 10.0
-                        } else {
-                            self.key_step()
-                        };
-                        v = self.snapped(v + f64::from(notches) * step);
-                    }
-                }
-            } else {
-                ui.data_mut(|d| d.remove::<f32>(wheel_id));
+            if let Some(delta) = hover_wheel(
+                ui,
+                rect,
+                resp.id.with("wheel"),
+                self.key_step(),
+                self.fine_step(),
+            ) {
+                v = self.snapped(v + delta);
             }
         }
         if v != old && v.is_finite() {

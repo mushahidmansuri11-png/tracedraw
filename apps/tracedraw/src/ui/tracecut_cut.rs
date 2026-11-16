@@ -1,6 +1,6 @@
 //! The settings of TraceCut's Cut tools in the TraceCut window: plotter
-//! output (with the test cut), weeding, bridges, cut order, CutContour
-//! and registration marks. See docs/behavior/tracecut.md.
+//! output (with the test cut), CNC toolpaths, weeding, bridges, cut
+//! order, CutContour and registration marks. See docs/behavior/tracecut.md.
 
 use crate::app::Units;
 use crate::i18n::tr;
@@ -9,6 +9,7 @@ use crate::tracecut_send::{Destination, CAN_SEND};
 use crate::ui::tips::RichTip;
 use crate::ui::tracecut::{length, row};
 use egui::Ui;
+use tracedraw_tracecut::cnc::{self, CncSpec, Dialect, Milling, Side, Zero};
 use tracedraw_tracecut::cut::hpgl::{Machine, Origin, MAX_PASSES};
 use tracedraw_tracecut::cut::marks::MarkStyle;
 use tracedraw_tracecut::cut::order::{Direction, StartAt};
@@ -75,6 +76,7 @@ pub fn settings(ui: &mut Ui, units: Units, st: &mut TraceCutState) -> Option<Act
     let mut action = None;
     match st.tool {
         ToolId::PlotterOutput => action = plotter(ui, units, st),
+        ToolId::CncToolpath => cnc_settings(ui, units, &mut st.settings.cnc),
         ToolId::Weeding => {
             let s = &mut st.settings.weeding;
             row(ui, &tr("tracecut.weed_mode"), |ui| {
@@ -303,6 +305,229 @@ pub fn settings(ui: &mut Ui, units: Units, st: &mut TraceCutState) -> Option<Act
         _ => {}
     }
     action
+}
+
+/// CNC Toolpath: the tool, the side and direction, the depths, the
+/// rates, the origin and the holding tabs.
+fn cnc_settings(ui: &mut Ui, units: Units, s: &mut CncSpec) {
+    let was_laser = s.laser;
+    row(ui, "", |ui| check(ui, &mut s.laser, "tracecut.cnc_laser"));
+    // The controller the program is written for, in laser mode too (GRBL
+    // lasers are the common case).
+    row(ui, &tr("tracecut.cnc_dialect"), |ui| {
+        choice(
+            ui,
+            "cnc_dialect",
+            &mut s.dialect,
+            &[
+                (Dialect::Generic, "tracecut.cnc_dialect_generic"),
+                (Dialect::Grbl, "tracecut.cnc_dialect_grbl"),
+                (Dialect::Mach3, "tracecut.cnc_dialect_mach3"),
+                (Dialect::LinuxCnc, "tracecut.cnc_dialect_linuxcnc"),
+                (Dialect::Fanuc, "tracecut.cnc_dialect_fanuc"),
+            ],
+            "tracecut.cnc_dialect",
+        )
+    });
+    if s.laser {
+        // A router bit's width is no kerf: start on the line.
+        if !was_laser && s.tool_diameter > 1.0 {
+            s.tool_diameter = cnc::TOOL_RANGE.0;
+        }
+        laser_settings(ui, units, s);
+        return;
+    }
+    row(ui, &tr("tracecut.cnc_tool"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.tool_diameter,
+            cnc::TOOL_RANGE,
+            "tracecut.cnc_tool",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_side"), |ui| {
+        choice(
+            ui,
+            "cnc_side",
+            &mut s.side,
+            &[
+                (Side::Auto, "tracecut.cnc_side_auto"),
+                (Side::Outside, "tracecut.cnc_side_outside"),
+                (Side::Inside, "tracecut.cnc_side_inside"),
+                (Side::OnLine, "tracecut.cnc_side_on"),
+            ],
+            "tracecut.cnc_side",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_direction"), |ui| {
+        choice(
+            ui,
+            "cnc_direction",
+            &mut s.milling,
+            &[
+                (Milling::Conventional, "tracecut.cnc_conventional"),
+                (Milling::Climb, "tracecut.cnc_climb"),
+            ],
+            "tracecut.cnc_direction",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_depth"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.depth,
+            cnc::DEPTH_RANGE,
+            "tracecut.cnc_depth",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_pass_depth"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.pass_depth,
+            cnc::DEPTH_RANGE,
+            "tracecut.cnc_pass_depth",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_safe_z"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.safe_z,
+            cnc::SAFE_Z_RANGE,
+            "tracecut.cnc_safe_z",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_feed"), |ui| {
+        number(ui, &mut s.feed, cnc::RATE_RANGE, 0, "tracecut.cnc_feed")
+    });
+    row(ui, &tr("tracecut.cnc_plunge"), |ui| {
+        number(ui, &mut s.plunge, cnc::RATE_RANGE, 0, "tracecut.cnc_plunge")
+    });
+    row(ui, &tr("tracecut.cnc_spindle"), |ui| {
+        number(
+            ui,
+            &mut s.spindle,
+            cnc::SPINDLE_RANGE,
+            0,
+            "tracecut.cnc_spindle",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_tolerance"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.tolerance,
+            cnc::TOLERANCE_RANGE,
+            "tracecut.cnc_tolerance",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_origin"), |ui| {
+        choice(
+            ui,
+            "cnc_origin",
+            &mut s.zero,
+            &[
+                (Zero::JobCorner, "tracecut.cnc_origin_corner"),
+                (Zero::Origin, "tracecut.cnc_origin_ruler"),
+            ],
+            "tracecut.cnc_origin",
+        )
+    });
+    row(ui, "", |ui| check(ui, &mut s.tabs, "tracecut.cnc_tabs"));
+    if s.tabs {
+        row(ui, &tr("tracecut.cnc_tab_count"), |ui| {
+            count(
+                ui,
+                &mut s.tab_count,
+                cnc::TAB_COUNT_RANGE,
+                "tracecut.cnc_tab_count",
+            )
+        });
+        row(ui, &tr("tracecut.cnc_tab_width"), |ui| {
+            length(
+                ui,
+                units,
+                &mut s.tab_width,
+                cnc::TAB_RANGE,
+                "tracecut.cnc_tab_width",
+            )
+        });
+        row(ui, &tr("tracecut.cnc_tab_height"), |ui| {
+            length(
+                ui,
+                units,
+                &mut s.tab_height,
+                cnc::TAB_RANGE,
+                "tracecut.cnc_tab_height",
+            )
+        });
+    }
+}
+
+/// CNC Toolpath in laser mode: the kerf, the side, the power, the passes,
+/// the speed and the origin. The program has no Z moves.
+fn laser_settings(ui: &mut Ui, units: Units, s: &mut CncSpec) {
+    row(ui, &tr("tracecut.cnc_kerf"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.tool_diameter,
+            cnc::TOOL_RANGE,
+            "tracecut.cnc_kerf",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_side"), |ui| {
+        choice(
+            ui,
+            "cnc_side",
+            &mut s.side,
+            &[
+                (Side::Auto, "tracecut.cnc_side_auto"),
+                (Side::Outside, "tracecut.cnc_side_outside"),
+                (Side::Inside, "tracecut.cnc_side_inside"),
+                (Side::OnLine, "tracecut.cnc_side_on"),
+            ],
+            "tracecut.cnc_side",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_laser_power"), |ui| {
+        let max = s.laser_max;
+        number(ui, &mut s.laser_power, (0.0, max), 0, "tracecut.cnc_laser_power")
+    });
+    row(ui, &tr("tracecut.cnc_laser_max"), |ui| {
+        number(
+            ui,
+            &mut s.laser_max,
+            cnc::LASER_MAX_RANGE,
+            0,
+            "tracecut.cnc_laser_max",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_laser_passes"), |ui| {
+        count(
+            ui,
+            &mut s.laser_passes,
+            cnc::LASER_PASSES_RANGE,
+            "tracecut.cnc_laser_passes",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_feed"), |ui| {
+        number(ui, &mut s.feed, cnc::RATE_RANGE, 0, "tracecut.cnc_feed")
+    });
+    row(ui, &tr("tracecut.cnc_origin"), |ui| {
+        choice(
+            ui,
+            "cnc_origin",
+            &mut s.zero,
+            &[
+                (Zero::JobCorner, "tracecut.cnc_origin_corner"),
+                (Zero::Origin, "tracecut.cnc_origin_ruler"),
+            ],
+            "tracecut.cnc_origin",
+        )
+    });
 }
 
 /// Plotter Output: the machine and its knife, the order, where the job

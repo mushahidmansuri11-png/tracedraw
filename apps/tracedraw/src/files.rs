@@ -145,6 +145,7 @@ pub fn name_with_extension(name: &str, mime: &str) -> String {
 pub fn safe_file_name(name: &str) -> String {
     let clean: String = name
         .chars()
+        .filter(|&c| !is_direction_mark(c))
         .map(|c| {
             if matches!(c, '/' | '\\') || c.is_control() {
                 '_'
@@ -156,6 +157,53 @@ pub fn safe_file_name(name: &str) -> String {
     let clean = clean.trim().trim_start_matches('.').trim();
     if clean.is_empty() {
         "file".into()
+    } else {
+        clean.to_string()
+    }
+}
+
+/// True for the invisible marks that steer the direction of text
+/// (left-to-right and right-to-left marks, embeddings, overrides and
+/// isolates). Right-to-left keyboards and text copied from right-to-left
+/// writing bring them along; in a file name they only hide the extension
+/// and make two names that look the same differ.
+pub fn is_direction_mark(c: char) -> bool {
+    // By code point: they are never drawn, so they are not symbols the
+    // interface's fonts must have (`every_interface_symbol_is_in_the_bundled_fonts`).
+    matches!(
+        c as u32,
+        0x061C | 0x200E | 0x200F | 0x202A..=0x202E | 0x2066..=0x2069
+    )
+}
+
+/// A file name typed or made from a drawing's name, ready to be written
+/// in any language: direction marks and control characters go, folder
+/// separators become `_`, and so do the characters Windows refuses in a
+/// name (`: * ? " < > |`) on Windows, where it also drops the dots and
+/// spaces at the end that it would drop itself. Letters of every script
+/// and their accents and vowel marks stay as they are. Empty when
+/// nothing is left.
+pub fn clean_file_name(name: &str) -> String {
+    clean_file_name_for(name, cfg!(windows))
+}
+
+/// [`clean_file_name`] for Windows (`windows`) or another system.
+pub fn clean_file_name_for(name: &str, windows: bool) -> String {
+    let clean: String = name
+        .chars()
+        .filter(|&c| !is_direction_mark(c) && !c.is_control())
+        .map(|c| {
+            let reserved = windows && matches!(c, ':' | '*' | '?' | '"' | '<' | '>' | '|');
+            if matches!(c, '/' | '\\') || reserved {
+                '_'
+            } else {
+                c
+            }
+        })
+        .collect();
+    let clean = clean.trim();
+    if windows {
+        clean.trim_end_matches(['.', ' ']).to_string()
     } else {
         clean.to_string()
     }
@@ -567,6 +615,8 @@ pub fn folder_tip(place: FolderUse, platform: Platform) -> Option<&'static str> 
         FolderAction::SaveZip if web => Some("folder.zip_web"),
         FolderAction::SaveZip => Some("folder.zip_android"),
         FolderAction::OpenFiles if web => Some("folder.files_web"),
+        // The pictures of Print Merge: the system's folder picker (#1926).
+        FolderAction::OpenFiles if place == FolderUse::MergePictures => Some("folder.tree_android"),
         FolderAction::OpenFiles => Some("folder.files_android"),
         FolderAction::Unavailable(key) => Some(key),
     }
@@ -1172,7 +1222,77 @@ pub(crate) fn parse_user_dirs(text: &str, home: &Path) -> Vec<(String, PathBuf)>
 /// Decode an image file (any format the image crate was built with).
 pub fn open_image(path: impl AsRef<Path>) -> Result<image::DynamicImage, String> {
     let bytes = read(path).map_err(|e| e.to_string())?;
-    image::load_from_memory(&bytes).map_err(|e| e.to_string())
+    decode_picture(&bytes).map_err(|e| e.to_string())
+}
+
+/// The image library's own guard on the memory a picture may take to
+/// decode: 512 MiB.
+const LIBRARY_DECODE_LIMIT: u64 = 512 * 1024 * 1024;
+
+/// Most bytes decoding a picture file may take. The image library's own
+/// guard (512 MiB) turned print-size pictures away: a 1 m square at
+/// 300 dpi in CMYK needs 557 MB, so files of a metre and more did not
+/// import (#2000). Pictures may take what a PDF's pictures read at their
+/// own size take ([`FULL_PICTURE_PIXELS`] pixels, with room for 16-bit
+/// samples and a CMYK file's buffer beside the result); where pictures
+/// are always reduced (the browser, Android) and on 32-bit systems the
+/// library's guard stays.
+///
+/// [`FULL_PICTURE_PIXELS`]: tracedraw_io::pdf_import::FULL_PICTURE_PIXELS
+pub fn picture_decode_limit() -> u64 {
+    if crate::ui::pdf_import_dialog::always_reduce_pictures() || cfg!(target_pointer_width = "32") {
+        LIBRARY_DECODE_LIMIT
+    } else {
+        tracedraw_io::pdf_import::FULL_PICTURE_PIXELS.saturating_mul(8)
+    }
+}
+
+/// Decode a picture file (any format the image crate was built with)
+/// within [`picture_decode_limit`].
+pub fn decode_picture(bytes: &[u8]) -> image::ImageResult<image::DynamicImage> {
+    decode_picture_within(bytes, picture_decode_limit())
+}
+
+/// Decode a picture file taking at most `limit` bytes, turned the way
+/// its Exif orientation says (a photo taken with the camera on its side
+/// stands upright, #2167).
+pub fn decode_picture_within(bytes: &[u8], limit: u64) -> image::ImageResult<image::DynamicImage> {
+    use image::ImageDecoder;
+    let mut reader = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format()?;
+    let mut limits = image::Limits::default();
+    limits.max_alloc = Some(limit);
+    reader.limits(limits.clone());
+    let mut decoder = reader.into_decoder()?;
+    limits.reserve(decoder.total_bytes())?;
+    // A file whose orientation cannot be read stands as stored.
+    let orientation = decoder
+        .orientation()
+        .unwrap_or(image::metadata::Orientation::NoTransforms);
+    let mut img = image::DynamicImage::from_decoder(decoder)?;
+    img.apply_orientation(orientation);
+    Ok(img)
+}
+
+/// Whether the Exif orientation of picture file `bytes` turns it a
+/// quarter turn, so that its width and height (and its resolution
+/// across and down) change places.
+pub fn picture_turns_sideways(bytes: &[u8]) -> bool {
+    use image::metadata::Orientation;
+    use image::ImageDecoder;
+    let Ok(reader) = image::ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format()
+    else {
+        return false;
+    };
+    let Ok(mut decoder) = reader.into_decoder() else {
+        return false;
+    };
+    matches!(
+        decoder.orientation(),
+        Ok(Orientation::Rotate90
+            | Orientation::Rotate270
+            | Orientation::Rotate90FlipH
+            | Orientation::Rotate270FlipH)
+    )
 }
 
 /// Keep bytes under a synthetic path so [`read`] finds them (browser).
@@ -1213,6 +1333,24 @@ pub fn run_finished(app: &mut App) {
         job(app, path.clone());
         forget(&path);
     }
+}
+
+/// The paths whose extension is one of `exts` (lower case; any case in
+/// the name), all of them when `exts` is empty: a folder's files kept to
+/// the types a dialog asks for (#1926).
+#[cfg(any(target_os = "android", test))]
+pub fn with_extensions(paths: Vec<PathBuf>, exts: &[String]) -> Vec<PathBuf> {
+    if exts.is_empty() {
+        return paths;
+    }
+    paths
+        .into_iter()
+        .filter(|p| {
+            p.extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| exts.iter().any(|x| x.eq_ignore_ascii_case(e)))
+        })
+        .collect()
 }
 
 /// The Android document picker (Storage Access Framework): a request
@@ -1271,6 +1409,16 @@ mod android_pickers {
 
     pub fn pick_into(key: String) {
         pick(false, Waiting::Into(key));
+    }
+
+    /// Show the system's folder picker and run `then` with the documents
+    /// in the folder chosen (#1926).
+    pub fn pick_tree(then: Box<dyn FnOnce(&mut App, Vec<PathBuf>)>) {
+        let request = documents::next_request();
+        wait(request, Waiting::Many(then));
+        if !documents::open_tree(request) {
+            forget(request);
+        }
     }
 
     /// Show the picker for a place to save `name` and run `then` with the
@@ -1402,6 +1550,7 @@ pub fn picker_filters_by_type(user_agent: &str, platform: &str, touch_points: u3
 pub struct Dialog {
     filters: Vec<(String, Vec<String>)>,
     file_name: Option<String>,
+    directory: Option<PathBuf>,
 }
 
 impl Dialog {
@@ -1419,6 +1568,13 @@ impl Dialog {
 
     pub fn set_file_name(mut self, name: impl Into<String>) -> Self {
         self.file_name = Some(name.into());
+        self
+    }
+
+    /// The folder the desktop dialog opens in (ignored in a browser and
+    /// on Android, whose pickers choose their own).
+    pub fn set_directory(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.directory = Some(dir.into());
         self
     }
 
@@ -1444,6 +1600,41 @@ impl Dialog {
 
     /// Pick one or more files and run `then` with their paths: at once
     /// natively, on a later frame in a browser and on Android.
+    /// Choose a folder where only files can be picked otherwise, and run
+    /// `then` with the files in it the filters take (#1926). On Android
+    /// the system's folder picker (`ACTION_OPEN_DOCUMENT_TREE`) asks for
+    /// the folder and its files come as picked documents, on a later
+    /// frame; in a browser, which has no folder picker, the files are
+    /// picked several at once ([`Self::pick_files`]).
+    pub fn pick_folder_files(
+        self,
+        app: &mut App,
+        then: impl FnOnce(&mut App, Vec<PathBuf>) + 'static,
+    ) {
+        #[cfg(target_os = "android")]
+        {
+            let _ = app;
+            let exts = self.extensions();
+            android_pickers::pick_tree(Box::new(move |app: &mut App, paths: Vec<PathBuf>| {
+                let paths = with_extensions(paths, &exts);
+                if !paths.is_empty() {
+                    then(app, paths);
+                }
+            }));
+        }
+        #[cfg(not(target_os = "android"))]
+        self.pick_files(app, then);
+    }
+
+    /// Every extension the filters name, lower case.
+    #[cfg(any(target_os = "android", test))]
+    fn extensions(&self) -> Vec<String> {
+        self.filters
+            .iter()
+            .flat_map(|(_, exts)| exts.iter().map(|e| e.to_ascii_lowercase()))
+            .collect()
+    }
+
     pub fn pick_files(self, app: &mut App, then: impl FnOnce(&mut App, Vec<PathBuf>) + 'static) {
         #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
         {
@@ -1556,7 +1747,12 @@ impl Dialog {
             log::info!("saved without a picker to {}", dir.display());
             return Some(dir.join(name));
         }
-        #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+        // Unit tests answer the dialog themselves (see `test_save`).
+        #[cfg(all(test, not(any(target_arch = "wasm32", target_os = "android"))))]
+        {
+            return test_save::ask(self);
+        }
+        #[cfg(not(any(target_arch = "wasm32", target_os = "android", test)))]
         {
             let mut d = rfd::FileDialog::new();
             for (name, exts) in &self.filters {
@@ -1566,10 +1762,31 @@ impl Dialog {
             if let Some(n) = &self.file_name {
                 d = d.set_file_name(n);
             }
+            if let Some(dir) = self.directory.as_ref().filter(|d| d.is_dir()) {
+                d = d.set_directory(dir);
+            }
             return d.save_file();
         }
         #[allow(unreachable_code)]
         None
+    }
+
+    /// The filters offered, in order: a name and its extensions.
+    #[cfg(test)]
+    pub fn filters(&self) -> &[(String, Vec<String>)] {
+        &self.filters
+    }
+
+    /// The file name offered.
+    #[cfg(test)]
+    pub fn file_name(&self) -> Option<&str> {
+        self.file_name.as_deref()
+    }
+
+    /// The folder the dialog opens in.
+    #[cfg(test)]
+    pub fn directory(&self) -> Option<&Path> {
+        self.directory.as_deref()
     }
 
     #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
@@ -1660,9 +1877,104 @@ fn download(_name: &str, _bytes: &[u8]) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Unit tests never open the system's save dialog: each dialog asked
+/// for is kept for the test to look at, and it gets the next answer the
+/// test queued (`None` for Cancel); with nothing queued it is cancelled.
+#[cfg(test)]
+pub mod test_save {
+    use super::{Dialog, PathBuf, RefCell};
+    use std::collections::VecDeque;
+
+    thread_local! {
+        static ANSWERS: RefCell<VecDeque<Option<PathBuf>>> = const { RefCell::new(VecDeque::new()) };
+        static ASKED: RefCell<Vec<Dialog>> = const { RefCell::new(Vec::new()) };
+    }
+
+    /// The answer of the next save dialog: the path chosen, or `None`
+    /// for Cancel.
+    pub fn answer(path: Option<PathBuf>) {
+        ANSWERS.with(|a| a.borrow_mut().push_back(path));
+    }
+
+    /// The save dialogs asked for since the last call, in order.
+    pub fn asked() -> Vec<Dialog> {
+        ASKED.with(|a| std::mem::take(&mut *a.borrow_mut()))
+    }
+
+    #[cfg_attr(any(target_arch = "wasm32", target_os = "android"), allow(dead_code))]
+    pub(super) fn ask(dialog: Dialog) -> Option<PathBuf> {
+        ASKED.with(|a| a.borrow_mut().push(dialog));
+        ANSWERS.with(|a| a.borrow_mut().pop_front()).flatten()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Names in every script stay as typed; only direction marks, control
+    /// characters and what the system refuses change.
+    #[test]
+    fn file_names_in_every_script_are_kept() {
+        for windows in [false, true] {
+            for name in [
+                "שלום.tdraw",
+                "café.tdraw",
+                "cafe\u{301}.tdraw",
+                "文件.tdraw",
+                "שָׁלוֹם עולם.cdr",
+            ] {
+                assert_eq!(clean_file_name_for(name, windows), name);
+            }
+            assert_eq!(
+                clean_file_name_for("\u{200F}\u{202B}שלום\u{202C}.tdraw\u{200E}", windows),
+                "שלום.tdraw"
+            );
+            assert_eq!(
+                clean_file_name_for("\u{2067}مرحبا\u{2069}", windows),
+                "مرحبا"
+            );
+            assert_eq!(clean_file_name_for("a/b\\c\n", windows), "a_b_c");
+            assert_eq!(clean_file_name_for(" \u{200F} ", windows), "");
+        }
+        assert_eq!(clean_file_name_for("a: b?", false), "a: b?");
+        assert_eq!(clean_file_name_for("a: b?", true), "a_ b_");
+        assert_eq!(clean_file_name_for("שלום. .", true), "שלום");
+        assert_eq!(safe_file_name("\u{200F}שלום.ttf"), "שלום.ttf");
+        assert!(is_direction_mark('\u{061C}'));
+        assert!(!is_direction_mark('\u{200D}'), "the joiner shapes letters");
+    }
+
+    /// #2000: a print-size picture decodes past the image library's own
+    /// 512 MiB guard, which turned away files of about a metre and more
+    /// at print resolution; decoding is held to the limit given.
+    #[test]
+    fn print_size_pictures_decode_past_the_libraries_guard() {
+        // 2.5 x 1 m at 300 dpi, 8-bit CMYK: the file's samples beside the
+        // RGB result.
+        let need = 29_528u64 * 11_811 * (4 + 3);
+        assert!(
+            need > LIBRARY_DECODE_LIMIT,
+            "the library's guard refuses it"
+        );
+        if cfg!(target_pointer_width = "64")
+            && !crate::ui::pdf_import_dialog::always_reduce_pictures()
+        {
+            assert!(picture_decode_limit() >= need);
+        }
+        assert!(picture_decode_limit() >= LIBRARY_DECODE_LIMIT);
+        let img = image::RgbImage::from_pixel(60, 40, image::Rgb([10, 20, 30]));
+        let mut png = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut png, image::ImageFormat::Png)
+            .expect("png");
+        let png = png.into_inner();
+        assert!(decode_picture_within(&png, 60 * 40 * 3 - 1).is_err());
+        let back = decode_picture(&png).expect("decodes");
+        assert_eq!((back.width(), back.height()), (60, 40));
+        // Not a picture: an error, no panic.
+        assert!(decode_picture(b"not a picture").is_err());
+        assert!(decode_picture(&png[..png.len() / 2]).is_err());
+    }
 
     /// iPhones and iPads (also iPadOS, which calls itself a Mac with a
     /// touch screen) and Android browsers get a picker without extension
@@ -1847,6 +2159,47 @@ mod tests {
         );
         assert_eq!(Platform::current(), Platform::Desktop);
         assert!(matches!(FontFolder.action(), PickFolder(_)));
+        // Print Merge's pictures: the folder picker on Android (#1926).
+        assert_eq!(
+            folder_tip(MergePictures, Platform::Android),
+            Some("folder.tree_android")
+        );
+        assert_eq!(
+            folder_tip(MergePictures, Platform::Web),
+            Some("folder.files_web")
+        );
+    }
+
+    /// #1926: a folder's documents are kept to the types the dialog asks
+    /// for (any case), all of them with no filter; the dialog's
+    /// extensions are its filters', lower case. The Print Merge docker
+    /// asks for a folder where only files could be picked, and on Android
+    /// the folder picker answers like the open picker.
+    #[test]
+    fn a_folders_files_keep_to_the_dialogs_types() {
+        let paths: Vec<PathBuf> = ["a.png", "b.JPG", "notes.txt", "c.tiff", "noext"]
+            .iter()
+            .map(PathBuf::from)
+            .collect();
+        let d = Dialog::new()
+            .add_filter("Pictures", &["png", "JPG", "tiff"])
+            .add_filter("More", &["webp"]);
+        let exts = d.extensions();
+        assert_eq!(exts, ["png", "jpg", "tiff", "webp"]);
+        assert_eq!(
+            with_extensions(paths.clone(), &exts),
+            [
+                PathBuf::from("a.png"),
+                PathBuf::from("b.JPG"),
+                PathBuf::from("c.tiff")
+            ]
+        );
+        assert_eq!(with_extensions(paths.clone(), &[]), paths);
+        let docker = include_str!("ui/print_merge_docker.rs");
+        assert!(docker.contains(".pick_folder_files(app, |app, paths| {"));
+        let files = include_str!("files.rs");
+        assert!(files.contains("android_pickers::pick_tree("));
+        assert!(files.contains("if !documents::open_tree(request) {"));
     }
 
     /// The app's sources outside this file, as (path, text).

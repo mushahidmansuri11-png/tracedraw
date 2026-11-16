@@ -628,7 +628,7 @@ fn artistic_text_runs_and_lines() {
         red.fill = Some(Fill::Solid(Color::rgb8(255, 0, 0)));
         red.italic = true;
         let mut lined = TextSpan::new("under\nnext line", "Arial", 20.0);
-        lined.underline = true;
+        lined.underline = true.into();
         vec![
             text(ids, vec![bold], Point::new(20.0, 80.0), TextAlign::Left),
             text(
@@ -672,7 +672,11 @@ fn artistic_text_runs_and_lines() {
         let joined: String = spans.iter().map(|s| s.text.as_str()).collect();
         assert_eq!(joined, "Red under\nnext line", "version {}: {spans:?}", r.v);
         assert_eq!(spans[0].font_family, "Georgia", "version {}", r.v);
-        assert!(spans[0].italic && !spans[0].underline, "version {}", r.v);
+        assert!(
+            spans[0].italic && !spans[0].underline.is_on(),
+            "version {}",
+            r.v
+        );
         assert_eq!(
             spans[0].fill,
             Some(Fill::Solid(Color::rgb8(255, 0, 0))),
@@ -682,11 +686,48 @@ fn artistic_text_runs_and_lines() {
         let last = spans.last().expect("span");
         assert_eq!(last.font_family, "Arial", "version {}", r.v);
         assert!(near(last.size_pt, 20.0, 0.01), "version {}", r.v);
-        assert!(last.underline && !last.italic, "version {}", r.v);
+        assert!(last.underline.is_on() && !last.italic, "version {}", r.v);
         let ShapeKind::Text { align, .. } = &r.shape(2).kind else {
             panic!("version {}", r.v);
         };
         assert_eq!(*align, TextAlign::Right, "version {}", r.v);
+    });
+}
+
+/// Texts whose content is linked (#1568) go out as plain texts, each
+/// with its own characters and looks: the link is TraceDraw's own and
+/// reads back as no link.
+#[test]
+fn linked_text_content_goes_out_as_plain_texts() {
+    let doc = drawing(200.0, 100.0, |ids| {
+        let mut a = text(
+            ids,
+            vec![TextSpan::new("SALE", "Verdana", 18.0)],
+            Point::new(20.0, 80.0),
+            TextAlign::Left,
+        );
+        let mut b = text(
+            ids,
+            vec![TextSpan::new("SALE", "Georgia", 30.0)],
+            Point::new(20.0, 40.0),
+            TextAlign::Left,
+        );
+        a.content_link = Some(7);
+        b.content_link = Some(7);
+        vec![a, b]
+    });
+    every_version(&doc, |r| {
+        r.count(2);
+        for (i, font) in [(0, "Verdana"), (1, "Georgia")] {
+            let s = r.shape(i);
+            let ShapeKind::Text { spans, .. } = &s.kind else {
+                panic!("version {}: {}", r.v, kind_name(&s.kind));
+            };
+            let joined: String = spans.iter().map(|s| s.text.as_str()).collect();
+            assert_eq!(joined, "SALE", "version {}", r.v);
+            assert_eq!(spans[0].font_family, font, "version {}", r.v);
+            assert_eq!(s.content_link, None, "version {}", r.v);
+        }
     });
 }
 
@@ -1058,6 +1099,7 @@ fn pattern_texture_and_mesh_fills_go_out_as_one_colour() {
         front: Color::rgb8(255, 0, 0),
         back: Color::rgb8(0, 0, 255),
         size_mm: 5.0,
+        placement: Default::default(),
     });
     let tile = picture(4, 4, false);
     let bitmap_pattern = Fill::Pattern(Pattern::Bitmap {
@@ -1065,6 +1107,7 @@ fn pattern_texture_and_mesh_fills_go_out_as_one_colour() {
         width_px: 4,
         height_px: 4,
         size_mm: 8.0,
+        placement: Default::default(),
     });
     let texture = Fill::Texture(Texture {
         kind: TextureKind::Clouds,

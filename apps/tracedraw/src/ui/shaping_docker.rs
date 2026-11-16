@@ -43,6 +43,8 @@ fn info(op: Shaping) -> (Pic, &'static str, &'static str) {
             "menu.object.boundary",
             "docker.boundary_hint",
         ),
+        Shaping::Divide => (Pic::Divide, "menu.object.divide", "docker.divide_hint"),
+        Shaping::Exclude => (Pic::Combine, "menu.object.exclude", "docker.exclude_hint"),
     }
 }
 

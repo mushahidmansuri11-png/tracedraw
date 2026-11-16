@@ -11,9 +11,11 @@ Customization > Commands lists them and takes shortcuts of your own
 | --- | --- |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S | New, Open, Save, Save As |
 | Ctrl+I, Ctrl+E, Ctrl+P | Import, Export, Print |
+| Ctrl+Shift+E | Export with Options (the export options even when set not to show) |
 | Ctrl+F4, Alt+F4 | Close window, Exit |
 | Command+Q (macOS) | Quit TraceDraw from the application menu: asks about unsaved drawings as Exit does; File > Exit shows it there (see "On macOS" below) |
 | Ctrl+Z, Ctrl+Shift+Z, Ctrl+R | Undo, Redo, Repeat |
+| Alt+Backspace | Undo, a second key for it (#2201) |
 | Ctrl+X, Ctrl+C, Ctrl+V, Ctrl+Shift+V | Cut, Copy, Paste, Paste in view |
 | Ctrl+D, Ctrl+Shift+D | Duplicate, Repeat Copies panel |
 | + (Pick tool, with a selection) | Duplicate in place |
@@ -21,7 +23,9 @@ Customization > Commands lists them and takes shortcuts of your own
 | Space | the Pick tool (not while a text or table cell is edited, where it types a space, nor during a drag, where it drops a copy); on the Pick tool, back to the tool used before it (`App::previous_tool`); Shift+Space and other combinations leave the tool alone |
 | Ctrl+0 to Ctrl+9, 0 to 9, Alt+0 to Alt+9 | store, select (twice: zoom to) and add to selection groups |
 | Ctrl+A, Delete or Backspace | Select all (with a guideline selected: every guideline of the page, #1753), Delete |
+| Ctrl+Shift+I | Edit > Invert Selection (#2201; the browser version leaves the key to the browser, see `web.md`) |
 | Ctrl+F, Ctrl+J, Ctrl+W | Find and Replace panel, Options, Refresh window |
+| Ctrl+Shift+P | Help > Search Commands: find a menu command by typing part of its name and run it (see `command-search.md`) |
 
 
 ### Repeat
@@ -36,7 +40,34 @@ box of the selection of the time: a rotation about the old box's centre
 (or a centre of rotation moved inside it) turns about the new box's
 centre, a resize from a side or corner handle resizes from the same
 side or corner, and a move moves as far; the object it is repeated on
-no longer moves away (#1289, `app::repeated_transform`). Each action is kept with the undo step it made
+no longer moves away (#1289, `app::repeated_transform`). A copy made
+with a right click during a drag is repeated the same way: a mirror
+copy made by dragging a side handle across mirrors the next copy over
+the same side of the selected copy, so the copies line up side by side;
+it was mirrored over the original's side again and landed on the
+original (#1909,
+`pick_drag_tests::repeat_after_a_mirror_copy_continues_from_the_selected_copy`).
+
+Repeat replays the last group of actions, not only the newest: the
+newest action still in effect together with the actions done right
+before it to the same objects, with no other undo step and no change of
+selection in between (a move and then a fill change of one object, or a
+copy made with a right click and then the copy's new fill), oldest
+first, as one undo step named Repeat; up to 16 actions. A change of
+selection between two actions starts a new group, so after moving one
+object and filling another only the fill is repeated. Repeat again
+replays the same group (#1566, #1547, `App::repeat_group`,
+`Engine::step_below`,
+`pick_drag_tests::repeat_replays_the_last_group_of_actions_on_one_selection`).
+A copy starts a group: what was done before it was done to the object
+copied, not to the copy, so it is not replayed with the copy. Repeat
+pressed again and again after a mirror copy therefore adds one copy a
+press, each next to the last, and a move of the object done before the
+first copy is not done again; the second press made two copies and the
+move pushed the copies apart (#2173,
+`pick_drag_tests::repeat_after_a_mirror_copy_adds_one_copy_a_press`).
+
+Each action is kept with the undo step it made
 (`Engine::last_step_id`, `App::repeatables`): an action undone is never
 repeated, the one before it is (#366); redone, it is the last again; and
 an undone step replaced by another change is gone for good. A copy made
@@ -56,6 +87,7 @@ original, #471). Checks:
 | F2, Shift+F2, F3, F4, Shift+F4 | Zoom tool, zoom to selection, zoom out, zoom to fit, zoom to page (also while a text is being edited, #1699) |
 | Ctrl++ (or Ctrl+=), Ctrl+- | Zoom in and out one step |
 | Alt+Shift+R | Rulers on and off |
+| Ctrl+;, Ctrl+' | Guidelines, document grid, shown and hidden (View > Guidelines, View > Grid > Document Grid; #2201) |
 | Alt+Q, Alt+Shift+A, Alt+Shift+D | Snapping off, alignment guides, dynamic guides |
 | Alt+Z, Ctrl+Y | Snap to objects, snap to the document grid, on and off |
 | PgUp, PgDn | Previous and next page; on the first page PgUp, on the last PgDn opens Insert Page (one page, before the first or after the last; #1752, `pick_drag_tests::page_down_on_the_last_page_offers_to_insert_one`) |
@@ -71,10 +103,12 @@ original, #471). Checks:
 | Ctrl+Home, Ctrl+End | To front and back of the page |
 | Shift+PgUp, Shift+PgDn | To front and back of the layer |
 | Ctrl+PgUp, Ctrl+PgDn | Forward one, back one |
+| Ctrl+], Ctrl+[, Ctrl+Shift+], Ctrl+Shift+[ | Forward one, back one, to front and to back of the layer: second keys for Order (#2201) |
 | Alt+Enter | Properties panel |
-| Ctrl+Shift+A | Paste Style From: a dialog with Outline pen, Outline color, Fill and Text properties (all ticked at first, kept), then a click on the object to copy them from to the other selected objects, one undo step; a right click or Esc cancels the wait (#1345, `pick_drag_tests::ctrl_shift_a_copies_the_ticked_properties_from_the_object_clicked`) |
+| Ctrl+Shift+A | Paste Style From: a dialog with Outline pen, Outline color, Fill and Text properties (all ticked at first, kept), then a click on the object to copy them from to the other selected objects, one undo step; a right click or Esc cancels the wait (#1345, `pick_drag_tests::ctrl_shift_a_copies_the_ticked_properties_from_the_object_clicked`). They are read from the object clicked inside a group or clip frame and written as the Attributes Eyedropper writes them (see `eyedroppers.md`; #1550, `pick_drag_tests::copying_properties_from_a_group_takes_the_object_clicked`) |
 | Alt+F7, Alt+F8, Alt+F9, Alt+F10 | Transformations panel on Position, Rotate, Scale and Mirror, Size |
 | Ctrl+M | Merge table cells |
+| Ctrl+Shift+F3 | Edit Contents of the selected clip frame; while its contents are edited, Finish Editing (Object > Clip to Frame, the canvas context menu; #1273, `pick_drag_tests::the_context_menu_and_a_key_edit_and_extract_clip_frame_contents`) |
 | Alt+Shift+F8, Alt+F11 | Run Macro, Macro Editor (Tools > Macros) |
 
 ## Text and effects
@@ -98,6 +132,42 @@ Commands gives them one. Check:
 commands, tools and panels; a menu row that opens a panel shows that
 panel's key and counts as the panel).
 
+## Keys added for commands that had none (#2201)
+
+A review of 0.43.0 said some keys were still missing without naming
+them, so the table of built-in keys was compared with the keys commonly
+used for the same commands. Added: Ctrl+Shift+I (Invert Selection),
+Ctrl+; (Guidelines), Ctrl+' (Document Grid), the bracket keys for Order
+and Alt+Backspace for Undo. The first three are keys of menu commands:
+the menus show them and Options > Customization > Commands changes or
+removes them. The bracket keys and Alt+Backspace are second keys, as
+Ctrl+= is for Zoom In: they are not listed and stay with their
+commands. Shortcut text writes the punctuation keys as they are typed
+(`;`, `'`, `[`, `]`; `shortcuts::key_name`). Check:
+`pick_drag_tests::more_commands_have_keys`.
+
+Looked at and left without a key, because the usual key is taken:
+Redo's Ctrl+Y (Snap to Document Grid; Redo is Ctrl+Shift+Z), Paste
+Special's Ctrl+Alt+V (the windowing layer turns every Ctrl+V into a
+paste), Text > Convert's Ctrl+F8 and Spell Check's
+Ctrl+F12 (the Blend and Fonts panels, #1779) and Bullets' Ctrl+M (Merge
+Cells).
+
+## Distribute keys
+
+With a selection, Shift and a letter distributes it between its
+outermost objects (three objects or more): Shift+L, Shift+R, Shift+T and
+Shift+B the left, right, top and bottom edges, Shift+E the centres
+across, Shift+C the centres down, Shift+P equal gaps across and Shift+A
+equal gaps down (#2147, `App::DISTRIBUTE_KEYS`,
+`pick_drag_tests::shift_and_the_align_letters_distribute_the_selection`).
+Shift+L, Shift+B and Shift+C are also node commands (To Line, Break
+Curve, Cusp): with the Shape tool and nodes chosen they stay node
+commands, as E is the Roughen tool without a selection; the Distribute
+commands were left without keys for that reason until #2147
+(`options::tests::no_two_default_commands_share_a_shortcut` lists the
+split).
+
 ## Align keys and tool keys
 
 With a selection, the plain letters L, R, T, B, E, C and P align it
@@ -108,6 +178,18 @@ none). Tools with letter keys: Z Zoom, H Pan, Y Polygon, A Spiral, D
 Graph Paper, G Interactive Fill, M Mesh Fill, X Eraser, W Smear, V
 Smudge, E Roughen, S Sketch, Shift+S Shape Recognition, I Artistic
 Media; the Bezier, Pen, Crop and Knife tools have no key.
+
+## Node keys
+
+With the Shape tool and nodes chosen, the node commands of its property
+bar have keys of their own (#2001), Shift and a letter so that they
+never take an align or tool key: Shift+L To Line, Shift+U To Curve,
+Shift+C Cusp, Shift+M Smooth, Shift+Y Symmetrical, Shift+B Break Curve,
+Shift+J Join Nodes, and + Add Node (- deletes the chosen nodes). The
+plain C, S and Y make the chosen nodes cusp, smooth and symmetrical
+(#2210, see `shape-tool.md`). The commands are Object > Nodes, so Options >
+Customization > Commands lists them under Object and gives them other
+keys (`pick_drag_tests::node_commands_have_keys_of_their_own`).
 
 ## Modal dialogs
 
@@ -337,8 +419,9 @@ a key there),
 - `ui::options::tests::bar_buttons_and_rows_shown_at_times_take_shortcuts`
 - `ui::options::tests::no_two_default_commands_share_a_shortcut`: no two
   menu commands or tools have the same built-in keys, the documented
-  split of E (Align Centers Horizontally with a selection, Roughen
-  without) aside.
+  splits of E (Align Centers Horizontally with a selection, Roughen
+  without) and Ctrl+Shift+F3 (Edit Contents of a clip frame, Finish
+  Editing while inside, never offered together) aside.
 
 - Given a dialog open, when Esc is pressed, then the dialog is closed
   and the tool and selection are unchanged.

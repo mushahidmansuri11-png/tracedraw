@@ -612,6 +612,33 @@ pub fn spline_without_many(s: &Shape, indices: &[usize]) -> Option<Vec<Point>> {
     (out.len() >= 2).then_some(out)
 }
 
+/// The fixed flags for the B-spline `s` given the control points
+/// `points`, made from its own by adding or removing points (#1758):
+/// each point kept keeps its flag, a new one floats. `None` (keep the
+/// flags) when the number of points stays.
+pub fn spline_fixed_for(s: &Shape, points: &[Point]) -> Option<Vec<bool>> {
+    let old = s.spline.as_ref()?;
+    if old.len() == points.len() {
+        return None;
+    }
+    let flag = |j: usize| s.spline_fixed.get(j).copied().unwrap_or(false);
+    let mut out = Vec::with_capacity(points.len());
+    let mut j = 0;
+    for p in points {
+        // Points removed from the old list are skipped; a point not in
+        // it is new.
+        let next = (j..old.len()).find(|&k| old[k] == *p);
+        match next {
+            Some(k) if old.len() > points.len() || k == j => {
+                out.push(flag(k));
+                j = k + 1;
+            }
+            _ => out.push(false),
+        }
+    }
+    Some(out)
+}
+
 /// The control points of the B-spline `s` without the point `index`;
 /// `None` when two would not remain.
 pub fn spline_without(s: &Shape, index: usize) -> Option<Vec<Point>> {
@@ -973,6 +1000,77 @@ mod tests {
         assert!(
             matches!(k, ShapeKind::Ellipse { arc: Some(a), .. } if (a.end_deg - 90.0).abs() < 1e-9 && a.pie)
         );
+    }
+
+    /// A live test of 0.41: an ellipse whose node was dragged outward with
+    /// the Shape tool became an arc that kept its fill. An arc is an open
+    /// curve: with Fill open curves off it draws no fill and is picked on
+    /// its outline only; a pie keeps its fill.
+    #[test]
+    fn an_ellipse_made_an_arc_draws_no_fill_unless_open_curves_are_filled() {
+        use tracedraw_core::{Color, Command, Fill};
+        let mut app = crate::app::App::headless();
+        app.settings.treat_all_filled = false;
+        let id = app
+            .new_shape(ShapeKind::Ellipse {
+                rect: Rect::new(80.0, 80.0, 120.0, 120.0),
+                arc: None,
+            })
+            .expect("ellipse");
+        app.select(vec![id]);
+        app.apply_fill(Fill::Solid(Color::rgb8(255, 0, 0)));
+        assert!(!app.doc().metadata.fill_open_curves);
+        let centre = Point::new(100.0, 100.0);
+        assert_eq!(app.hit_test(centre), Some(id));
+        // The node dragged outward, counter-clockwise round to the left.
+        let s = app.doc().find_shape(id).cloned().expect("shape");
+        let mut turn = 0.0;
+        let mut kind = None;
+        for deg in [120.0f64, 160.0, 200.0] {
+            let p =
+                centre + Vec2::new(30.0 * deg.to_radians().cos(), 30.0 * deg.to_radians().sin());
+            kind = drag(&s, KindNode::EllipseStart, p, false, [false; 4], &mut turn);
+        }
+        let kind = kind.expect("an arc");
+        assert!(kind.is_open_curve(), "{kind:?}");
+        app.run(Command::SetShapeKind { shape: id, kind });
+        let red_at = |app: &crate::app::App, p: Point| {
+            let pm = tracedraw_render::render_page_image(app.doc(), app.page, 25.4).expect("page");
+            let h = pm.height() as f64;
+            let px = pm
+                .pixel(p.x.round() as u32, (h - p.y).round() as u32)
+                .expect("pixel")
+                .demultiply();
+            px.alpha() > 0 && px.red() > 200 && px.green() < 60
+        };
+        // Neither drawn filled nor picked inside.
+        assert!(!red_at(&app, centre));
+        assert_eq!(app.hit_test(centre), None);
+        // A document that fills open curves fills the arc.
+        let fill_open = |app: &mut crate::app::App, on: bool| {
+            let mut metadata = app.doc().metadata.clone();
+            metadata.fill_open_curves = on;
+            app.run(Command::SetMetadata { metadata });
+        };
+        fill_open(&mut app, true);
+        assert!(red_at(&app, centre));
+        assert_eq!(app.hit_test(centre), Some(id));
+        fill_open(&mut app, false);
+        // A pie is closed: filled.
+        let ShapeKind::Ellipse {
+            rect,
+            arc: Some(mut a),
+        } = app.doc().find_shape(id).expect("shape").kind.clone()
+        else {
+            panic!("an arc");
+        };
+        a.pie = true;
+        app.run(Command::SetShapeKind {
+            shape: id,
+            kind: ShapeKind::Ellipse { rect, arc: Some(a) },
+        });
+        assert!(red_at(&app, centre + Vec2::new(5.0, -8.0)));
+        assert_eq!(app.hit_test(centre + Vec2::new(5.0, -8.0)), Some(id));
     }
 
     #[test]

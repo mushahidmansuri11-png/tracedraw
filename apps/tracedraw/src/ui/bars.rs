@@ -187,15 +187,15 @@ impl Bar {
 
     pub fn visible(self, app: &App) -> bool {
         match self {
-            Bar::Toolbox => app.show_toolbox && !app.collapse_tools,
+            Bar::Toolbox => app.show_toolbox,
             Bar::Palette => app.settings.palette.show_palette,
-            Bar::Standard => app.show_standard_toolbar && !app.collapse_bars,
-            Bar::Property => app.show_property_bar && !app.collapse_bars,
-            Bar::Status => app.show_status_bar && !app.collapse_bars,
-            Bar::Text => app.show_text_toolbar && !app.collapse_bars,
-            Bar::Zoom => app.show_zoom_toolbar && !app.collapse_bars,
-            Bar::Transform => app.show_transform_toolbar && !app.collapse_bars,
-            Bar::TimeTracker => app.settings.time_tracker.show_bar && !app.collapse_bars,
+            Bar::Standard => app.show_standard_toolbar,
+            Bar::Property => app.show_property_bar,
+            Bar::Status => app.show_status_bar,
+            Bar::Text => app.show_text_toolbar,
+            Bar::Zoom => app.show_zoom_toolbar,
+            Bar::Transform => app.show_transform_toolbar,
+            Bar::TimeTracker => app.settings.time_tracker.show_bar,
         }
     }
 
@@ -895,14 +895,6 @@ fn menu_body(app: &mut App, ui: &mut Ui, bar: Bar) {
         }
     });
     sep(ui);
-    sub(ui, "layout.mode", |ui| {
-        for m in LayoutMode::ALL {
-            if item(ui, m.key(), "", true) {
-                apply_layout_mode(app, m);
-            }
-        }
-    });
-    sep(ui);
     let locked = app.settings.bars.locked;
     if check(ui, "bars.lock", "", locked) {
         app.settings.bars.locked = !locked;
@@ -924,72 +916,6 @@ pub fn reset(app: &mut App) {
         b.set_visible(app, true);
     }
     crate::ui::bar_items::reset(app);
-}
-
-/// The ready-made layouts of the "Layout Mode" menu: one tap sets the
-/// bars, the dockers and the button size for a phone, a tablet or a desktop.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LayoutMode {
-    Mobile,
-    Tablet,
-    Desktop,
-}
-
-impl LayoutMode {
-    pub const ALL: [LayoutMode; 3] = [LayoutMode::Mobile, LayoutMode::Tablet, LayoutMode::Desktop];
-
-    pub fn key(self) -> &'static str {
-        match self {
-            LayoutMode::Mobile => "layout.mobile",
-            LayoutMode::Tablet => "layout.tablet",
-            LayoutMode::Desktop => "layout.desktop",
-        }
-    }
-}
-
-/// Set the bars, the dockers and the button size for `mode`.
-/// Mobile: the toolbox floats over the drawing, only the property bar and
-/// the palette stay docked, the dockers are closed, buttons are Large and
-/// the bars are locked (no drag by accident). Tablet: toolbox on the left,
-/// standard and property bars on top, no status bar, Large buttons.
-/// Desktop: the first layout again.
-pub fn apply_layout_mode(app: &mut App, mode: LayoutMode) {
-    use crate::settings::ButtonSize;
-    reset(app);
-    app.collapse_bars = false;
-    app.collapse_tools = false;
-    app.show_dockers = true;
-    app.settings.toolbox_button_size = None;
-    app.settings.bars.locked = false;
-    match mode {
-        LayoutMode::Desktop => {}
-        LayoutMode::Tablet => {
-            app.settings.button_size = ButtonSize::Large;
-            app.settings.bars.locked = true;
-            Bar::Status.set_visible(app, false);
-            Bar::Text.set_visible(app, false);
-            Bar::Zoom.set_visible(app, false);
-            Bar::Transform.set_visible(app, false);
-            Bar::TimeTracker.set_visible(app, false);
-        }
-        LayoutMode::Mobile => {
-            app.settings.button_size = ButtonSize::Large;
-            move_bar(app, Bar::Toolbox, Dock::Floating, Some(pos2(8.0, 150.0)));
-            for bar in [
-                Bar::Standard,
-                Bar::Status,
-                Bar::Text,
-                Bar::Zoom,
-                Bar::Transform,
-                Bar::TimeTracker,
-            ] {
-                bar.set_visible(app, false);
-            }
-            app.show_dockers = false;
-            app.show_left_dockers = false;
-            app.settings.bars.locked = true;
-        }
-    }
 }
 
 /// Where the window drawing keeps the room the bars and dockers leave
@@ -1359,7 +1285,22 @@ pub fn docked_rows(app: &mut App, ui: &mut Ui, dock: Dock) {
     if dock == Dock::Bottom {
         order.reverse();
     }
+    // Along the top, palette bars may lie among the rows, each over the
+    // row it was put before (`palette_bars::toolbar_band`).
+    let bands = if dock == Dock::Top {
+        crate::ui::palette_bars::toolbar_bands(app)
+    } else {
+        Vec::new()
+    };
+    let mut next_band = 0;
     for (index, bars) in order {
+        while let Some(&(row, k)) = bands.get(next_band) {
+            if row as usize > index {
+                break;
+            }
+            crate::ui::palette_bars::toolbar_band(app, ui, k, row);
+            next_band += 1;
+        }
         let height = bars.iter().map(|b| b.row_height()).fold(0.0, f32::max);
         let panel = if dock == Dock::Top {
             egui::Panel::top(egui::Id::new(("bar_row_top", index)))
@@ -1426,6 +1367,10 @@ pub fn docked_rows(app: &mut App, ui: &mut Ui, dock: Dock) {
                     slots: spots,
                 });
             });
+    }
+    // Under every row of toolbars.
+    for &(row, k) in bands.get(next_band..).unwrap_or_default() {
+        crate::ui::palette_bars::toolbar_band(app, ui, k, row);
     }
 }
 
@@ -1499,8 +1444,20 @@ pub fn floating_bars(app: &mut App, ctx: &egui::Context) {
                     })
                     .show(ui, |ui| {
                         ui.set_width(size.x);
-                        title_strip(app, ui, bar, size.x);
+                        // The title's row first; drawn once the body is
+                        // laid out, as wide as the window then is: a
+                        // body grown wider (another tool's property bar)
+                        // keeps the close button at its right end
+                        // (#1921).
+                        let (_, title) = ui.allocate_space(vec2(size.x, TITLE_H));
                         let body = ui.scope(|ui| floating_body(app, ui, bar, size)).response;
+                        let width = ui.min_rect().width().max(size.x);
+                        title_strip_at(
+                            app,
+                            ui,
+                            bar,
+                            Rect::from_min_size(title.min, vec2(width, TITLE_H)),
+                        );
                         // The palette's colors open menus of their own.
                         if bar != Bar::Palette {
                             menu_anywhere(app, ui, bar, body.rect, false);
@@ -1773,7 +1730,18 @@ fn toolbox_resize_handles(app: &mut App, ui: &mut Ui, window: Rect) {
 /// A floating bar's title: its name and a close button. Dragging it moves
 /// the bar (docking it near an edge); a double click docks it back.
 fn title_strip(app: &mut App, ui: &mut Ui, bar: Bar, width: f32) {
-    let (rect, resp) = ui.allocate_exact_size(vec2(width, TITLE_H), Sense::click_and_drag());
+    let (rect, _) = ui.allocate_exact_size(vec2(width, TITLE_H), Sense::hover());
+    title_strip_at(app, ui, bar, rect);
+}
+
+/// [`title_strip`] in `rect`, room already taken for it.
+fn title_strip_at(app: &mut App, ui: &mut Ui, bar: Bar, rect: Rect) {
+    let width = rect.width();
+    let resp = ui.interact(
+        rect,
+        egui::Id::new(("bar_title", bar as u8)),
+        Sense::click_and_drag(),
+    );
     let name = tr(bar.key());
     let galley = title_galley(ui, &name, title_room(width));
     let p = ui.painter();
@@ -1965,6 +1933,49 @@ mod tests {
     fn drawn_grid(ctx: &egui::Context) -> Rect {
         ctx.data(|d| d.get_temp(crate::ui::toolbox::floating_grid_id()))
             .expect("the grid was drawn")
+    }
+
+    /// A floating bar's close button stays at the right end of its title
+    /// when the bar's body is wider than the window's own width (the
+    /// Rectangle tool's property bar), and the title runs the whole
+    /// width (#1921).
+    #[test]
+    fn a_floating_bars_close_button_follows_its_width() {
+        let ctx = crate::theme::ui_context();
+        let mut app = App::headless();
+        app.show_welcome = false;
+        move_bar(
+            &mut app,
+            Bar::Property,
+            Dock::Floating,
+            Some(pos2(40.0, 300.0)),
+        );
+        app.set_tool(crate::tools::Tool::Rectangle);
+        for _ in 0..4 {
+            frame(&ctx, &mut app, Vec::new(), egui::Modifiers::NONE);
+        }
+        let window = ctx
+            .memory(|m| m.area_rect(egui::Id::new(("floating_bar", Bar::Property as u8))))
+            .expect("the floating property bar");
+        let nominal = Bar::Property.floating_size(&app).x;
+        assert!(
+            window.width() > nominal + 10.0,
+            "the body is wider than the nominal width: {window:?}"
+        );
+        let close = ctx
+            .read_response(egui::Id::new(("bar_close", Bar::Property as u8)))
+            .expect("the close button")
+            .rect;
+        assert!(
+            (window.right() - close.right()).abs() < 3.0,
+            "{close:?} at the right end of {window:?}"
+        );
+        let title = ctx
+            .read_response(egui::Id::new(("bar_title", Bar::Property as u8)))
+            .expect("the title")
+            .rect;
+        assert!(close.right() <= title.right() + 0.5);
+        assert!(title.width() > nominal + 8.0, "{title:?}");
     }
 
     /// A floating bar's name is cut with an ellipsis where the title is

@@ -25,6 +25,21 @@ der letzten Versionen.
 
 ## Highlights der letzten Versionen {#highlights}
 
+- **Extrusion, Schatten und viele Korrekturen.** [[menu.effects > menu.effects.extrude]] hält einen im Raum gedrehten Körper an seinem Platz, und Abschrägungen auf Text falten sich nicht mehr; Schatten behalten die Löcher von Ringen und fallen von einem extrudierten Objekt samt Körper; [[menu.edit > menu.edit.select_similar]] schaut in Gruppen hinein; [[menu.bitmaps > menu.bitmaps.convert_to_bitmap]] behält den Platz des Bildes im Stapel; [[menu.view > menu.view.navigator]] ist ein Menübefehl mit der Taste N; .cdr-Dateien öffnen sich mit ihren Tabellen, und thailändische Dateinamen zeigen ihre Buchstaben.
+- **CNC-Werkzeugwege, Export und Auswahl.** [[menu.tools > menu.tools.tracecut]] erzeugt G-Code für eine CNC-Fräse und zeichnet Ösen, Schachteln mit Fingerzinken und gekantete Wannen; [[menu.file > menu.file.export]] fragt zuerst nach der Datei und zeigt dann die Optionen des Formats, [[menu.file > menu.file.export_with_options]] zeigt sie immer; [[menu.edit > menu.edit.select_similar]] und [[menu.edit > menu.edit.invert_selection]] ändern die Auswahl; [[menu.object > menu.object.insert > menu.object.add_dimensions]] bemaßt die Auswahl; prozedurale Füllungen, OpenType-Schaltflächen und eine laotische Oberfläche sind neu.
+- **Doppelseiten und verknüpfter Text.** [[menu.layout > menu.layout.facing_pages]] zeigt die Seiten nebeneinander als Druckbögen; [[menu.text > menu.text.link_content]] verknüpft Texte, sodass Tippen in einem die anderen ändert; ein mehrseitiges PDF fragt, welche Seiten importiert werden; [[menu.edit > menu.edit.step_and_repeat]] kann eine Seite mit Kopien füllen.
+- **Touch und Telefone.** Umschalt-, Strg- und Alt-Schaltflächen in der
+  Standardleiste bleiben für einen Finger gedrückt; unter Android hält die
+  Oberfläche Abstand zur Kameraaussparung und zu den abgerundeten Ecken; der
+  Apple Pencil funktioniert in Safari auf dem iPad.
+- **Dateien.** .cdr-Dateien behalten die Füllregel sich überlappender Kurven
+  und öffnen sich mit ihren Tabstopps, mehrspaltigem Text, Hilfslinien für
+  alle Seiten und den Objekten der Masterseite.
+- **Bilder, Drucken und Arbeitsbereich.** Bildpixel zuschneiden im
+  Zuschneidewerkzeug und [[menu.bitmaps > menu.bitmaps.crop_to_frame]]
+  schneiden die Pixel eines Bildes zu; Drucken in Graustufen und in
+  umgekehrter Reihenfolge; [[menu.view > menu.view.scrollbars]] blendet die
+  Bildlaufleisten aus.
 - **TraceCut.** [[menu.tools > menu.tools.tracecut]] öffnet die Werkzeuge für
   Schneideplotter: Plotterausgabe, Schnittlinien, Verschachtelung und Messen.
   Siehe [TraceCut](../objects/tracecut.md).

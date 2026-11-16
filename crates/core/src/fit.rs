@@ -122,6 +122,87 @@ fn subpaths(path: &BezPath, tol: f64) -> Vec<(Vec<Point>, bool)> {
     out
 }
 
+/// A drawn stroke (the raw pointer samples of a Freehand drag) as a path:
+/// samples closer than a quarter of `step` are dropped, the rest are
+/// resampled evenly every `step` (so a slow hand and a fast one give
+/// the same stroke), the jitter is evened out by `smooth` (0 to 1: up to
+/// four passes of a 1-2-1 average that keep both ends in place) and the
+/// result is fitted to few Bezier segments within `tolerance` by
+/// [`fit_path`]: curves where the hand curved, straight lines where it
+/// ran straight and corners where it turned sharply. All lengths are in
+/// the units of `points`.
+pub fn fit_stroke(points: &[Point], tolerance: f64, smooth: f64, step: f64) -> BezPath {
+    let pts: Vec<Point> = points.iter().copied().filter(|p| p.is_finite()).collect();
+    let step = if step.is_finite() && step > 0.0 {
+        step
+    } else {
+        0.1
+    };
+    let mut kept: Vec<Point> = Vec::with_capacity(pts.len());
+    for p in &pts {
+        if kept.last().is_none_or(|l| (*p - *l).hypot() >= step * 0.25) {
+            kept.push(*p);
+        }
+    }
+    if kept.len() < 2 {
+        let mut path = BezPath::new();
+        if let Some(p) = pts.first() {
+            path.move_to(*p);
+            path.line_to(*p);
+        }
+        return path;
+    }
+    let mut pts = resample(&kept, step);
+    let passes = (smooth.clamp(0.0, 1.0) * 4.0).round() as usize;
+    for _ in 0..passes {
+        if pts.len() < 3 {
+            break;
+        }
+        let old = pts.clone();
+        for i in 1..old.len() - 1 {
+            let (a, b, c) = (old[i - 1], old[i], old[i + 1]);
+            pts[i] = Point::new(
+                (a.x + 2.0 * b.x + c.x) / 4.0,
+                (a.y + 2.0 * b.y + c.y) / 4.0,
+            );
+        }
+    }
+    let mut line = BezPath::new();
+    line.move_to(pts[0]);
+    for p in &pts[1..] {
+        line.line_to(*p);
+    }
+    let fitted = fit_path(&line, tolerance);
+    if fitted.elements().len() < 2 {
+        line
+    } else {
+        fitted
+    }
+}
+
+/// `pts` as points `step` apart along the polyline, the first and the
+/// last kept.
+fn resample(pts: &[Point], step: f64) -> Vec<Point> {
+    let mut out = vec![pts[0]];
+    let mut carry = 0.0;
+    for w in pts.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let len = (b - a).hypot();
+        let mut at = step - carry;
+        while at <= len {
+            out.push(a + (b - a) * (at / len));
+            at += step;
+        }
+        carry = len - (at - step);
+    }
+    let last = pts[pts.len() - 1];
+    if out.last().is_none_or(|l| (*l - last).hypot() > 1e-9) {
+        out.push(last);
+    }
+    out
+}
+
+
 /// Unit vector of `v`, or `None` when it has no length.
 fn unit(v: Vec2) -> Option<Vec2> {
     let len = v.hypot();
@@ -740,7 +821,48 @@ fn emit(bez: CubicBez, tol: f64, out: &mut BezPath) {
 
 #[cfg(test)]
 mod tests {
-    use super::fit_path;
+    /// A shaky hand-drawn arc is drawn as a few curves within the
+    /// tolerance, and an L keeps its corner.
+    #[test]
+    fn a_drawn_stroke_is_fitted_and_keeps_its_corners() {
+        let noisy: Vec<Point> = (0..200)
+            .map(|i| {
+                let t = f64::from(i) / 199.0 * std::f64::consts::PI;
+                let j = if i % 2 == 0 { 0.3 } else { -0.3 };
+                Point::new(50.0 * t.cos() + j, 50.0 * t.sin() - j)
+            })
+            .collect();
+        let path = fit_stroke(&noisy, 0.8, 0.5, 0.5);
+        assert!(path.elements().len() < 40, "{}", path.elements().len());
+        let mut flat: Vec<Point> = Vec::new();
+        crate::geometry::flatten(&path, 0.05, &mut |el| {
+            if let PathEl::MoveTo(p) | PathEl::LineTo(p) = el {
+                flat.push(p);
+            }
+        });
+        for p in &noisy {
+            let near = flat.windows(2)
+                .map(|w| super::dist_to_segment(*p, w[0], w[1]))
+                .fold(f64::MAX, f64::min);
+            assert!(near < 2.0, "{near}");
+        }
+        let l: Vec<Point> = (0..=100)
+            .map(|i| Point::new(f64::from(i), 0.0))
+            .chain((1..=100).map(|i| Point::new(100.0, f64::from(i))))
+            .collect();
+        let path = fit_stroke(&l, 0.5, 0.0, 1.0);
+        let nodes: Vec<Point> = path
+            .elements()
+            .iter()
+            .filter_map(|e| match e {
+                PathEl::MoveTo(p) | PathEl::LineTo(p) | PathEl::CurveTo(_, _, p) => Some(*p),
+                _ => None,
+            })
+            .collect();
+        assert!(nodes.iter().any(|n| (*n - Point::new(100.0, 0.0)).hypot() < 1.0));
+    }
+
+    use super::{fit_path, fit_stroke};
     use crate::geometry::{BezPath, Circle, PathEl, Point, Rect, Shape as _};
 
     /// The polygon of `path` flattened at `tol`.

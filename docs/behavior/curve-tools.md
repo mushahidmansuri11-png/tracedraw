@@ -16,12 +16,19 @@ delete the selection as everywhere (#1527,
 
 ## Freehand (F5)
 
-- The pointer is sampled every 0.2 mm of movement; on release the points
-  are simplified with a tolerance of `0.2 + s / 100 x 2.2` screen pixels
-  (`s` the Freehand smoothing, 0 to 100, 50 by default: 1.3 pixels; at
-  least 0.02 mm), so a zoomed-in drawing keeps more detail, and fitted
-  with smooth cubic segments (`geometry::smooth_path`). The smoothing is
-  on the property bar and in Options > Tools > Curve tools.
+- The pointer is sampled every 0.2 mm of movement; on release the
+  samples are resampled one screen pixel apart, the jitter of the hand
+  is evened out by up to four passes of a 1-2-1 average (`s / 100` of
+  four, ends kept in place) and the result is fitted to few cubic
+  segments within `0.25 + s / 100 x 1.2` screen pixels of the stroke
+  (`s` the Freehand smoothing, 0 to 100, 50 by default: 0.85 pixels; at
+  least 0.01 mm), so a zoomed-in drawing keeps more detail
+  (`fit::fit_stroke`, the fitter of Schneider's method that outlines use;
+  sharp turns stay corners, straight runs stay lines). The smoothing is
+  on the property bar and in Options > Tools > Curve tools. Before
+  2026-11-16 the stroke was simplified with a tolerance of `0.2 + s / 100
+  x 2.2` pixels and threaded with `geometry::smooth_path`, which cut
+  corners short and wobbled on a shaky hand.
 - A click, then another click: a straight line between them, previewed
   to the pointer after the first click; Ctrl keeps it to steps of the
   constrain angle (15 degrees by default); Esc drops the first click; a
@@ -186,6 +193,12 @@ delete the selection as everywhere (#1527,
   last preview without the tentative point (#1506). The last spans of
   the curve still change as points are added, as a B-spline's do: each
   point shapes the spans next to it.
+- C or V held while a point is placed (or C or V with a second click on
+  the last point) makes it a fixed point, as the Shape tool's C does
+  (#1758): the curve passes through it with a corner, in the preview and
+  in the curve made, which keeps the flags (`CurveInProgress::
+  spline_fixed`, `Shape::spline_fixed`; #2060,
+  `pick_drag_tests::bspline_points_placed_with_c_or_v_held_are_fixed`).
 - Double-click, Enter or Esc finishes (Esc with one point drops it);
   clicking the first point (once there are three) closes it into the periodic spline,
   smooth all round. The result is a curve object (its nodes are the

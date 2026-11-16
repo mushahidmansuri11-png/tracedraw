@@ -312,10 +312,12 @@ impl<N: Numeric> NumField<'_, N> {
         }
         // A drag left or right (or down and up) on the arrows or the
         // label: a step every few pixels, the part left over kept for the
-        // next frame (#1303).
+        // next frame (#1303). A finger sliding the bar the field is on
+        // steps nothing (#1997).
         let drag_id = id.with("drag");
         let drags = [Some(&spin_resp), label_resp.as_ref()];
-        let dragging = drags.iter().flatten().any(|r| r.dragged());
+        let dragging = drags.iter().flatten().any(|r| r.dragged())
+            && !crate::ui::overflow::finger_sliding(ui.ctx());
         if dragging {
             ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeHorizontal);
             let d = drags
@@ -540,16 +542,6 @@ pub fn scale_web_scroll(ctx: &egui::Context) {
     if scale != 1.0 {
         ctx.input_mut(|i| i.smooth_scroll_delta *= scale);
     }
-}
-
-/// The scale [`scale_web_scroll`] gave this frame's smoothed scroll: 1
-/// on the desktop.
-pub fn web_scroll_factor(ctx: &egui::Context) -> f32 {
-    if !web_wheel() {
-        return 1.0;
-    }
-    ctx.data(|d| d.get_temp::<f32>(web_scroll_scale_id()))
-        .unwrap_or(1.0)
 }
 
 /// The notches one wheel event of `delta` raw units turns, up positive,

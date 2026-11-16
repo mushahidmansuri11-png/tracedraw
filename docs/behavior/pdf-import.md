@@ -2,8 +2,45 @@
 
 File > Open and File > Import accept `.pdf` and `.ai` (PDF-compatible
 AI files, which carry a PDF after a PostScript preamble). Open
-makes one page per PDF page; Import places the first page's objects on
-the active layer.
+makes one page per PDF page. Import of a file of one page places its
+objects on the active layer; a file of several pages asks which pages
+come in and where (below).
+
+## Importing several pages
+
+When the file read for File > Import has more than one page, the Import
+PDF Pages dialog asks, after the Import PDF dialog (how to read the
+text) and the password of a protected file, so nothing is asked twice:
+
+- Pages to import: All (the default), or the pages typed as numbers
+  and ranges from 1 ("1-3, 5"). The list below shows each page with
+  its size in the document's units and its orientation, ticked when it
+  is chosen; ticking a page writes the range. Pages typed out of order
+  or twice come in once each, in the file's order; numbers past the
+  last page are left out. OK with no page chosen says so and keeps the
+  dialog open.
+- Place them:
+  - As new pages after the current page (the default): each chosen page
+    becomes a document page with that page's size and orientation (its
+    crop box and `/Rotate`, as Open reads them), in order, right after
+    the current page, with one layer holding its objects where the file
+    has them. The first new page is shown with its objects selected.
+    The placement cursor and the view centre (Options > File Formats)
+    do not move them.
+  - On the current page: the objects go on the active layer, as for a
+    file of one page; with several pages chosen each page's objects are
+    one group, named after its page, stacked in page order, all
+    selected. A place given with the import cursor, or the view centre
+    when Options > File Formats says so, applies to them all.
+- The file's spot inks join the drawing's as below, and everything
+  (inks, pages, objects) is one undo step ("Import"). Pictures of the
+  chosen pages that came in smaller are told as below.
+
+A file of one page comes in without the dialog, as before. Taking pages
+of several files into one drawing this way merges PDFs; Export or
+Publish to PDF with a page range splits them. The dialog is the same on
+the desktop, in the browser and on Android: the file is read once, and
+the dialog keeps what was read until OK or Cancel.
 
 ## What is read
 
@@ -129,6 +166,18 @@ the active layer.
   imported (the Import PDF dialog: Text or Curves, Do not ask again);
   Options > File Formats keeps the choice (`pdf_text_as_curves`,
   `pdf_ask_text`).
+- Import as Picture (#1916): File > Import offers a third choice,
+  Picture, with a resolution (`pdf_as_picture`, `pdf_picture_dpi`, 36 to
+  2400 dpi, 300 at first; Options > File Formats has them too). The file
+  is read with its text as curves, the chosen pages come in as with the
+  other choices, then the objects of each page become one picture by
+  Convert to Bitmap (RGB, anti-aliased, transparent background): one a
+  new page, or on the current page one a page (the page's group) or one
+  for a single page's objects; the pictures are selected, and the import
+  and the conversion are one undo step "Import"
+  (`pdf_pages::tests::import_as_picture_makes_each_page_one_picture`).
+  Opening a file offers no Picture: with Picture chosen, an opened file
+  reads its text as curves.
 
 ## Not read
 
@@ -179,6 +228,13 @@ their own crypt filter and signature contents are left alone.
   `what_is_encrypted_decrypts_again`,
   `revision_5_files_open_with_either_password`
 - `ui::pdf_password::tests::protected_pdfs_ask_for_their_password`
+- Several pages: `ui::pdf_pages::tests::importing_a_pdf_of_several_pages_asks_which_and_where`
+  (the text question, then the pages; nothing chosen; pages 3 and 1 as
+  new pages after the first of two, at 210 x 297 and 100 x 50 mm, in
+  one undo step; two pages on the current page as two groups),
+  `a_pdf_of_one_page_comes_in_without_asking`,
+  `page_lists_read_and_write_ranges`, and in the core
+  `command::tests::inserted_pages_keep_their_sizes_and_undo_as_one_step`.
 - Checked by hand: files protected by an independent PDF tool in
   revisions 2, 3, 4, 5 and 6, with and without object streams, convert to
   the same SVG as the unprotected file.
@@ -300,3 +356,37 @@ their own crypt filter and signature contents are left alone.
   (`crates/io/tests/devanagari_pdf.rs`,
   `hindi_with_a_scrambled_tounicode_map_imports_as_the_typed_words`, and
   `pdf_import::tests::a_scrambled_tounicode_map_is_put_right`.)
+
+  With the file's font installed, nothing is worked out: the font is
+  asked (`crates/io/src/pdf_indic.rs`). The embedded subset keeps the
+  glyph numbers of the font it was cut from, and that font (the Hindi
+  font the operating system brings, as a rule) is laid out by the text
+  engine: every letter, every letter with every sign, every pair of
+  letters joined by a virama, the reph over every letter, and the signs
+  that join over a letter (a vowel sign with the reph, with a nasal
+  sign, with both). Each glyph that comes out takes the text that made
+  it: a conjunct's glyph its letters, a half form its letter and virama,
+  a form under a letter the virama and the letter, a glyph of joined
+  signs its signs. While a glyph the file uses is still without a text,
+  the conjuncts of three letters are tried from those of two. A glyph
+  with no outline and no advance stands for nothing. These texts take
+  the place of the map's for the glyphs that show Devanagari; the others
+  keep what the rules above give. Glyph by glyph in drawn order, a reph
+  also stands before the vowel sign drawn after its letter (र्वा is
+  drawn व, reph, ा), and one glyph can hold the short i sign with the
+  reph or a nasal sign, drawn before the letter: both go back to typed
+  order. The installed font is asked only when it is the embedded one:
+  the same number of glyphs and units per em, and the same advance and
+  bounding box for the glyphs the file uses (up to 64 of them); what a
+  font taught is kept while the program runs. Without the font
+  installed the file opens as before.
+
+  The 44 words the reporter listed as still wrong, and all 67 words of
+  the reporter's file with the 12 the map holds nowhere, then come in as
+  typed (`crates/io/tests/devanagari_pdf.rs`,
+  `the_words_reported_as_wrong_import_as_typed_with_the_font_installed`,
+  `every_word_of_a_scrambled_file_imports_as_typed_with_the_font_installed`;
+  `pdf_indic::tests`). These tests write the file with the test's
+  Devanagari font, which the tests also install; the reporter's own file
+  uses a system font we cannot ship or install here, so it was not
+  opened with its font.

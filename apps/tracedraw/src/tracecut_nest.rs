@@ -140,6 +140,9 @@ pub struct CostSettings {
     pub piece_price: f64,
     /// Per hour of cutting time (from the Cutting Time settings).
     pub hour_price: f64,
+    /// Per pierce: each outline the cutter starts (laser, plasma, water
+    /// jet).
+    pub pierce_price: f64,
     /// Added on every side of each object's box (mm).
     pub reserve: f64,
     pub copies: u32,
@@ -156,6 +159,7 @@ impl Default for CostSettings {
             weed_price: 12.0,
             piece_price: 0.0,
             hour_price: 0.0,
+            pierce_price: 0.0,
             reserve: 5.0,
             copies: 1,
             currency: String::new(),
@@ -412,8 +416,8 @@ impl App {
         (report, est)
     }
 
-    /// The cost of the selection: the material, cutting, weeding, pieces
-    /// and machine time from the Cutting Time settings.
+    /// The cost of the selection: the material, cutting, weeding, pieces,
+    /// piercing and machine time from the Cutting Time settings.
     pub fn tracecut_cost(&self, s: &CostSettings, t: &TimeSettings) -> Report {
         let (_, outlines) = self.tracecut_parts();
         let job = tracedraw_tracecut::calc::job(&outlines, Point::ZERO, TravelOrder::Nearest);
@@ -422,6 +426,8 @@ impl App {
             blocks: job.blocks.clone(),
             cut_length: job.measurement.length,
             hours: est.total_s / 3600.0,
+            // The cutter pierces once for every outline it starts.
+            pierces: est.travel.outlines as f64,
         };
         let material = Material {
             name: tr("tracecut.cost_material"),
@@ -448,6 +454,7 @@ impl App {
             ),
             service("tracecut.cost_pieces", ServiceUnit::Piece, s.piece_price),
             service("tracecut.cost_hours", ServiceUnit::Hour, s.hour_price),
+            service("tracecut.cost_piercing", ServiceUnit::Pierce, s.pierce_price),
         ];
         let spec = cost::CostSpec {
             reserve: s.reserve,
@@ -460,6 +467,7 @@ impl App {
             cost::QtyUnit::Metre => "m",
             cost::QtyUnit::Piece => "×",
             cost::QtyUnit::Hour => "h",
+            cost::QtyUnit::Pierce => "×",
         };
         let mut lines = vec![trf(
             "tracecut.cost_total",
@@ -561,6 +569,196 @@ mod tests {
         assert!(ba.x1 <= 100.0 + 1e-6 && bb.x1 <= 100.0 + 1e-6);
         let overlap = ba.intersect(bb);
         assert!(overlap.width() <= 1e-6 || overlap.height() <= 1e-6);
+    }
+
+    /// #2227: an object with an envelope is nested by what it draws. A
+    /// 30 mm square whose envelope draws it 60 mm wide and high used to
+    /// be placed as the 30 mm square it was before the envelope, so its
+    /// neighbour landed on top of it.
+    #[test]
+    fn an_enveloped_object_is_nested_by_what_it_draws() {
+        use tracedraw_core::envelope::Frame;
+        use tracedraw_core::geometry::Affine;
+        for shape_nest in [true, false] {
+            let mut app = App::headless();
+            let a = rect(&mut app, 500.0, 500.0, 30.0, 30.0);
+            let b = rect(&mut app, 600.0, 500.0, 30.0, 30.0);
+            app.select(vec![a]);
+            app.apply_envelope_frame(|r| {
+                Frame::around(r).transformed(
+                    Affine::translate((r.x0, r.y0))
+                        * Affine::scale(2.0)
+                        * Affine::translate((-r.x0, -r.y0)),
+                )
+            });
+            let drawn = |app: &App, id| app.doc().shape_on_page(id).expect("shape").visual_bounds();
+            assert!((drawn(&app, a).width() - 60.0).abs() < 0.01);
+            app.select(vec![a, b]);
+            let c = if shape_nest {
+                app.tracecut_shape_nest(&ShapeNestSettings {
+                    sheet: small_sheet(),
+                    rounds: 2,
+                    draw_sheets: false,
+                    ..Default::default()
+                })
+            } else {
+                app.tracecut_rect_nest(&RectNestSettings {
+                    sheet: small_sheet(),
+                    draw_sheets: false,
+                    ..Default::default()
+                })
+            };
+            assert!(app.tracecut_apply_changes(&c));
+            let (ba, bb) = (drawn(&app, a), drawn(&app, b));
+            for r in [ba, bb] {
+                assert!(r.x0 >= -0.01 && r.y0 >= -0.01, "{r:?}");
+                assert!(r.x1 <= 100.01 && r.y1 <= 100.01, "{r:?}");
+            }
+            let overlap = ba.intersect(bb);
+            assert!(
+                overlap.width() <= 1e-6 || overlap.height() <= 1e-6,
+                "{ba:?} and {bb:?} overlap (shape nesting: {shape_nest})"
+            );
+        }
+    }
+
+    /// The live test of 0.41: Shape Nesting at 1 mm accuracy left objects
+    /// crossing each other and past the sheet's edge. Ellipses, stars,
+    /// round-cornered rectangles, an L-shaped curve, some turned or
+    /// scaled, nested from the window's tool and applied: in wireframe
+    /// no two outlines cross or come closer than the spacing, every
+    /// moved object lies on its sheet, and one too large stays where it
+    /// was and is reported.
+    #[test]
+    fn nested_objects_never_cross_and_stay_on_the_sheet() {
+        use tracedraw_core::geometry::{Affine, Shape as _};
+        let mut app = App::headless();
+        let mut ids = Vec::new();
+        for i in 0..14 {
+            let x = 400.0 + 60.0 * (i % 5) as f64;
+            let y = 400.0 + 60.0 * (i / 5) as f64;
+            let k = (i % 3) as f64;
+            let r = Rect::new(x, y, x + 30.0 + 8.0 * k, y + 18.0 + 6.0 * k);
+            let kind = match i % 4 {
+                0 => ShapeKind::Ellipse { rect: r, arc: None },
+                1 => ShapeKind::Polygon {
+                    rect: r,
+                    points: 5 + i as u32 % 3,
+                    sharpness: 0.5,
+                    complex: None,
+                    twist: 0.0,
+                },
+                2 => ShapeKind::Rect {
+                    rect: r,
+                    radius: 6.0,
+                    corners: None,
+                },
+                _ => {
+                    let mut p = BezPath::new();
+                    p.move_to((x, y));
+                    p.line_to((x + 40.0, y));
+                    p.curve_to(
+                        (x + 40.0, y + 10.0),
+                        (x + 20.0, y + 6.0),
+                        (x + 12.0, y + 12.0),
+                    );
+                    p.line_to((x + 12.0, y + 30.0));
+                    p.line_to((x, y + 30.0));
+                    p.close_path();
+                    ShapeKind::Path {
+                        path: p,
+                        closed: true,
+                    }
+                }
+            };
+            let id = app.new_shape(kind).expect("shape");
+            if i % 3 == 1 {
+                let c = r.center().to_vec2();
+                app.select(vec![id]);
+                app.transform_selection(
+                    Affine::translate(c)
+                        * Affine::rotate(0.5)
+                        * Affine::scale(1.2)
+                        * Affine::translate(-c),
+                );
+            }
+            ids.push(id);
+        }
+        let big = rect(&mut app, 900.0, 900.0, 300.0, 300.0);
+        let mut all = ids.clone();
+        all.push(big);
+        app.select(all);
+        let before_big = app.doc().shape_on_page(big).expect("big").page_path();
+        let mut settings = crate::tracecut::ToolSettings::default();
+        settings.shape_nest = ShapeNestSettings {
+            sheet: SheetSpec {
+                width: 150.0,
+                height: 120.0,
+                margin: 3.0,
+                spacing: 2.0,
+                ..Default::default()
+            },
+            rotations: Rotations::Eighth,
+            tolerance: 1.0,
+            rounds: 5,
+            draw_sheets: false,
+            ..Default::default()
+        };
+        let w = app.tracecut_work_out(crate::tracecut::ToolId::ShapeNesting, &settings);
+        assert!(app.tracecut_commit(&w, &settings, None));
+        assert!(app
+            .status
+            .contains(&trf("tracecut.nest_left_out", &[("n", "1")])));
+        assert_eq!(
+            app.doc().shape_on_page(big).expect("big").page_path(),
+            before_big,
+            "too large: left where it was"
+        );
+        let spec = settings.shape_nest.sheet;
+        let placed: Vec<BezPath> = ids
+            .iter()
+            .map(|id| app.doc().shape_on_page(*id).expect("shape").page_path())
+            .collect();
+        let sheet_of = |p: &BezPath| {
+            let b = p.bounding_box();
+            (0..20).find(|i| {
+                let s = spec.sheet_rect(*i, 0.0).inset(-3.0);
+                b.x0 >= s.x0 - 1e-6
+                    && b.y0 >= s.y0 - 1e-6
+                    && b.x1 <= s.x1 + 1e-6
+                    && b.y1 <= s.y1 + 1e-6
+            })
+        };
+        for p in &placed {
+            assert!(
+                sheet_of(p).is_some(),
+                "{:?} is off every sheet",
+                p.bounding_box()
+            );
+        }
+        for (i, a) in placed.iter().enumerate() {
+            for b in &placed[i + 1..] {
+                let shared =
+                    tracedraw_core::shaping::overlay(a, b, tracedraw_core::shaping::Op::Intersect);
+                assert!(
+                    measure::measure_object(&[shared]).area < 1e-6,
+                    "two objects cross"
+                );
+                // Grown by just under half the spacing, they still keep
+                // apart.
+                let ga = tracedraw_core::shaping::offset(a, 0.98);
+                let gb = tracedraw_core::shaping::offset(b, 0.98);
+                let shared = tracedraw_core::shaping::overlay(
+                    &ga,
+                    &gb,
+                    tracedraw_core::shaping::Op::Intersect,
+                );
+                assert!(
+                    measure::measure_object(&[shared]).area < 1e-6,
+                    "two objects closer than the spacing"
+                );
+            }
+        }
     }
 
     #[test]

@@ -26,7 +26,8 @@ later, and removing the last one gives the original back.
 
 ## Effects menu
 
-- Flatten Effects first, then a line, then the groups in alphabetical
+- Flatten Effects first, then Apply to Pictures on All Pages (see "All
+  pages"), then a line, then the groups in alphabetical
   order of their English names: 3D Effects, Adjust, Art Strokes, Blur,
   Camera, Color Transform, Contour, Correction, Creative, Custom,
   Distort, Noise, Sharpen, Texture, Transform. Each item shows the
@@ -145,6 +146,37 @@ the plain one:
   brings its settings back, its cross deletes it.
 - OK adds one Image Adjustments effect (or changes the one being
   edited) with the settings, which the FX section can edit later.
+
+## All pages
+
+An effect can go to the pictures of every page at once (#1551):
+
+- Every effect dialog (Image Adjustments too) shows an All pages box
+  under Preview while an effect is being added (not edited from the FX
+  section), the drawing has more than one page and a picture (bitmap
+  object) is selected. It starts cleared. Ticked, OK gives the effect
+  with the dialog's values to every picture on every page and master
+  layer, in groups and clip frames too, that the selection left out;
+  locked pictures and pictures on locked layers are left as they are.
+  The pictures changed join the undo step of the selection ("Add
+  Effect", the live preview kept as before), so one Undo takes all of
+  it back; the status bar counts the other pictures
+  (`App::add_bitmap_effect_on_all_pages`).
+- Effects > Apply to Pictures on All Pages (below Flatten Effects; on
+  with more than one page and a selected picture that has effects)
+  gives every other picture on every page the effect list of the first
+  selected picture that has one, replacing their own list (their
+  original pixels kept), as one undo step "Effects on All Pages".
+  Pictures that already have the same list are not touched; with
+  nothing to change no step is recorded. This covers the effects that
+  apply at once without a dialog (Auto Adjust, Desaturate, Invert
+  Colors).
+- The other pictures are made on the interface thread when OK is
+  pressed (the live preview shows the selection only).
+- Checks: `fx::preview::tests::all_pages_gives_the_effect_to_every_picture_in_one_step`
+  (with and without the live preview; a locked picture stays; one Undo
+  takes both pages back),
+  `fx::preview::tests::the_selected_pictures_effects_go_to_all_pages`.
 
 ## Properties panel: FX
 
@@ -522,14 +554,18 @@ TIFF for a CMYK picture, else PNG (#1834).
   ink it keeps goes in as its process mix. The TIFF is a separated
   image, the JPEG a four-component file, both with the picture's
   resolution and the CMYK profile in use (the writers of the CMYK
-  export, #1763). Neither holds transparency: a see-through pixel holds
+  export, #1763). The TIFF of a picture with see-through pixels keeps
+  them: a fifth channel, an unassociated alpha (ExtraSamples 2), beside
+  each pixel's full inks (#1925); an opaque picture stays four
+  channels. The JPEG holds no transparency: a see-through pixel holds
   that much less ink.
 - Any other picture as JPEG is RGB (grey for a Grayscale picture) at
   quality 92 over white paper, with its resolution; as TIFF it is RGB,
   with its alpha when a pixel is see-through.
 
 `bitmap_file::tests::save_bitmap_as_keeps_the_inks_of_a_cmyk_picture`,
-`bitmap_file::tests::save_bitmap_as_writes_an_rgb_picture_as_jpeg_or_tiff`.
+`bitmap_file::tests::save_bitmap_as_writes_an_rgb_picture_as_jpeg_or_tiff`,
+`bitmap_file::tests::a_cmyk_picture_keeps_its_transparency_in_tiff_and_edit_bitmap`.
 
 ## Color Mask docker
 

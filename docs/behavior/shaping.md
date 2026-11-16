@@ -5,8 +5,9 @@ objects selected) and the Combine Shapes panel.
 
 ## Operations
 
-The target gives the result its fill, outline and opacity; the other
-selected objects are the sources. With objects picked one by one
+The target gives the result its fill, outline and opacity (a mesh fill
+the result reaches past becomes the mesh's mean colour, see
+`mesh-fill.md`); the other selected objects are the sources. With objects picked one by one
 (click, Shift+click) the target is the one selected last; with a
 selection made by a marquee or a freehand region, the target is the
 bottom-most object of it (as long as the selection is not changed by a
@@ -65,6 +66,16 @@ sources do (Trim keeps them). Weld and Intersect leave open sources out:
 they stay as they are, and with no closed source left the operation does
 nothing and the status bar says so. Simplify leaves open curves alone.
 
+Weld of open curves alone (no closed object selected) joins them: ends
+that meet, or lie within the Join Curves gap, are joined end to end with
+the Join Curves joint, and all the curves become one open curve, those
+whose ends meet nothing as subpaths of it (#1934,
+`ops::curves_and_target_tests::weld_and_combine_of_open_curves_make_one_path`).
+Combine of open curves gives one open curve with a subpath for each;
+a closed object combined with them keeps its subpaths closed, so they
+still fill and Break Apart gives them back as closed curves
+(`command::tests::combining_open_curves_keeps_them_open`).
+
 When the object whose attributes the result takes is a group: Trim, Front
 Minus Back and Back Minus Front cut each object of the group on its own,
 each keeping its fill, outline and opacity, the pieces a group (pieces
@@ -72,6 +83,32 @@ cut away entirely are left out); Weld and Intersect take the attributes
 of the group's first object with a fill. The result took the group's own
 attributes, none, and showed only in Wireframe (#539,
 `back_minus_front_with_a_group_keeps_each_objects_colours`).
+
+## Shape Builder
+
+Object > Shaping > Shape Builder (two or more closed objects selected;
+open curves take no part) cuts the objects into every separate region
+they make together, as Divide does, and waits for the hand
+(`shape_builder.rs`). A bar over the top of the drawing has **Join**,
+**Delete**, **Done** and **Cancel** (Esc).
+
+- Join: a drag (finger, pen or mouse) over regions joins every region its
+  path passes over into one; the path is followed in steps of 3 pixels
+  so a quick drag skips none. Swept regions are hatched in the accent
+  colour while the drag lasts.
+- Delete (the button, or Alt held, also the Alt button of the touch
+  keys): the regions a drag crosses are removed when it ends, and a tap
+  on a region removes it.
+- Each gesture changes the regions shown; nothing in the drawing changes
+  until **Done**, which replaces the objects by the regions that are left
+  in one undo step, "Shape Builder". A region takes the fill, outline and
+  opacity of the frontmost object that covers it, a joined one those of
+  the region the drag began on. **Done** with nothing joined or removed,
+  **Cancel** and Esc leave the drawing as it was.
+- One closed object, or only open curves, gives the status line "Open
+  curves take no part here..." and no builder.
+
+Tests: `shape_builder::tests`.
 
 ## Curves
 
@@ -124,6 +161,17 @@ rules. The result covers the same area under the even-odd rule
 (`shaping::tests::overlay_reads_its_inputs_with_the_fill_rule_given`).
 `shaping::nonzero_as_even_odd` turns one such outline into an even-odd one
 on its own.
+
+The operations read each object as the area it fills (#555): text and
+curves set to the nonzero rule with that rule, so the overlapping
+strokes of a letter make no hole; a group as what its objects cover
+together, so where two of them overlap is no hole either (its outline is
+their outlines one after the other, which the even-odd rule read as a
+hole there). Checked on overlapping rectangles, ellipses, curves, a
+group, a group of overlapping objects, an object with a hole, text and
+text converted to curves, and a target behind the source, by Weld,
+Trim, Intersect, Front Minus Back and Back Minus Front
+(`shaping_tests`).
 
 ## Clip frames
 

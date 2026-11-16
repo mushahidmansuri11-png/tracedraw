@@ -22,6 +22,19 @@ TraceDraw-এর প্রতিটি সংস্করণ বৈশিষ্�
 
 ## সাম্প্রতিক সংস্করণগুলির প্রধান বিষয় {#highlights}
 
+- **এক্সট্রুড, ছায়া ও একগুচ্ছ সংশোধন।** [[menu.effects > menu.effects.extrude]] 3D-তে ঘোরানো আকারকে তার জায়গায় রাখে, আর লেখার উপর বেভেল আর ভাঁজ হয় না; ছায়া আংটির ছিদ্র বজায় রাখে এবং এক্সট্রুড করা বস্তু থেকে তার পুরো আকারসহ পড়ে; [[menu.edit > menu.edit.select_similar]] গ্রুপের ভেতরেও দেখে; [[menu.bitmaps > menu.bitmaps.convert_to_bitmap]] স্তূপে ছবির জায়গা বজায় রাখে; [[menu.view > menu.view.navigator]] এখন N কী-সহ একটি মেনু কমান্ড; .cdr ফাইল তাদের টেবিলসহ খোলে, আর থাই ফাইলের নাম তাদের অক্ষর দেখায়।
+- **CNC টুলপাথ, এক্সপোর্ট ও নির্বাচন।** [[menu.tools > menu.tools.tracecut]] CNC রাউটারের জন্য G-code তৈরি করে এবং আইলেট, ফিঙ্গার জয়েন্টের বাক্স ও ভাঁজ করা ট্রে আঁকে; [[menu.file > menu.file.export]] প্রথমে ফাইল জিজ্ঞেস করে, তারপর ফরম্যাটের বিকল্প দেখায়, এবং [[menu.file > menu.file.export_with_options]] সেগুলো সবসময় দেখায়; [[menu.edit > menu.edit.select_similar]] ও [[menu.edit > menu.edit.invert_selection]] নির্বাচন বদলায়; [[menu.object > menu.object.insert > menu.object.add_dimensions]] নির্বাচনের মাপ যোগ করে; প্রসিডিউরাল ফিল, OpenType বোতাম ও লাও ইন্টারফেস নতুন।
+- **মুখোমুখি পৃষ্ঠা এবং সংযুক্ত টেক্সট।** [[menu.layout > menu.layout.facing_pages]] পৃষ্ঠাগুলো স্প্রেড হিসেবে পাশাপাশি দেখায়; [[menu.text > menu.text.link_content]] টেক্সট সংযুক্ত করে যাতে একটিতে টাইপ করলে অন্যগুলো বদলায়; একাধিক পৃষ্ঠার PDF কোন পৃষ্ঠা আমদানি করতে হবে তা জিজ্ঞেস করে; [[menu.edit > menu.edit.step_and_repeat]] পৃষ্ঠা কপি দিয়ে ভরতে পারে।
+- **টাচ ও ফোন।** স্ট্যান্ডার্ড টুলবারের Shift, Ctrl ও Alt বোতাম আঙুলের জন্য
+  চাপা থাকে; Android-এ ইন্টারফেস ক্যামেরার কাটআউট ও গোল কোণ থেকে দূরে থাকে;
+  Apple Pencil iPad-এর Safari-তে কাজ করে।
+- **ফাইল।** .cdr ফাইল একে অপরের ওপর পড়া বক্ররেখার ফিল নিয়ম রাখে এবং তাদের
+  ট্যাব স্টপ, একাধিক কলামের টেক্সট, সব পৃষ্ঠার ভাগ করা গাইডলাইন ও মাস্টার
+  পৃষ্ঠার অবজেক্টসহ খোলে।
+- **ছবি, প্রিন্টিং ও কাজের জায়গা।** ক্রপ টুলের ছবির পিক্সেল ক্রপ এবং
+  [[menu.bitmaps > menu.bitmaps.crop_to_frame]] ছবির পিক্সেল কাটে; গ্রেস্কেলে
+  ও উল্টো ক্রমে প্রিন্ট; [[menu.view > menu.view.scrollbars]] স্ক্রলবার
+  লুকায়।
 - **TraceCut।** [[menu.tools > menu.tools.tracecut]] কাটিং প্লটারের টুল খোলে:
   প্লটার আউটপুট, কাট লাইন, নেস্টিং ও মাপ। দেখুন
   [TraceCut](../objects/tracecut.md)।

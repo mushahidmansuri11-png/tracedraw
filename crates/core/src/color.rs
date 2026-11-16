@@ -492,18 +492,25 @@ impl Color {
         format!("#{r:02x}{g:02x}{b:02x}")
     }
 
-    /// Parse `#rgb`, `#rrggbb` or `rrggbb`.
+    /// Parse `#rgb`, `#rrggbb` or the same without the `#` (also with a
+    /// `0x` prefix, spaces around, upper or lower case). A trailing alpha
+    /// (`#rgba`, `#rrggbbaa`) is accepted and ignored. Anything else,
+    /// a sign or a stray character included, gives `None`.
     pub fn from_hex(s: &str) -> Option<Color> {
-        let s = s.trim().trim_start_matches('#');
-        let v = u32::from_str_radix(s, 16).ok()?;
+        let s = s.trim();
+        let s = s.strip_prefix('#').unwrap_or(s);
+        let s = s
+            .strip_prefix("0x")
+            .or_else(|| s.strip_prefix("0X"))
+            .unwrap_or(s);
+        if !s.chars().all(|c| c.is_ascii_hexdigit()) {
+            return None;
+        }
+        let digit = |i: usize| s.get(i..=i).and_then(|d| u8::from_str_radix(d, 16).ok());
+        let pair = |i: usize| s.get(i..i + 2).and_then(|d| u8::from_str_radix(d, 16).ok());
         match s.len() {
-            6 => Some(Color::rgb8((v >> 16) as u8, (v >> 8) as u8, v as u8)),
-            3 => {
-                let r = ((v >> 8) & 0xf) as u8;
-                let g = ((v >> 4) & 0xf) as u8;
-                let b = (v & 0xf) as u8;
-                Some(Color::rgb8(r * 17, g * 17, b * 17))
-            }
+            6 | 8 => Some(Color::rgb8(pair(0)?, pair(2)?, pair(4)?)),
+            3 | 4 => Some(Color::rgb8(digit(0)? * 17, digit(1)? * 17, digit(2)? * 17)),
             _ => None,
         }
     }
@@ -822,6 +829,17 @@ mod tests {
         assert_eq!(Color::from_hex("#ff8000").unwrap().to_rgb8(), [255, 128, 0]);
         assert_eq!(Color::from_hex("f80").unwrap().to_rgb8(), [255, 136, 0]);
         assert!(Color::from_hex("zz").is_none());
+        // Upper case, spaces, a 0x prefix and a trailing alpha.
+        assert_eq!(Color::from_hex(" #FF8000 ").unwrap().to_rgb8(), [255, 128, 0]);
+        assert_eq!(Color::from_hex("0xff8000").unwrap().to_rgb8(), [255, 128, 0]);
+        assert_eq!(Color::from_hex("#ff800080").unwrap().to_rgb8(), [255, 128, 0]);
+        assert_eq!(Color::from_hex("#f80a").unwrap().to_rgb8(), [255, 136, 0]);
+        // A sign, a double # or a wrong length is no colour.
+        assert!(Color::from_hex("+f8000").is_none());
+        assert!(Color::from_hex("##ff8000").is_none());
+        assert!(Color::from_hex("ff80").is_some());
+        assert!(Color::from_hex("ff800").is_none());
+        assert!(Color::from_hex("").is_none());
     }
 
     #[test]
