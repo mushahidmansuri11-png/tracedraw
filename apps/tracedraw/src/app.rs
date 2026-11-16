@@ -1104,6 +1104,11 @@ pub struct App {
     pub touch_paint_open: bool,
     /// The card's colours set the outline, not the fill.
     pub touch_paint_outline: bool,
+    /// Where the fill and outline button sits on the drawing, as a share
+    /// (0 to 1) of the room each way; a finger drags it.
+    pub touch_paint_at: [f32; 2],
+    /// The card shows the palette's colours (off: only the buttons).
+    pub touch_paint_palette: bool,
     /// A finger is the pointer (a touch screen): handles are larger.
     pub touch_ui: bool,
     /// The Shape Builder in progress (shape_builder.rs).
@@ -2704,6 +2709,8 @@ impl App {
             touch_panels: Default::default(),
             touch_paint_open: false,
             touch_paint_outline: false,
+            touch_paint_at: [0.0, 0.35],
+            touch_paint_palette: false,
             touch_ui: false,
             shape_builder: None,
             touch_tap: Default::default(),

@@ -2,8 +2,9 @@
 //! left edge of the drawing: its upper swatch is the fill and its lower
 //! one the outline of the selection (or of new objects). A tap opens a
 //! small card over the drawing with one button each for "No fill", "No
-//! outline", both removed, and the Edit Fill and Outline Pen dialogs;
-//! every button acts on the selection through the same paths as the
+//! outline", both removed, and the Edit Fill and Outline Pen dialogs
+//! (the palette's colours are one more button away); a drag moves the
+//! button anywhere over the drawing; every button acts on the selection through the same paths as the
 //! palette and the status bar, so it works under every tool, and the
 //! card closes after an action. Only one card is open at a time, and it
 //! keeps inside the drawing. Offered where the keys on the drawing are
@@ -98,7 +99,16 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: Rect) {
         return;
     }
     let ctx = ui.ctx().clone();
-    let at = egui::pos2(canvas.left() + 8.0, canvas.top() + 8.0 + 0.35 * (canvas.height() - 16.0));
+    // The button's place: a share of the room it can move in.
+    let room = egui::vec2(
+        (canvas.width() - SIDE - 24.0).max(1.0),
+        (canvas.height() - SIDE - 24.0).max(1.0),
+    );
+    let [fx, fy] = app.touch_paint_at;
+    let at = egui::pos2(
+        canvas.left() + 8.0 + fx.clamp(0.0, 1.0) * room.x,
+        canvas.top() + 8.0 + fy.clamp(0.0, 1.0) * room.y,
+    );
     let (fill, outline) = swatches(app);
     let open = app.touch_paint_open;
     let mut button = Rect::NOTHING;
@@ -114,8 +124,14 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: Rect) {
                 .corner_radius(6.0)
                 .inner_margin(3.0)
                 .show(ui, |ui| {
-                    let (r, resp) = ui.allocate_exact_size(Vec2::splat(SIDE), Sense::click());
+                    let (r, resp) = ui.allocate_exact_size(Vec2::splat(SIDE), Sense::click_and_drag());
                     button = r;
+                    // A drag moves the button, a tap opens the card.
+                    if resp.dragged() {
+                        let d = resp.drag_delta();
+                        app.touch_paint_at[0] = (fx + d.x / room.x).clamp(0.0, 1.0);
+                        app.touch_paint_at[1] = (fy + d.y / room.y).clamp(0.0, 1.0);
+                    }
                     let painter = ui.painter();
                     if open || resp.hovered() {
                         painter.rect_filled(r, 4.0, crate::theme::Tokens::tool_active());
@@ -135,10 +151,16 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: Rect) {
         return;
     }
     let mut done = false;
+    // The card opens on the side of the button that has room.
+    let (pivot, card_at) = if button.center().x > canvas.center().x {
+        (egui::Align2::RIGHT_TOP, egui::pos2(button.left() - 10.0, button.top()))
+    } else {
+        (egui::Align2::LEFT_TOP, egui::pos2(button.right() + 10.0, button.top()))
+    };
     egui::Area::new(egui::Id::new("touch_paint_card"))
         .order(egui::Order::Foreground)
-        .pivot(egui::Align2::LEFT_TOP)
-        .fixed_pos(egui::pos2(button.right() + 10.0, button.top()))
+        .pivot(pivot)
+        .fixed_pos(card_at)
         .constrain_to(canvas)
         .show(&ctx, |ui| {
             egui::Frame::new()
@@ -170,7 +192,6 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: Rect) {
                             done = true;
                         }
                     });
-                    colours(app, ui);
                     ui.horizontal(|ui| {
                         if card_button(ui, tr("touch_paint.edit_fill"), tr("touch_paint.edit_fill_tip")) {
                             app.open_edit_fill();
@@ -180,7 +201,19 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: Rect) {
                             app.open_outline_pen();
                             done = true;
                         }
+                        // The palette's colours are shown on demand.
+                        let shown = app.touch_paint_palette;
+                        let b = egui::Button::new(tr("touch_panels.palette"))
+                            .min_size(CELL)
+                            .selected(shown);
+                        if ui.add(b).on_hover_text(tr("touch_panels.palette_tip")).clicked() {
+                            app.touch_paint_palette = !shown;
+                        }
                     });
+                    if app.touch_paint_palette {
+                        ui.add_space(4.0);
+                        colours(app, ui);
+                    }
                 });
         });
     if done {
