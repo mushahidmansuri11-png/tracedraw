@@ -1254,6 +1254,7 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
     app.draw_right_drag(&painter);
     crate::touch_modifiers::keys_on_drawing(app, ui, canvas_rect);
     crate::touch_bars::bars_on_drawing(app, ui, canvas_rect);
+    crate::touch_paint::on_drawing(app, ui, canvas_rect);
     context::context_menu(app, ui, &response);
     crate::drop_menu::drop_menu_ui(app, ui);
     crate::fill_tool::node_bar(app, ui);

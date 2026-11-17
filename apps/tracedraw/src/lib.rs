@@ -240,6 +240,7 @@ mod title_bar;
 mod tools;
 mod tools2;
 mod touch_bars;
+mod touch_paint;
 mod touch_modifiers;
 mod touch_taps;
 mod trace;
