@@ -3072,6 +3072,12 @@ options.more_dictionaries = "ອ່ານວັດຈະນານຸກົມເ
 options.no_dictionaries = "ບໍ່ພົບວັດຈະນານຸກົມ. ກະລຸນາວາງວັດຈະນານຸກົມ Hunspell (ໄຟລ໌ .dic ແລະ .aff) ໃນໂຟນເດີຂ້າງລຸ່ມ, ຫຼື ເລືອກໂຟນເດີທີ່ມີໄຟລ໌ເຫຼົ່ານັ້ນ."
 options.node_tracking = "ເປີດໃຊ້ງານການຕິດຕາມຈຸດໂນດ"
 options.touch_keys = "ສະແດງ Shift, Ctrl, Alt ແລະ Delete ເທິງຮູບແຕ້ມ (ໜ້າຈໍສຳຜັດ)" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Show the touch bars beside the selection (touch screens)"
 options.horizontal = "ແນວນອນ"
 options.horizontal_origin = "ແນວນອນ:"

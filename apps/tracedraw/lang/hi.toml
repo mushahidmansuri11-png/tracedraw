@@ -3069,6 +3069,12 @@ options.more_dictionaries = "शब्दकोश यहाँ से भी �
 options.no_dictionaries = "कोई शब्दकोश नहीं मिला। Hunspell शब्दकोश (.dic और .aff फ़ाइलें) नीचे के फ़ोल्डर में रखें, या ऐसा फ़ोल्डर चुनें जिसमें वे हों।" # mt
 options.node_tracking = "नोड ट्रैकिंग सक्षम करें"
 options.touch_keys = "ड्रॉइंग पर Shift, Ctrl, Alt और Delete दिखाएँ (टच स्क्रीन)" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Show the touch bars beside the selection (touch screens)"
 options.horizontal = "क्षैतिज"
 options.horizontal_origin = "क्षैतिज:"

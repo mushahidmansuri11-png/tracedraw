@@ -3069,6 +3069,12 @@ options.more_dictionaries = "قراءة القواميس أيضًا من:" # mt
 options.no_dictionaries = "لم يُعثر على قواميس. ضع قواميس Hunspell (ملفات .dic و .aff) في المجلد أدناه، أو اختر مجلدًا يحتويها." # mt
 options.node_tracking = "تمكين تتبع العقد"
 options.touch_keys = "إظهار Shift وCtrl وAlt وDelete على الرسم (الشاشات اللمسية)" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Show the touch bars beside the selection (touch screens)"
 options.horizontal = "أفقي"
 options.horizontal_origin = "أفقي:"

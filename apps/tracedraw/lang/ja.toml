@@ -3069,6 +3069,12 @@ options.more_dictionaries = "辞書を次の場所からも読む:" # mt
 options.no_dictionaries = "辞書が見つかりません。Hunspell 辞書 (.dic と .aff ファイル) を下のフォルダーに置くか、辞書のあるフォルダーを選んでください。" # mt
 options.node_tracking = "ノードトラッキングを有効にする"
 options.touch_keys = "図面に Shift、Ctrl、Alt、Delete を表示（タッチスクリーン）" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Show the touch bars beside the selection (touch screens)"
 options.horizontal = "水平"
 options.horizontal_origin = "水平:"

@@ -3069,6 +3069,12 @@ options.more_dictionaries = "Woordenboeken ook lezen uit:" # mt
 options.no_dictionaries = "Geen woordenboeken gevonden. Zet Hunspell-woordenboeken (.dic- en .aff-bestanden) in de map hieronder of kies een map waarin ze staan." # mt
 options.node_tracking = "Knooppunten volgen inschakelen"
 options.touch_keys = "Shift, Ctrl, Alt en Delete op de tekening tonen (aanraakschermen)" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Show the touch bars beside the selection (touch screens)"
 options.horizontal = "Horizontaal"
 options.horizontal_origin = "Horizontaal:"

@@ -3069,6 +3069,12 @@ options.more_dictionaries = "Baca kamus juga dari:" # mt
 options.no_dictionaries = "Tidak ada kamus ditemukan. Taruh kamus Hunspell (berkas .dic dan .aff) di folder di bawah, atau pilih folder yang berisi kamus." # mt
 options.node_tracking = "Aktifkan pelacakan simpul"
 options.touch_keys = "Tampilkan Shift, Ctrl, Alt, dan Delete di gambar (layar sentuh)" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Show the touch bars beside the selection (touch screens)"
 options.horizontal = "Horizontal"
 options.horizontal_origin = "Horizontal:"

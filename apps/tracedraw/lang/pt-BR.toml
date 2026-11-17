@@ -3069,6 +3069,12 @@ options.more_dictionaries = "Ler dicionários também de:" # mt
 options.no_dictionaries = "Nenhum dicionário encontrado. Coloque dicionários Hunspell (arquivos .dic e .aff) na pasta abaixo ou escolha uma pasta que os tenha." # mt
 options.node_tracking = "Ativar rastreamento de nós"
 options.touch_keys = "Mostrar Shift, Ctrl, Alt e Delete sobre o desenho (telas sensíveis ao toque)" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Mostrar as barras de toque ao lado da seleção (telas de toque)"
 options.horizontal = "Horizontal"
 options.horizontal_origin = "Horizontal:"

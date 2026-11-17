@@ -3069,6 +3069,12 @@ options.more_dictionaries = "Читать словари также из:" # mt
 options.no_dictionaries = "Словари не найдены. Поместите словари Hunspell (файлы .dic и .aff) в папку ниже или выберите папку, где они есть." # mt
 options.node_tracking = "Включить отслеживание узлов"
 options.touch_keys = "Показывать Shift, Ctrl, Alt и Delete на рисунке (сенсорные экраны)" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Show the touch bars beside the selection (touch screens)"
 options.horizontal = "По горизонтали"
 options.horizontal_origin = "По горизонтали:"

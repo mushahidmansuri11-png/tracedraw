@@ -3069,6 +3069,12 @@ options.more_dictionaries = "Wörterbücher auch lesen aus:" # mt
 options.no_dictionaries = "Keine Wörterbücher gefunden. Legen Sie Hunspell-Wörterbücher (.dic- und .aff-Dateien) in den Ordner unten oder wählen Sie einen Ordner, der sie enthält." # mt
 options.node_tracking = "Knotenverfolgung aktivieren"
 options.touch_keys = "Shift, Strg, Alt und Entf auf der Zeichnung zeigen (Touchscreens)" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Touch-Leisten neben der Auswahl zeigen (Touchscreens)"
 options.horizontal = "Horizontal"
 options.horizontal_origin = "Horizontal:"

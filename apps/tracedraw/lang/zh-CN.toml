@@ -3069,6 +3069,12 @@ options.more_dictionaries = "同时从以下位置读取词典：" # mt
 options.no_dictionaries = "未找到词典。请将 Hunspell 词典（.dic 和 .aff 文件）放入下面的文件夹，或选择包含词典的文件夹。" # mt
 options.node_tracking = "启用节点跟踪"
 options.touch_keys = "在绘图上显示 Shift、Ctrl、Alt 和 Delete（触摸屏）" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Show the touch bars beside the selection (touch screens)"
 options.horizontal = "水平"
 options.horizontal_origin = "水平："

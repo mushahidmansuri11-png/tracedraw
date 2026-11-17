@@ -3069,6 +3069,12 @@ options.more_dictionaries = "Sözlükleri ayrıca şuradan oku:" # mt
 options.no_dictionaries = "Sözlük bulunamadı. Hunspell sözlüklerini (.dic ve .aff dosyaları) aşağıdaki klasöre koyun veya onları içeren bir klasör seçin." # mt
 options.node_tracking = "Düğüm izlemeyi etkinleştir"
 options.touch_keys = "Çizimde Shift, Ctrl, Alt ve Delete göster (dokunmatik ekranlar)" # mt
+# Finger fill and outline button (touch_paint.rs)
+touch_paint.no_fill = "No fill"
+touch_paint.no_outline = "No outline"
+touch_paint.both_off = "Both off"
+touch_paint.edit_fill = "Edit fill"
+touch_paint.edit_outline = "Edit outline"
 options.touch_selection_bar = "Show the touch bars beside the selection (touch screens)"
 options.horizontal = "Yatay"
 options.horizontal_origin = "Yatay:"
