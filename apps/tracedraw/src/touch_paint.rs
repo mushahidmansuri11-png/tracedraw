@@ -1,206 +1,148 @@
-//! Fill and outline for a finger. A two-line button floats over the
-//! left edge of the drawing: its upper swatch is the fill and its lower
-//! one the outline of the selection (or of new objects). A tap opens a
-//! small card over the drawing with one button each for "No fill", "No
-//! outline", both removed, and the Edit Fill and Outline Pen dialogs
-//! (the palette's colours are one more button away); a drag moves the
-//! button anywhere over the drawing; every button acts on the selection through the same paths as the
-//! palette and the status bar, so it works under every tool, and the
-//! card closes after an action. Only one card is open at a time, and it
-//! keeps inside the drawing. Offered where the keys on the drawing are
-//! (`touch_modifiers::offered`). See docs/behavior/android.md.
+//! The fill and outline button for a finger (touch screens). It floats
+//! over the drawing: its upper swatch is the fill, its lower one the
+//! outline. A tap opens a card with No fill, No outline, Both off, Edit
+//! fill and Edit outline, plus Hex, RGB and CMYK entry rows. Each entry
+//! row has a Fill and an Outline button and applies its colour in the
+//! model that was typed (no conversion, so no repaint loop). A drag moves
+//! the button over the drawing.
 
 use crate::app::App;
 use crate::i18n::tr;
-use egui::{Color32, Rect, Sense, Vec2};
-use tracedraw_core::Fill;
+use crate::theme::Tokens;
+use egui::{Color32, Rect, Sense, Stroke, TextEdit, Vec2};
+use tracedraw_core::{Color, Fill};
 
-/// The button's side and the card's button size.
-const SIDE: f32 = 44.0;
-const CELL: Vec2 = egui::vec2(92.0, 48.0);
+/// The button's side, in points.
+const SIDE: f32 = 40.0;
+/// The gap from the drawing's edges, in points.
+const MARGIN: f32 = 8.0;
 
-/// The fill's and the outline's swatch colours (`None` for nothing).
-fn swatches(app: &App) -> (Option<Color32>, Option<Color32>) {
-    let (fill, stroke) = match app.first_paint_target() {
-        Some(s) => (s.fill, s.stroke),
-        None => (app.default_fill(), app.default_stroke()),
-    };
-    (
-        crate::app::fill_preview_color(&fill),
-        stroke.map(|s| crate::canvas::to_color32(s.color)),
-    )
+/// What is typed in the three entry rows. Kept in egui's memory, so the
+/// text survives frames without touching the document.
+#[derive(Clone, Default)]
+struct Entry {
+    hex: String,
+    rgb: String,
+    cmyk: String,
 }
 
-/// Remove the fill, the outline or both from the selection.
-pub fn remove(app: &mut App, fill: bool, outline: bool) {
-    if fill {
-        app.apply_fill(Fill::None);
-    }
-    if outline {
-        app.apply_outline_color(None);
-    }
-}
-
-fn card_button(ui: &mut egui::Ui, label: String, tip: String) -> bool {
-    let b = egui::Button::new(label).min_size(CELL);
-    ui.add(b).on_hover_text(tip).clicked()
-}
-
-/// The colour grid of the first shown palette: a tap sets the fill, or
-/// the outline while the Outline switch is on. The card stays open.
-fn colours(app: &mut App, ui: &mut egui::Ui) {
-    let outline = app.touch_paint_outline;
-    ui.horizontal(|ui| {
-        if ui.selectable_label(!outline, tr("touch_paint.target_fill")).clicked() {
-            app.touch_paint_outline = false;
-        }
-        if ui.selectable_label(outline, tr("touch_paint.target_outline")).clicked() {
-            app.touch_paint_outline = true;
-        }
-    });
-    let colors: Vec<tracedraw_core::Color> = app
-        .visible_palettes
-        .first()
-        .and_then(|i| app.palettes.get(*i))
-        .map(|p| p.colors.iter().map(|(_, c)| *c).collect())
-        .unwrap_or_default();
-    let mut picked = None;
-    egui::ScrollArea::vertical().max_height(150.0).show(ui, |ui| {
-        ui.horizontal_wrapped(|ui| {
-            ui.spacing_mut().item_spacing = Vec2::splat(4.0);
-            for c in colors.iter().take(240) {
-                let (r, resp) = ui.allocate_exact_size(Vec2::splat(34.0), Sense::click());
-                ui.painter().rect_filled(r, 3.0, crate::canvas::to_color32(*c));
-                ui.painter().rect_stroke(
-                    r,
-                    3.0,
-                    egui::Stroke::new(1.0, Color32::from_gray(0x80)),
-                    egui::StrokeKind::Inside,
-                );
-                if resp.clicked() {
-                    picked = Some(*c);
-                }
-            }
-        });
-    });
-    if let Some(c) = picked {
-        if outline {
-            app.apply_outline_color(Some(c));
-        } else {
-            app.apply_fill(Fill::Solid(c));
-        }
-    }
-    ui.add_space(4.0);
-}
-
-/// The two-line button and, open, its card.
+/// Show the button and, when open, its card. Only on touch screens; a
+/// mouse-and-keyboard layout does not get it.
 pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: Rect) {
-    if !crate::touch_modifiers::offered(ui.ctx()) || canvas.height() < 120.0 {
+    if !app.has_document() || !touch_input(ui.ctx()) {
         return;
     }
     let ctx = ui.ctx().clone();
-    // The button's place: a share of the room it can move in.
-    let room = egui::vec2(
-        (canvas.width() - SIDE - 24.0).max(1.0),
-        (canvas.height() - SIDE - 24.0).max(1.0),
+
+    let room = Vec2::new(
+        (canvas.width() - SIDE - 2.0 * MARGIN).max(1.0),
+        (canvas.height() - SIDE - 2.0 * MARGIN).max(1.0),
     );
     let [fx, fy] = app.touch_paint_at;
     let at = egui::pos2(
-        canvas.left() + 8.0 + fx.clamp(0.0, 1.0) * room.x,
-        canvas.top() + 8.0 + fy.clamp(0.0, 1.0) * room.y,
+        canvas.left() + MARGIN + fx.clamp(0.0, 1.0) * room.x,
+        canvas.top() + MARGIN + fy.clamp(0.0, 1.0) * room.y,
     );
-    let (fill, outline) = swatches(app);
-    let open = app.touch_paint_open;
+
     let mut button = Rect::NOTHING;
     egui::Area::new(egui::Id::new("touch_paint_button"))
         .order(egui::Order::Middle)
-        .pivot(egui::Align2::LEFT_TOP)
         .fixed_pos(at)
         .constrain_to(canvas)
         .show(&ctx, |ui| {
-            egui::Frame::new()
-                .fill(crate::theme::Tokens::panel())
-                .stroke(egui::Stroke::new(1.0, crate::theme::Tokens::control_border()))
-                .corner_radius(6.0)
-                .inner_margin(3.0)
-                .show(ui, |ui| {
-                    let (r, resp) = ui.allocate_exact_size(Vec2::splat(SIDE), Sense::click_and_drag());
-                    button = r;
-                    // A drag moves the button, a tap opens the card.
-                    if resp.dragged() {
-                        let d = resp.drag_delta();
-                        app.touch_paint_at[0] = (fx + d.x / room.x).clamp(0.0, 1.0);
-                        app.touch_paint_at[1] = (fy + d.y / room.y).clamp(0.0, 1.0);
-                    }
-                    let painter = ui.painter();
-                    if open || resp.hovered() {
-                        painter.rect_filled(r, 4.0, crate::theme::Tokens::tool_active());
-                    }
-                    // Upper line: the fill. Lower line: the outline.
-                    let half = Vec2::new(SIDE - 12.0, (SIDE - 14.0) / 2.0);
-                    let up = Rect::from_min_size(r.min + Vec2::new(6.0, 4.0), half);
-                    let down = Rect::from_min_size(up.left_bottom() + Vec2::new(0.0, 6.0), half);
-                    crate::ui::status::draw_swatch(painter, up, fill);
-                    crate::ui::status::draw_swatch(painter, down, outline);
-                    if resp.on_hover_text(tr("touch_paint.button_tip")).clicked() {
-                        app.touch_paint_open = !open;
-                    }
-                });
+            let (r, resp) = ui.allocate_exact_size(Vec2::splat(SIDE), Sense::click_and_drag());
+            button = r;
+            if resp.dragged() {
+                let d = resp.drag_delta();
+                app.touch_paint_at[0] = (fx + d.x / room.x).clamp(0.0, 1.0);
+                app.touch_paint_at[1] = (fy + d.y / room.y).clamp(0.0, 1.0);
+            } else if resp.clicked() {
+                app.touch_paint_open = !app.touch_paint_open;
+            }
+
+            let p = ui.painter();
+            let bg = if app.touch_paint_open {
+                Tokens::tool_active()
+            } else {
+                Tokens::panel()
+            };
+            p.rect_filled(r, 4.0, bg);
+            p.rect_stroke(
+                r,
+                4.0,
+                Stroke::new(1.0, Tokens::control_border()),
+                egui::StrokeKind::Inside,
+            );
+            let half = SIDE / 2.0 - 4.0;
+            p.rect_filled(
+                Rect::from_min_size(r.min + Vec2::splat(4.0), Vec2::new(SIDE - 8.0, half)),
+                2.0,
+                to32(app.current_colors.0.to_rgb8()),
+            );
+            p.rect_filled(
+                Rect::from_min_size(
+                    r.min + Vec2::new(4.0, 4.0 + half),
+                    Vec2::new(SIDE - 8.0, half - 4.0),
+                ),
+                2.0,
+                to32(app.current_colors.1.to_rgb8()),
+            );
         });
-    if !app.touch_paint_open {
-        return;
+
+    if app.touch_paint_open {
+        card(app, &ctx, button, canvas);
     }
-    let mut done = false;
-    // The card opens on the side of the button that has room.
-    let (pivot, card_at) = if button.center().x > canvas.center().x {
-        (egui::Align2::RIGHT_TOP, egui::pos2(button.left() - 10.0, button.top()))
+}
+
+/// True on a touch screen (Android or any device reporting touch).
+fn touch_input(ctx: &egui::Context) -> bool {
+    crate::files::ANDROID || ctx.input(|i| i.has_touch_screen())
+}
+
+/// The card beside the button, on the side with more room.
+fn card(app: &mut App, ctx: &egui::Context, button: Rect, canvas: Rect) {
+    let (pivot, at) = if button.center().x > canvas.center().x {
+        (egui::Align2::RIGHT_TOP, egui::pos2(button.left() - 8.0, button.top()))
     } else {
-        (egui::Align2::LEFT_TOP, egui::pos2(button.right() + 10.0, button.top()))
+        (egui::Align2::LEFT_TOP, egui::pos2(button.right() + 8.0, button.top()))
     };
+    let mut done = false;
     egui::Area::new(egui::Id::new("touch_paint_card"))
         .order(egui::Order::Foreground)
         .pivot(pivot)
-        .fixed_pos(card_at)
+        .fixed_pos(at)
         .constrain_to(canvas)
-        .show(&ctx, |ui| {
+        .show(ctx, |ui| {
             egui::Frame::new()
-                .fill(crate::theme::Tokens::panel())
-                .stroke(egui::Stroke::new(1.0, crate::theme::Tokens::control_border()))
-                .corner_radius(14.0)
-                .inner_margin(10.0)
+                .fill(Tokens::panel())
+                .stroke(Stroke::new(1.0, Tokens::control_border()))
+                .corner_radius(6.0)
+                .inner_margin(4.0)
                 .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.strong(tr("touch_paint.title"));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.button("x").clicked() {
-                                done = true;
-                            }
-                        });
-                    });
-                    ui.add_space(4.0);
-                    ui.horizontal(|ui| {
-                        if card_button(ui, tr("touch_paint.no_fill"), tr("touch_paint.no_fill_tip")) {
-                            remove(app, true, false);
+                    ui.vertical(|ui| {
+                        if ui.button(tr("touch_paint.no_fill")).clicked() {
+                            app.apply_fill(Fill::None);
                             done = true;
                         }
-                        if card_button(ui, tr("touch_paint.no_outline"), tr("touch_paint.no_outline_tip")) {
-                            remove(app, false, true);
+                        if ui.button(tr("touch_paint.no_outline")).clicked() {
+                            app.apply_outline_color(None);
                             done = true;
                         }
-                        if card_button(ui, tr("touch_paint.none"), tr("touch_paint.none_tip")) {
-                            remove(app, true, true);
+                        if ui.button(tr("touch_paint.both_off")).clicked() {
+                            app.apply_fill(Fill::None);
+                            app.apply_outline_color(None);
                             done = true;
                         }
-                    });
-                    ui.horizontal(|ui| {
-                        if card_button(ui, tr("touch_paint.edit_fill"), tr("touch_paint.edit_fill_tip")) {
+                        if ui.button(tr("touch_paint.edit_fill")).clicked() {
                             app.open_edit_fill();
                             done = true;
                         }
-                        if card_button(ui, tr("touch_paint.edit_outline"), tr("touch_paint.edit_outline_tip")) {
+                        if ui.button(tr("touch_paint.edit_outline")).clicked() {
                             app.open_outline_pen();
                             done = true;
                         }
+                        ui.separator();
+                        done |= entry_rows(app, ui);
                     });
                 });
         });
@@ -209,18 +151,81 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: Rect) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// The Hex, RGB and CMYK rows. Returns true when a colour was applied.
+fn entry_rows(app: &mut App, ui: &mut egui::Ui) -> bool {
+    let id = egui::Id::new("touch_paint_entry");
+    let mut e: Entry = ui.data_mut(|d| d.get_temp(id)).unwrap_or_default();
+    let mut applied = false;
 
-    /// With nothing selected the buttons change the defaults for new
-    /// objects and never panic.
-    #[test]
-    fn removing_with_nothing_selected_is_safe() {
-        let mut app = App::headless();
-        app.select(Vec::new());
-        remove(&mut app, true, true);
-        remove(&mut app, true, false);
-        remove(&mut app, false, true);
+    let rows: [(&str, &mut String, &str, fn(&str) -> Option<Color>); 3] = [
+        ("Hex", &mut e.hex, "#FF8800", parse_hex),
+        ("RGB", &mut e.rgb, "255,136,0", parse_rgb),
+        ("CMYK", &mut e.cmyk, "0,47,100,0", parse_cmyk),
+    ];
+    for (label, text, hint, parse) in rows {
+        ui.horizontal(|ui| {
+            ui.label(label);
+            ui.add(TextEdit::singleline(text).hint_text(hint).desired_width(120.0));
+            if ui.button("Fill").clicked() {
+                if let Some(c) = parse(text) {
+                    app.apply_fill(Fill::Solid(c));
+                    applied = true;
+                }
+            }
+            if ui.button("Outline").clicked() {
+                if let Some(c) = parse(text) {
+                    app.apply_outline_color(Some(c));
+                    applied = true;
+                }
+            }
+        });
     }
+    ui.data_mut(|d| d.insert_temp(id, e));
+    applied
+}
+
+/// "#RRGGBB" or "#RGB" (the # is optional), as an RGB colour.
+fn parse_hex(s: &str) -> Option<Color> {
+    Color::from_hex(s)
+}
+
+/// "r,g,b" with 0 to 255 each, as an RGB colour.
+fn parse_rgb(s: &str) -> Option<Color> {
+    let v = parts(s, 3)?;
+    if v.iter().any(|x| !(0.0..=255.0).contains(x)) {
+        return None;
+    }
+    Some(Color::Rgb {
+        r: (v[0] / 255.0) as f32,
+        g: (v[1] / 255.0) as f32,
+        b: (v[2] / 255.0) as f32,
+    })
+}
+
+/// "c,m,y,k" with 0 to 100 each (percent of ink), as a CMYK colour.
+fn parse_cmyk(s: &str) -> Option<Color> {
+    let v = parts(s, 4)?;
+    if v.iter().any(|x| !(0.0..=100.0).contains(x)) {
+        return None;
+    }
+    Some(Color::Cmyk {
+        c: (v[0] / 100.0) as f32,
+        m: (v[1] / 100.0) as f32,
+        y: (v[2] / 100.0) as f32,
+        k: (v[3] / 100.0) as f32,
+    })
+}
+
+/// Exactly `n` numbers separated by commas.
+fn parts(s: &str, n: usize) -> Option<Vec<f64>> {
+    let v: Vec<f64> = s
+        .split(',')
+        .map(|x| x.trim().parse::<f64>().ok())
+        .collect::<Option<Vec<f64>>>()?;
+    (v.len() == n).then_some(v)
+}
+
+/// A colour's screen form.
+fn to32(c: [u8; 3]) -> Color32 {
+    Color32::from_rgb(c[0], c[1], c[2])
 }
