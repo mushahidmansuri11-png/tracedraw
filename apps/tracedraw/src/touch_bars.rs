@@ -95,6 +95,8 @@ impl BarCommand {
             BarCommand::Shape(Shaping::FrontMinusBack) => "menu.object.front_minus_back",
             BarCommand::Shape(Shaping::BackMinusFront) => "menu.object.back_minus_front",
             BarCommand::Shape(Shaping::Boundary) => "menu.object.boundary",
+            BarCommand::Shape(Shaping::Divide) => "menu.object.divide",
+            BarCommand::Shape(Shaping::Exclude) => "menu.object.exclude",
             BarCommand::Combine => "menu.object.combine",
             BarCommand::Align(Align::Left) => "menu.object.align_left",
             BarCommand::Align(Align::Right) => "menu.object.align_right",

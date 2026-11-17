@@ -302,6 +302,7 @@ pub fn apply(app: &mut App) {
         return;
     }
     let shapes = app.selected_shapes();
+    let originals = app.selection.clone();
     let Some(layer) = app.active_layer() else {
         return;
     };
@@ -325,6 +326,15 @@ pub fn apply(app: &mut App) {
         return;
     }
     app.select(last);
+    // Edit > Repeat makes one more copy, a step further on, rather than
+    // replaying an older move on the original.
+    app.note_repeatable_from(
+        crate::app::Repeatable::Copy {
+            transform: t,
+            before: b,
+        },
+        originals,
+    );
     if let Some(c) = keep_centre {
         app.set_pivot(c);
     }

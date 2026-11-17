@@ -1200,6 +1200,10 @@ pub struct App {
     /// The keys on the drawing as drawn this frame: each one's id and
     /// place (empty when they are not shown).
     pub touch_keys_shown: Vec<(&'static str, egui::Rect)>,
+    /// The fill and outline card of the finger button is open (touch_paint.rs).
+    pub touch_paint_open: bool,
+    /// Where the finger button sits: a share (0 to 1) of the room it can move in, each way.
+    pub touch_paint_at: [f32; 2],
     /// A finger held down on one of those keys, and the finger drawing
     /// meanwhile (#2362, touch_modifiers.rs).
     pub key_fingers: crate::touch_modifiers::KeyFingers,
@@ -1387,6 +1391,9 @@ pub struct App {
     pub eyedropper_apply: bool,
     /// Bitmap sample box side in pixels: 1, 2 or 5.
     pub eyedropper_sample: u32,
+    /// The colour eyedroppers hand back CMYK for what they read as RGB
+    /// (picture pixels, RGB fills), so a print job keeps its inks.
+    pub eyedropper_cmyk: bool,
     /// The colour eyedroppers' readout beside the pointer (#990).
     pub eyedropper_hover: crate::eyedropper::HoverReadout,
     pub canvas_rect: egui::Rect,
@@ -3013,6 +3020,8 @@ impl App {
             show_dockers: true,
             touch_mods: Default::default(),
             touch_keys_shown: Vec::new(),
+            touch_paint_open: false,
+            touch_paint_at: [0.0, 0.35],
             key_fingers: Default::default(),
             touch_tap: Default::default(),
             copy_fingers: Default::default(),
@@ -3107,6 +3116,7 @@ impl App {
             eyedropper_groups: Default::default(),
             eyedropper_apply: false,
             eyedropper_sample: 1,
+            eyedropper_cmyk: false,
             eyedropper_hover: Default::default(),
             canvas_rect: egui::Rect::NOTHING,
             pointer_page: None,

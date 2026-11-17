@@ -4857,6 +4857,8 @@ impl App {
         let Some(layer) = self.active_layer() else {
             return;
         };
+        let before = self.selection_bounds();
+        let originals = self.selection.clone();
         let mut cmds = Vec::new();
         let mut new_sel = Vec::new();
         for k in 1..=sr.copies.max(1) {
@@ -4879,10 +4881,24 @@ impl App {
                     .map(|shape| Command::AddShape { layer, shape }),
             );
         }
-        if let Err(e) = self.engine.run_batch("Step and Repeat", &cmds) {
-            self.status = e.to_string();
-        }
+        let done = match self.engine.run_batch("Step and Repeat", &cmds) {
+            Ok(_) => true,
+            Err(e) => {
+                self.status = e.to_string();
+                false
+            }
+        };
         self.selection = new_sel;
+        // Edit > Repeat adds one more copy a step further on.
+        if let (true, Some(before)) = (done, before) {
+            self.note_repeatable_from(
+                crate::app::Repeatable::Copy {
+                    transform: Affine::translate((dx, dy)),
+                    before,
+                },
+                originals,
+            );
+        }
     }
 }
 
