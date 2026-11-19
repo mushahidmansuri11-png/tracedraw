@@ -458,11 +458,11 @@ impl App {
     }
 
     /// Save `p` as a G-code file where the user says.
-    pub fn tracecut_save_gcode(&mut self, p: &Program) {
+    pub fn tracecut_save_gcode(&mut self, p: &Program, ext: &str) {
         let bytes = p.gcode.clone().into_bytes();
         crate::files::Dialog::new()
             .add_filter("G-code", &["nc", "gcode", "ngc", "tap"])
-            .set_file_name("toolpath.nc")
+            .set_file_name(format!("toolpath.{ext}"))
             .save_file(self, move |app, path| {
                 app.status = match crate::files::write(&path, bytes) {
                     Ok(()) => trf("tracecut.saved", &[("path", &path.display().to_string())]),

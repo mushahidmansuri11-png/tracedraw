@@ -17,6 +17,7 @@
 //! them as it reads the keyboard's. See docs/behavior/android.md.
 
 use crate::app::App;
+use crate::i18n::tr;
 
 /// The keys held down from the keys on the drawing: clicked on with a
 /// mouse until the next click, or held down by a finger on one of them
@@ -326,6 +327,7 @@ pub fn keys_on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: egui::Rect) {
                 .corner_radius(4.0)
                 .inner_margin(3.0)
                 .show(ui, |ui| {
+                    ui.vertical(|ui| {
                     ui.horizontal(|ui| {
                         for (id, key) in [
                             ("shift", ModKey::Shift),
@@ -356,6 +358,73 @@ pub fn keys_on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: egui::Rect) {
                             app.delete_command();
                         }
                         shown.push(("delete", r.rect));
+                    });
+                    // A second row: Undo, Redo, Copy, Paste and Duplicate,
+                    // the keys a finger has no keyboard for.
+                    ui.horizontal(|ui| {
+                        let doc = app.has_document();
+                        let (undo_n, redo_n) = if doc {
+                            let (u, r) = app.engine.history_labels();
+                            (u.len(), r.len())
+                        } else {
+                            (0, 0)
+                        };
+                        let r = crate::ui::toolbar::std_button(
+                            ui,
+                            crate::ui::icons::Action::Undo,
+                            &tip("toolbar.undo"),
+                            undo_n > 0,
+                            false,
+                        );
+                        if r.clicked() {
+                            app.undo();
+                        }
+                        shown.push(("undo", r.rect));
+                        let r = crate::ui::toolbar::std_button(
+                            ui,
+                            crate::ui::icons::Action::Redo,
+                            &tip("toolbar.redo"),
+                            redo_n > 0,
+                            false,
+                        );
+                        if r.clicked() {
+                            app.redo();
+                        }
+                        shown.push(("redo", r.rect));
+                        let has = doc && !app.selection.is_empty();
+                        let r = crate::ui::toolbar::std_button(
+                            ui,
+                            crate::ui::icons::Action::Copy,
+                            &tip("toolbar.copy"),
+                            has,
+                            false,
+                        );
+                        if r.clicked() {
+                            app.copy_with_system();
+                        }
+                        shown.push(("copy", r.rect));
+                        let can_paste = doc
+                            && (app.clipboard.is_some()
+                                || app.text_clip.is_some()
+                                || app.editing_text());
+                        let r = crate::ui::toolbar::std_button(
+                            ui,
+                            crate::ui::icons::Action::Paste,
+                            &tip("toolbar.paste"),
+                            can_paste,
+                            false,
+                        );
+                        if r.clicked() {
+                            app.paste_any();
+                        }
+                        shown.push(("paste", r.rect));
+                        let dup_tip = format!("{} (Ctrl+D)", tr("menu.edit.duplicate"));
+                        let r = crate::ui::toolbar::mod_button(ui, &tr("touch_keys.duplicate"), &dup_tip, false);
+                        if r.clicked() && has {
+                            app.duplicate();
+                        }
+                        shown.push(("duplicate", r.rect));
+                    });
                     });
                 });
         });

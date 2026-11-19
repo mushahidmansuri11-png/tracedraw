@@ -1027,7 +1027,7 @@ impl App {
                     self.status = summary.clone();
                     return false;
                 }
-                self.tracecut_save_gcode(program);
+                self.tracecut_save_gcode(program, settings.cnc.dialect.extension());
                 true
             }
             Outcome::Changes(c) => self.tracecut_apply_changes(c),

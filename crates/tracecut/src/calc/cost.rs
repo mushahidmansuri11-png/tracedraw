@@ -43,14 +43,18 @@ pub enum ServiceUnit {
     Piece,
     /// Per hour of cutting time.
     Hour,
+    /// Per pierce: each outline the cutter starts (laser, plasma, water
+    /// jet), one a toolpath, every copy.
+    Pierce,
 }
 
 impl ServiceUnit {
-    pub const ALL: [ServiceUnit; 4] = [
+    pub const ALL: [ServiceUnit; 5] = [
         ServiceUnit::Metre,
         ServiceUnit::SquareMetre,
         ServiceUnit::Piece,
         ServiceUnit::Hour,
+        ServiceUnit::Pierce,
     ];
 }
 
@@ -139,6 +143,9 @@ pub struct Quantities {
     pub cut_length: f64,
     /// Cutting time (hours).
     pub hours: f64,
+    /// How many times the cutter pierces the material in one copy: the
+    /// outlines it starts.
+    pub pierces: f64,
 }
 
 /// The unit of a cost line's quantity.
@@ -148,6 +155,7 @@ pub enum QtyUnit {
     Metre,
     Piece,
     Hour,
+    Pierce,
 }
 
 /// One line of the cost table.
@@ -321,6 +329,7 @@ pub fn cost(
             ServiceUnit::SquareMetre => (area_m2, QtyUnit::SquareMetre),
             ServiceUnit::Piece => (sizes.len() as f64 * copies, QtyUnit::Piece),
             ServiceUnit::Hour => (non_negative(q.hours) * copies, QtyUnit::Hour),
+            ServiceUnit::Pierce => (non_negative(q.pierces).round() * copies, QtyUnit::Pierce),
         };
         push(&sv.name, false, qty, unit, sv.price);
     }
@@ -349,14 +358,15 @@ impl MaterialUnit {
 }
 
 impl ServiceUnit {
-    /// The unit's name in CSV and settings files: `m`, `m2`, `piece` or
-    /// `hour`.
+    /// The unit's name in CSV and settings files: `m`, `m2`, `piece`,
+    /// `hour` or `pierce`.
     pub fn id(self) -> &'static str {
         match self {
             ServiceUnit::Metre => "m",
             ServiceUnit::SquareMetre => "m2",
             ServiceUnit::Piece => "piece",
             ServiceUnit::Hour => "hour",
+            ServiceUnit::Pierce => "pierce",
         }
     }
 
@@ -369,6 +379,7 @@ impl ServiceUnit {
             "m2" | "m\u{b2}" | "sqm" => Some(ServiceUnit::SquareMetre),
             "piece" | "pc" | "pcs" | "each" => Some(ServiceUnit::Piece),
             "hour" | "h" | "hr" => Some(ServiceUnit::Hour),
+            "pierce" | "piercing" | "pierces" | "pierc" => Some(ServiceUnit::Pierce),
             _ => None,
         }
     }
@@ -553,6 +564,7 @@ mod tests {
             blocks: vec![rect(0.0, 0.0, 1000.0, 1000.0), rect(0.0, 0.0, 10.0, 10.0)],
             cut_length: 2500.0,
             hours: 0.5,
+            pierces: 3.0,
         };
         let mut services = default_services();
         for (s, on) in services.iter_mut().zip([true, false, false, false, false]) {
@@ -576,21 +588,29 @@ mod tests {
             price: 10.0,
             selected: true,
         });
+        services.push(Service {
+            name: "Piercing".into(),
+            unit: ServiceUnit::Pierce,
+            price: 1.5,
+            selected: true,
+        });
         let s = CostSpec {
             reserve: 0.0,
             copies: 2,
             ..Default::default()
         };
         let r = cost(&q, None, &services, &s);
-        assert_eq!(r.lines.len(), 4);
+        assert_eq!(r.lines.len(), 5);
         // Cutting 2.5 m x 2 x 0.5 = 2.5; pieces 2 x 2 x 2 = 8;
-        // hours 0.5 x 2 x 30 = 30; area 1.0001 x 2 x 10 = 20.002.
+        // hours 0.5 x 2 x 30 = 30; area 1.0001 x 2 x 10 = 20.002;
+        // piercing 3 x 2 x 1.5 = 9.
         let amounts: Vec<f64> = r.lines.iter().map(|l| l.amount).collect();
         assert!((amounts[0] - 2.5).abs() < 1e-9);
         assert!((amounts[1] - 8.0).abs() < 1e-9);
         assert!((amounts[2] - 30.0).abs() < 1e-9);
         assert!((amounts[3] - 20.002).abs() < 1e-9);
-        assert!((r.total - 60.502).abs() < 1e-9);
+        assert!((amounts[4] - 9.0).abs() < 1e-9);
+        assert!((r.total - 69.502).abs() < 1e-9);
     }
 
     #[test]
@@ -602,6 +622,7 @@ mod tests {
             ],
             cut_length: f64::INFINITY,
             hours: f64::NAN,
+            pierces: f64::NAN,
         };
         let s = CostSpec {
             reserve: f64::NAN,

@@ -140,6 +140,9 @@ pub struct CostSettings {
     pub piece_price: f64,
     /// Per hour of cutting time (from the Cutting Time settings).
     pub hour_price: f64,
+    /// Per pierce: each outline the cutter starts (laser, plasma, water
+    /// jet).
+    pub pierce_price: f64,
     /// Added on every side of each object's box (mm).
     pub reserve: f64,
     pub copies: u32,
@@ -156,6 +159,7 @@ impl Default for CostSettings {
             weed_price: 12.0,
             piece_price: 0.0,
             hour_price: 0.0,
+            pierce_price: 0.0,
             reserve: 5.0,
             copies: 1,
             currency: String::new(),
@@ -412,8 +416,8 @@ impl App {
         (report, est)
     }
 
-    /// The cost of the selection: the material, cutting, weeding, pieces
-    /// and machine time from the Cutting Time settings.
+    /// The cost of the selection: the material, cutting, weeding, pieces,
+    /// piercing and machine time from the Cutting Time settings.
     pub fn tracecut_cost(&self, s: &CostSettings, t: &TimeSettings) -> Report {
         let (_, outlines) = self.tracecut_parts();
         let job = tracedraw_tracecut::calc::job(&outlines, Point::ZERO, TravelOrder::Nearest);
@@ -422,6 +426,8 @@ impl App {
             blocks: job.blocks.clone(),
             cut_length: job.measurement.length,
             hours: est.total_s / 3600.0,
+            // The cutter pierces once for every outline it starts.
+            pierces: est.travel.outlines as f64,
         };
         let material = Material {
             name: tr("tracecut.cost_material"),
@@ -448,6 +454,7 @@ impl App {
             ),
             service("tracecut.cost_pieces", ServiceUnit::Piece, s.piece_price),
             service("tracecut.cost_hours", ServiceUnit::Hour, s.hour_price),
+            service("tracecut.cost_piercing", ServiceUnit::Pierce, s.pierce_price),
         ];
         let spec = cost::CostSpec {
             reserve: s.reserve,
@@ -460,6 +467,7 @@ impl App {
             cost::QtyUnit::Metre => "m",
             cost::QtyUnit::Piece => "×",
             cost::QtyUnit::Hour => "h",
+            cost::QtyUnit::Pierce => "×",
         };
         let mut lines = vec![trf(
             "tracecut.cost_total",
