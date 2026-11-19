@@ -73,6 +73,83 @@ pub enum Zero {
     Origin,
 }
 
+/// The G-code flavour a program is written in: the controller that runs it.
+/// Generic is plain RS-274; the others add what that controller expects
+/// (a plane and cancel codes in the header, its own end code).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum Dialect {
+    /// Plain RS-274: `G21 G90 G94`, ends with `M30`.
+    #[default]
+    Generic,
+    /// GRBL 1.1 (hobby routers and laser engravers): ends with `M2`.
+    Grbl,
+    /// Mach3 and Mach4: plane, cutter, length and canned-cycle cancels.
+    Mach3,
+    /// LinuxCNC: as Mach3, path blending set to the tolerance, ends `M2`.
+    LinuxCnc,
+    /// Fanuc style controllers: `%` around the program, a program number.
+    Fanuc,
+}
+
+impl Dialect {
+    pub const ALL: [Dialect; 5] = [
+        Dialect::Generic,
+        Dialect::Grbl,
+        Dialect::Mach3,
+        Dialect::LinuxCnc,
+        Dialect::Fanuc,
+    ];
+
+    /// The lines before everything else.
+    fn start(self) -> &'static [&'static str] {
+        match self {
+            Dialect::Fanuc => &["%", "O0001"],
+            _ => &[],
+        }
+    }
+
+    /// The setup lines after the comments, before the first move.
+    fn prolog(self, tolerance: f64) -> Vec<String> {
+        let words: &[&str] = match self {
+            Dialect::Generic => &["G21", "G90", "G94"],
+            Dialect::Grbl => &["G21", "G90", "G94", "G17"],
+            _ => &["G21", "G90", "G94", "G17", "G40", "G49", "G80"],
+        };
+        let mut v: Vec<String> = words.iter().map(|w| (*w).to_string()).collect();
+        if self == Dialect::LinuxCnc {
+            v.push(format!("G64 P{}", num(tolerance)));
+        }
+        v
+    }
+
+    /// The lines that end the program.
+    fn end(self) -> &'static [&'static str] {
+        match self {
+            Dialect::Generic | Dialect::Mach3 => &["M30"],
+            Dialect::Grbl | Dialect::LinuxCnc => &["M2"],
+            Dialect::Fanuc => &["M30", "%"],
+        }
+    }
+
+    /// A pause of `seconds`: `G4 P` in seconds, in milliseconds on Fanuc.
+    fn dwell(self, seconds: f64) -> String {
+        match self {
+            Dialect::Fanuc => format!("G4 P{:.0}", seconds * 1000.0),
+            _ => format!("G4 P{}", num(seconds)),
+        }
+    }
+
+    /// The file extension the program is saved under first.
+    pub fn extension(self) -> &'static str {
+        match self {
+            Dialect::Generic | Dialect::Mach3 => "nc",
+            Dialect::Grbl => "gcode",
+            Dialect::LinuxCnc => "ngc",
+            Dialect::Fanuc => "tap",
+        }
+    }
+}
+
 /// Settings of [`program`]; lengths in millimetres, rates in mm a minute.
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -93,6 +170,8 @@ pub struct CncSpec {
     /// How far the line segments may stray from curves.
     pub tolerance: f64,
     pub zero: Zero,
+    /// The controller the program is written for.
+    pub dialect: Dialect,
     pub tabs: bool,
     pub tab_count: u32,
     /// Width of the material each tab leaves.
@@ -109,6 +188,18 @@ pub struct CncSpec {
     pub laser_max: f64,
     /// How many times the laser goes over each toolpath.
     pub laser_passes: u32,
+    /// Plasma cutting: for every toolpath the torch goes to `pierce_height`
+    /// above the material, fires (`M3`), waits `pierce_delay` seconds, drops
+    /// to `cut_height` and cuts at `feed`, then goes out (`M5`) and back to
+    /// `safe_z`. `tool_diameter` is then the kerf. No spindle, no depth.
+    /// Laser mode, when also set, is ignored.
+    pub plasma: bool,
+    /// Height of the torch above the material while it pierces.
+    pub pierce_height: f64,
+    /// Height of the torch above the material while it cuts.
+    pub cut_height: f64,
+    /// Seconds the torch stays at the pierce height after it fires.
+    pub pierce_delay: f64,
 }
 
 impl Default for CncSpec {
@@ -125,6 +216,7 @@ impl Default for CncSpec {
             spindle: 18000.0,
             tolerance: 0.02,
             zero: Zero::JobCorner,
+            dialect: Dialect::Generic,
             tabs: false,
             tab_count: 4,
             tab_width: 5.0,
@@ -133,6 +225,10 @@ impl Default for CncSpec {
             laser_power: 1000.0,
             laser_max: 1000.0,
             laser_passes: 1,
+            plasma: false,
+            pierce_height: 3.8,
+            cut_height: 1.5,
+            pierce_delay: 0.5,
         }
     }
 }
@@ -148,6 +244,8 @@ pub const TAB_COUNT_RANGE: (u32, u32) = (1, 100);
 pub const TAB_RANGE: (f64, f64) = (0.01, 500.0);
 pub const LASER_MAX_RANGE: (f64, f64) = (1.0, 100_000.0);
 pub const LASER_PASSES_RANGE: (u32, u32) = (1, 100);
+pub const PLASMA_Z_RANGE: (f64, f64) = (0.0, 100.0);
+pub const PIERCE_DELAY_RANGE: (f64, f64) = (0.0, 60.0);
 
 /// The most passes one toolpath gets.
 pub const MAX_PASSES: usize = 1000;
@@ -177,6 +275,9 @@ impl CncSpec {
             laser_passes: self
                 .laser_passes
                 .clamp(LASER_PASSES_RANGE.0, LASER_PASSES_RANGE.1),
+            pierce_height: c(self.pierce_height, d.pierce_height, PLASMA_Z_RANGE),
+            cut_height: c(self.cut_height, d.cut_height, PLASMA_Z_RANGE),
+            pierce_delay: c(self.pierce_delay, d.pierce_delay, PIERCE_DELAY_RANGE),
             ..*self
         }
     }
@@ -547,6 +648,9 @@ impl Writer {
 /// The program that cuts `objects` (page-space outlines per object) as
 /// `spec` says; `origin` is where X0 Y0 goes with [`Zero::Origin`].
 pub fn program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Program {
+    if spec.plasma {
+        return plasma_program(objects, spec, origin);
+    }
     if spec.laser {
         return laser_program(objects, spec, origin);
     }
@@ -574,6 +678,9 @@ pub fn program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Progr
         cut_length: 0.0,
         minutes: 0.0,
     };
+    for l in spec.dialect.start() {
+        w.line(l);
+    }
     w.line("(TraceDraw CNC toolpath)");
     let head = format!(
         "(Units mm, tool {} mm, depth {} mm in {} passes, {} toolpaths)",
@@ -584,9 +691,9 @@ pub fn program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Progr
     );
     w.line(&head);
     w.line("(X0 Y0 at the origin chosen, Z0 on the top of the material)");
-    w.line("G21");
-    w.line("G90");
-    w.line("G94");
+    for l in spec.dialect.prolog(spec.tolerance) {
+        w.line(&l);
+    }
     let safe = format!("G0 Z{}", num(spec.safe_z));
     w.line(&safe);
     if spec.spindle > 0.0 {
@@ -664,7 +771,9 @@ pub fn program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Progr
         rapids.push((w.at, zero));
     }
     w.rapid_xy(zero);
-    w.line("M30");
+    for l in spec.dialect.end() {
+        w.line(l);
+    }
     Program {
         gcode: w.out,
         passes: levels.len(),
@@ -712,6 +821,9 @@ fn laser_program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Pro
         cut_length: 0.0,
         minutes: 0.0,
     };
+    for l in spec.dialect.start() {
+        w.line(l);
+    }
     w.line("(TraceDraw laser cut)");
     let head = format!(
         "(Units mm, kerf {} mm, power S{:.0} of {:.0}, {} passes, {} toolpaths)",
@@ -723,9 +835,9 @@ fn laser_program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Pro
     );
     w.line(&head);
     w.line("(X0 Y0 at the origin chosen; set the laser max S to match the controller)");
-    w.line("G21");
-    w.line("G90");
-    w.line("G94");
+    for l in spec.dialect.prolog(spec.tolerance) {
+        w.line(&l);
+    }
     w.line("M5");
     let mut rapids = Vec::new();
     for (i, t) in paths.iter().enumerate() {
@@ -760,10 +872,118 @@ fn laser_program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Pro
         rapids.push((w.at, zero));
     }
     w.rapid_xy(zero);
-    w.line("M30");
+    for l in spec.dialect.end() {
+        w.line(l);
+    }
     Program {
         gcode: w.out,
         passes: spec.laser_passes as usize,
+        cut_length: w.cut_length,
+        minutes: w.minutes,
+        toolpaths: paths,
+        rapids,
+        skipped,
+        zero,
+    }
+}
+
+/// The G-code that cuts `objects` with a plasma torch: the dialect's
+/// header, then for every toolpath a `G0` to its start at `safe_z`, down to
+/// `pierce_height`, `M3` (torch on), a `G4` pause of `pierce_delay`, a `G1`
+/// down to `cut_height` at the plunge rate, `G1` along the toolpath at the
+/// feed rate, `M5` (torch off) and back to `safe_z`; the dialect's end code
+/// last. The toolpaths are those of the router program with the kerf as
+/// the tool diameter; a kerf of 0 cuts on the line.
+fn plasma_program(objects: &[Vec<BezPath>], spec: &CncSpec, origin: Point) -> Program {
+    let kerf = fin(spec.tool_diameter, 0.0).clamp(0.0, TOOL_RANGE.1);
+    let mut spec = spec.clamped();
+    spec.tabs = false;
+    if kerf <= TOOL_RANGE.0 {
+        spec.side = Side::OnLine;
+    }
+    spec.tool_diameter = kerf.max(TOOL_RANGE.0);
+    let all: Vec<BezPath> = objects.iter().flatten().cloned().collect();
+    let corner = crate::cut::bounds(&all)
+        .map(|b| Point::new(b.x0, b.y0))
+        .unwrap_or(Point::ZERO);
+    let zero = match spec.zero {
+        Zero::JobCorner => corner,
+        Zero::Origin if finite(origin) => origin,
+        Zero::Origin => Point::ZERO,
+    };
+    let (paths, skipped) = toolpaths(objects, &spec, zero);
+    let mut w = Writer {
+        out: String::new(),
+        zero,
+        feed: spec.feed,
+        plunge: spec.plunge,
+        at: zero,
+        z: 0.0,
+        f: None,
+        cut_length: 0.0,
+        minutes: 0.0,
+    };
+    for l in spec.dialect.start() {
+        w.line(l);
+    }
+    w.line("(TraceDraw plasma cut)");
+    let head = format!(
+        "(Units mm, kerf {} mm, pierce Z{} {}s, cut Z{}, {} toolpaths)",
+        num(kerf),
+        num(spec.pierce_height),
+        num(spec.pierce_delay),
+        num(spec.cut_height),
+        paths.len()
+    );
+    w.line(&head);
+    w.line("(X0 Y0 at the origin chosen; Z0 is the top of the material)");
+    for l in spec.dialect.prolog(spec.tolerance) {
+        w.line(&l);
+    }
+    w.line("M5");
+    w.rapid_z(spec.safe_z);
+    let mut rapids = Vec::new();
+    for (i, t) in paths.iter().enumerate() {
+        let Some(&start) = t.pts.first() else {
+            continue;
+        };
+        let name = match t.side {
+            Side::Outside => "outside",
+            Side::Inside => "inside",
+            _ => "on the line",
+        };
+        let s = format!("(Toolpath {}: {name})", i + 1);
+        w.line(&s);
+        let mut ring = t.pts.clone();
+        if t.closed {
+            ring.push(start);
+        }
+        if (w.at - start).hypot() > 1e-9 {
+            rapids.push((w.at, start));
+        }
+        w.rapid_xy(start);
+        w.rapid_z(spec.pierce_height);
+        w.line("M3");
+        let pause = spec.dialect.dwell(spec.pierce_delay);
+        w.line(&pause);
+        w.minutes += spec.pierce_delay / 60.0;
+        w.feed_z(spec.cut_height);
+        for seg in ring.windows(2) {
+            w.feed_xy(seg[1]);
+        }
+        w.line("M5");
+        w.rapid_z(spec.safe_z);
+    }
+    if (w.at - zero).hypot() > 1e-9 {
+        rapids.push((w.at, zero));
+    }
+    w.rapid_xy(zero);
+    for l in spec.dialect.end() {
+        w.line(l);
+    }
+    Program {
+        gcode: w.out,
+        passes: 1,
         cut_length: w.cut_length,
         minutes: w.minutes,
         toolpaths: paths,
@@ -803,6 +1023,74 @@ mod tests {
         }
     }
 
+    /// Laser mode follows the flavour too: GRBL ends with M2, Fanuc is
+    /// wrapped in `%`, and the beam is never on in the header.
+    #[test]
+    fn a_laser_program_follows_the_dialect() {
+        let objects = [vec![rect(0.0, 0.0, 20.0, 10.0)]];
+        let write = |dialect| {
+            let s = CncSpec {
+                laser: true,
+                dialect,
+                ..Default::default()
+            };
+            program(&objects, &s, Point::ZERO).gcode
+        };
+        let grbl = write(Dialect::Grbl);
+        assert!(grbl.contains("G94\nG17\nM5\n") && grbl.trim_end().ends_with("M2"));
+        assert!(!grbl.contains(" Z"), "no Z moves in laser mode");
+        let fanuc = write(Dialect::Fanuc);
+        assert!(fanuc.starts_with("%\nO0001\n") && fanuc.trim_end().ends_with("M30\n%"));
+        assert!(write(Dialect::Generic).trim_end().ends_with("M30"));
+    }
+
+    /// Plasma mode: each toolpath is pierced at the pierce height, held
+    /// for the delay, cut at the cut height and left with the torch off;
+    /// the flavour sets the pause unit and the end code.
+    #[test]
+    fn a_plasma_program_pierces_waits_and_cuts_at_height() {
+        let objects = [vec![
+            rect(0.0, 0.0, 40.0, 30.0),
+            circle(Point::new(20.0, 15.0), 5.0),
+        ]];
+        let write = |dialect| {
+            let s = CncSpec {
+                plasma: true,
+                // A laser flag alongside is ignored.
+                laser: true,
+                dialect,
+                tool_diameter: 1.5,
+                ..Default::default()
+            };
+            program(&objects, &s, Point::ZERO)
+        };
+        let p = write(Dialect::Generic);
+        let g = &p.gcode;
+        let fires = g.lines().filter(|l| *l == "M3").count();
+        assert_eq!(fires, p.toolpaths.len());
+        assert!(fires >= 2, "the part and its hole pierce separately");
+        assert_eq!(g.lines().filter(|l| l.starts_with("G4 P0.500")).count(), fires);
+        assert!(g.contains("G0 Z3.800") && g.contains("G1 Z1.500"));
+        assert!(!g.contains("M4") && !g.contains("S1000"), "no laser words");
+        // The torch fires only at the pierce height, never during a rapid.
+        let lines: Vec<&str> = g.lines().collect();
+        for (i, l) in lines.iter().enumerate() {
+            if *l == "M3" {
+                assert_eq!(lines[i - 1], "G0 Z3.800");
+                assert!(lines[i + 1].starts_with("G4 P"));
+            }
+        }
+        assert!(g.trim_end().ends_with("M30"));
+        assert_eq!(g.lines().filter(|l| *l == "M5").count(), fires + 1);
+        let fanuc = write(Dialect::Fanuc).gcode;
+        assert!(fanuc.contains("G4 P500"), "Fanuc pauses in milliseconds");
+        assert!(fanuc.starts_with("%\nO0001\n") && fanuc.trim_end().ends_with("M30\n%"));
+        let grbl = write(Dialect::Grbl).gcode;
+        assert!(grbl.trim_end().ends_with("M2"));
+        // The time counts the pauses.
+        assert!(p.minutes > 0.0);
+    }
+
     #[test]
     fn a_laser_program_has_power_passes_and_no_z() {
         let s = CncSpec {
@@ -820,6 +1108,31 @@ mod tests {
         assert!(p.gcode.trim_end().ends_with("M30"));
         // On the line: the rectangle's own corners.
         assert!(p.gcode.contains("X10.000 Y10.000"), "{}", p.gcode);
+    }
+
+    /// Each flavour writes its own header and end; Generic is unchanged.
+    #[test]
+    fn dialects_write_their_own_header_and_end() {
+        let objects = [vec![rect(0.0, 0.0, 20.0, 10.0)]];
+        let write = |dialect| {
+            program(&objects, &CncSpec { dialect, ..spec() }, Point::ZERO).gcode
+        };
+        let generic = write(Dialect::Generic);
+        assert!(generic.contains("G21\nG90\nG94\n") && generic.trim_end().ends_with("M30"));
+        let grbl = write(Dialect::Grbl);
+        assert!(grbl.contains("G94\nG17\n") && grbl.trim_end().ends_with("M2"));
+        assert!(grbl.lines().all(|l| l.len() <= 70), "GRBL lines stay short");
+        let mach = write(Dialect::Mach3);
+        assert!(mach.contains("G17\nG40\nG49\nG80") && mach.trim_end().ends_with("M30"));
+        let linux = write(Dialect::LinuxCnc);
+        assert!(linux.contains("G64 P") && linux.trim_end().ends_with("M2"));
+        let fanuc = write(Dialect::Fanuc);
+        assert!(fanuc.starts_with("%\nO0001\n") && fanuc.trim_end().ends_with("M30\n%"));
+        // The cuts are the same in every flavour.
+        let moves = |g: &str| g.lines().filter(|l| l.starts_with("G1 ")).count();
+        for d in Dialect::ALL {
+            assert_eq!(moves(&write(d)), moves(&generic), "{d:?}");
+        }
     }
 
     #[test]

@@ -532,45 +532,49 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
         return;
     }
 
-    let menu_bar = Panel::top("menu_bar")
-        .frame(
-            Frame::new()
-                .fill(Tokens::menu_bar())
-                .inner_margin(egui::Margin::symmetric(0, 1)),
-        )
-        .exact_size(24.0)
-        .resizable(false)
-        .show_separator_line(false)
-        .show(ui, |ui| {
-            // Minimize, Maximize and Close at the right end, and the empty
-            // part of the bar as a title bar, when turned on (#2574).
-            if !crate::window_buttons::shown(app) {
-                menus::menu_bar(app, ui);
-                return;
-            }
-            let full = ui.max_rect();
-            let split = full.right() - crate::window_buttons::WIDTH;
-            let left = egui::Rect::from_min_max(full.min, egui::pos2(split, full.bottom()));
-            let right = egui::Rect::from_min_max(egui::pos2(split, full.top()), full.max);
-            let used = ui
-                .scope_builder(egui::UiBuilder::new().max_rect(left), |ui| {
+    // Full canvas (touch_panels.rs): no menu bar, tabs or scrollbars either.
+    let immersive = crate::touch_panels::immersive(app);
+    if !immersive {
+        let menu_bar = Panel::top("menu_bar")
+            .frame(
+                Frame::new()
+                    .fill(Tokens::menu_bar())
+                    .inner_margin(egui::Margin::symmetric(0, 1)),
+            )
+            .exact_size(24.0)
+            .resizable(false)
+            .show_separator_line(false)
+            .show(ui, |ui| {
+                // Minimize, Maximize and Close at the right end, and the empty
+                // part of the bar as a title bar, when turned on (#2574).
+                if !crate::window_buttons::shown(app) {
                     menus::menu_bar(app, ui);
-                    ui.min_rect().right()
-                })
-                .inner;
-            let gap = egui::Rect::from_min_max(
-                egui::pos2(used, full.top()),
-                egui::pos2(split, full.bottom()),
-            );
-            crate::window_buttons::title_area(ui, gap);
-            ui.scope_builder(egui::UiBuilder::new().max_rect(right), |ui| {
-                crate::window_buttons::show(app, ui)
-            });
-        })
-        .response
-        .rect;
-    tab_focus::set_menu_bar(&ctx, menu_bar);
-    crate::frame_mark("the menus");
+                    return;
+                }
+                let full = ui.max_rect();
+                let split = full.right() - crate::window_buttons::WIDTH;
+                let left = egui::Rect::from_min_max(full.min, egui::pos2(split, full.bottom()));
+                let right = egui::Rect::from_min_max(egui::pos2(split, full.top()), full.max);
+                let used = ui
+                    .scope_builder(egui::UiBuilder::new().max_rect(left), |ui| {
+                        menus::menu_bar(app, ui);
+                        ui.min_rect().right()
+                    })
+                    .inner;
+                let gap = egui::Rect::from_min_max(
+                    egui::pos2(used, full.top()),
+                    egui::pos2(split, full.bottom()),
+                );
+                crate::window_buttons::title_area(ui, gap);
+                ui.scope_builder(egui::UiBuilder::new().max_rect(right), |ui| {
+                    crate::window_buttons::show(app, ui)
+                });
+            })
+            .response
+            .rect;
+        tab_focus::set_menu_bar(&ctx, menu_bar);
+        crate::frame_mark("the menus");
+    }
     // The bars, where the layout puts them (see bars.rs). Outer panels
     // come first: the status bar (at the very bottom, or right under the
     // menu bar), then the toolbars, then the palettes and the toolbox.
@@ -823,10 +827,12 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     // Document tabs above the rulers.
     // The tabs' blue line is the strip's lower edge: no separator and no
     // gap between it and the rulers.
-    Panel::top("document_tabs")
-        .frame(Frame::new().fill(crate::theme::Tokens::tab_strip()))
-        .show_separator_line(false)
-        .show(ui, |ui| tabs::document_tabs(app, ui));
+    if !immersive {
+        Panel::top("document_tabs")
+            .frame(Frame::new().fill(crate::theme::Tokens::tab_strip()))
+            .show_separator_line(false)
+            .show(ui, |ui| tabs::document_tabs(app, ui));
+    }
 
     if app.show_welcome {
         egui::CentralPanel::default()
@@ -1252,15 +1258,19 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
     canvas::draw_snap_mark(app, &painter);
     crate::brushes::draw_resize(app, &painter);
     app.draw_right_drag(&painter);
-    crate::touch_modifiers::keys_on_drawing(app, ui, canvas_rect);
+    if !crate::touch_panels::immersive(app) {
+        crate::touch_modifiers::keys_on_drawing(app, ui, canvas_rect);
+    }
     crate::touch_bars::bars_on_drawing(app, ui, canvas_rect);
-    crate::touch_paint::on_drawing(app, ui, canvas_rect);
+    crate::touch_panels::on_drawing(app, ui, canvas_rect);
     context::context_menu(app, ui, &response);
     crate::drop_menu::drop_menu_ui(app, ui);
     crate::fill_tool::node_bar(app, ui);
 
     // Scrollbars, document navigator, page tabs, Navigator button.
-    window_bars::window_bars(app, ui, full, canvas_rect, ruler);
+    if !crate::touch_panels::immersive(app) {
+        window_bars::window_bars(app, ui, full, canvas_rect, ruler);
+    }
 
     if app.show_rulers {
         rulers::rulers(app, ui, full);

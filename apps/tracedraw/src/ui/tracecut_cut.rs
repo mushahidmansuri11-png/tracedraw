@@ -9,7 +9,7 @@ use crate::tracecut_send::{Destination, CAN_SEND};
 use crate::ui::tips::RichTip;
 use crate::ui::tracecut::{length, row};
 use egui::Ui;
-use tracedraw_tracecut::cnc::{self, CncSpec, Milling, Side, Zero};
+use tracedraw_tracecut::cnc::{self, CncSpec, Dialect, Milling, Side, Zero};
 use tracedraw_tracecut::cut::hpgl::{Machine, Origin, MAX_PASSES};
 use tracedraw_tracecut::cut::marks::MarkStyle;
 use tracedraw_tracecut::cut::order::{Direction, StartAt};
@@ -324,8 +324,42 @@ pub fn settings(ui: &mut Ui, units: Units, st: &mut TraceCutState) -> Option<Act
 /// CNC Toolpath: the tool, the side and direction, the depths, the
 /// rates, the origin and the holding tabs.
 fn cnc_settings(ui: &mut Ui, units: Units, s: &mut CncSpec) {
-    let was_laser = s.laser;
+    let (was_laser, was_plasma) = (s.laser, s.plasma);
     row(ui, "", |ui| check(ui, &mut s.laser, "tracecut.cnc_laser"));
+    row(ui, "", |ui| check(ui, &mut s.plasma, "tracecut.cnc_plasma"));
+    // One mode at a time: the one just ticked wins.
+    if s.laser && s.plasma {
+        if was_laser {
+            s.laser = false;
+        } else {
+            s.plasma = false;
+        }
+    }
+    // The controller the program is written for, in laser mode too (GRBL
+    // lasers are the common case).
+    row(ui, &tr("tracecut.cnc_dialect"), |ui| {
+        choice(
+            ui,
+            "cnc_dialect",
+            &mut s.dialect,
+            &[
+                (Dialect::Generic, "tracecut.cnc_dialect_generic"),
+                (Dialect::Grbl, "tracecut.cnc_dialect_grbl"),
+                (Dialect::Mach3, "tracecut.cnc_dialect_mach3"),
+                (Dialect::LinuxCnc, "tracecut.cnc_dialect_linuxcnc"),
+                (Dialect::Fanuc, "tracecut.cnc_dialect_fanuc"),
+            ],
+            "tracecut.cnc_dialect",
+        )
+    });
+    if s.plasma {
+        // A router bit's width is no kerf: start with a plasma kerf.
+        if !was_plasma && s.tool_diameter > 3.0 {
+            s.tool_diameter = 1.5;
+        }
+        plasma_settings(ui, units, s);
+        return;
+    }
     if s.laser {
         // A router bit's width is no kerf: start on the line.
         if !was_laser && s.tool_diameter > 1.0 {
@@ -512,6 +546,88 @@ fn laser_settings(ui: &mut Ui, units: Units, s: &mut CncSpec) {
     });
     row(ui, &tr("tracecut.cnc_feed"), |ui| {
         number(ui, &mut s.feed, cnc::RATE_RANGE, 0, "tracecut.cnc_feed")
+    });
+    row(ui, &tr("tracecut.cnc_origin"), |ui| {
+        choice(
+            ui,
+            "cnc_origin",
+            &mut s.zero,
+            &[
+                (Zero::JobCorner, "tracecut.cnc_origin_corner"),
+                (Zero::Origin, "tracecut.cnc_origin_ruler"),
+            ],
+            "tracecut.cnc_origin",
+        )
+    });
+}
+
+/// CNC Toolpath in plasma mode: the kerf, the side, the pierce height and
+/// delay, the cut height, the cutting speed, the Z moves and the origin.
+fn plasma_settings(ui: &mut Ui, units: Units, s: &mut CncSpec) {
+    row(ui, &tr("tracecut.cnc_kerf"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.tool_diameter,
+            cnc::TOOL_RANGE,
+            "tracecut.cnc_kerf",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_side"), |ui| {
+        choice(
+            ui,
+            "cnc_side",
+            &mut s.side,
+            &[
+                (Side::Auto, "tracecut.cnc_side_auto"),
+                (Side::Outside, "tracecut.cnc_side_outside"),
+                (Side::Inside, "tracecut.cnc_side_inside"),
+                (Side::OnLine, "tracecut.cnc_side_on"),
+            ],
+            "tracecut.cnc_side",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_pierce_height"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.pierce_height,
+            cnc::PLASMA_Z_RANGE,
+            "tracecut.cnc_pierce_height",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_pierce_delay"), |ui| {
+        number(
+            ui,
+            &mut s.pierce_delay,
+            cnc::PIERCE_DELAY_RANGE,
+            2,
+            "tracecut.cnc_pierce_delay",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_cut_height"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.cut_height,
+            cnc::PLASMA_Z_RANGE,
+            "tracecut.cnc_cut_height",
+        )
+    });
+    row(ui, &tr("tracecut.cnc_feed"), |ui| {
+        number(ui, &mut s.feed, cnc::RATE_RANGE, 0, "tracecut.cnc_feed")
+    });
+    row(ui, &tr("tracecut.cnc_plunge"), |ui| {
+        number(ui, &mut s.plunge, cnc::RATE_RANGE, 0, "tracecut.cnc_plunge")
+    });
+    row(ui, &tr("tracecut.cnc_safe_z"), |ui| {
+        length(
+            ui,
+            units,
+            &mut s.safe_z,
+            cnc::SAFE_Z_RANGE,
+            "tracecut.cnc_safe_z",
+        )
     });
     row(ui, &tr("tracecut.cnc_origin"), |ui| {
         choice(

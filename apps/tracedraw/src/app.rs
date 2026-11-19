@@ -1200,10 +1200,8 @@ pub struct App {
     /// The keys on the drawing as drawn this frame: each one's id and
     /// place (empty when they are not shown).
     pub touch_keys_shown: Vec<(&'static str, egui::Rect)>,
-    /// The fill and outline card of the finger button is open (touch_paint.rs).
-    pub touch_paint_open: bool,
-    /// Where the finger button sits: a share (0 to 1) of the room it can move in, each way.
-    pub touch_paint_at: [f32; 2],
+    /// The strip that folds the panels away for a finger (touch_panels.rs).
+    pub touch_panels: crate::touch_panels::TouchPanels,
     /// A finger held down on one of those keys, and the finger drawing
     /// meanwhile (#2362, touch_modifiers.rs).
     pub key_fingers: crate::touch_modifiers::KeyFingers,
@@ -3020,8 +3018,7 @@ impl App {
             show_dockers: true,
             touch_mods: Default::default(),
             touch_keys_shown: Vec::new(),
-            touch_paint_open: false,
-            touch_paint_at: [0.0, 0.35],
+            touch_panels: Default::default(),
             key_fingers: Default::default(),
             touch_tap: Default::default(),
             copy_fingers: Default::default(),

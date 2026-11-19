@@ -197,8 +197,23 @@ Z<safe>` up; then `M5`, `G0` back over X0 Y0 and `M30`. Coordinates in
 millimetres with three decimals. Apply shows the toolpaths in red and
 the moves at the safe height in blue; the status line gives the
 toolpaths, the passes, the length milled and the time at the feed and
-plunge rates. OK saves a `.nc` file (also `.gcode`, `.ngc`, `.tap`)
+plunge rates. "G-code for" picks the controller: Generic (above), GRBL
+(`G21 G90 G94 G17`, ends `M2`, `.gcode`), Mach3/Mach4 (adds `G40 G49
+G80`, ends `M30`, `.nc`), LinuxCNC (as Mach3 with `G64 P<tolerance>`,
+ends `M2`, `.ngc`) and Fanuc style (`%` and `O0001` first, `M30` and `%`
+last, `.tap`); the cuts are the same. OK saves a `.nc` file (also `.gcode`, `.ngc`, `.tap`; the
+name offered follows the controller)
 where you say; the drawing does not change.
+
+**Plasma cutter mode** (a checkbox beside Laser; one of the two at a
+time, and plasma wins if both are set): the program has the dialect's
+header, then for every toolpath a rapid to its start at the safe Z, down
+to the **pierce height** (3.8 mm), `M3`, a pause of the **pierce delay**
+(0.5 s; `G4 P0.500`, in milliseconds on Fanuc), a move down to the **cut
+height** (1.5 mm) at the plunge rate, the cut at the feed rate, `M5` and
+back to the safe Z. The width is the kerf (a kerf of 0 cuts on the line),
+there is no spindle and no depth, and the time counts the pauses
+(`cnc::tests::a_plasma_program_pierces_waits_and_cuts_at_height`).
 
 ### Weeding
 
@@ -424,8 +439,9 @@ per side** (5 mm). The material is billed **by the roll** (at first:
 the running metres of a roll of the **roll width**, 630 mm, the blocks
 laid on it) or **by area** (square metres of the blocks), at the
 **material price**; then, when not 0, **cutting per metre** of outline
-(0.5), **weeding per m²** of the blocks (12), a price **per object**
-and **machine time per hour** (the cutting time from the Cutting Time
+(0.5), **weeding per m²** of the blocks (12), a price **per object**,
+**piercing per pierce** (each outline the cutter starts, so a part with
+two holes pierces three times; 0 by default) and **machine time per hour** (the cutting time from the Cutting Time
 settings). Everything is multiplied by the **copies**. Prices carry no
 currency; the **currency** typed is shown after the amounts.
 
