@@ -70,7 +70,8 @@ pub fn midpoint_params(f: &Fountain) -> Vec<(usize, f64)> {
 /// The nodes of a fountain on the object's page bounds: start, end and
 /// skew handle; none for a shaped fountain (it follows the outline).
 pub fn fountain_handles(f: &Fountain, b: Rect) -> Vec<(FountainHandle, Point)> {
-    if f.kind == FountainKind::Shaped {
+    // Colour points have their own nodes (`crate::color_points`).
+    if matches!(f.kind, FountainKind::Shaped | FountainKind::Points) {
         return Vec::new();
     }
     let h = f.handles.unwrap_or_else(|| f.default_handles(b));
@@ -366,6 +367,16 @@ impl App {
         Some(i)
     }
 
+    /// Copy colour node `i` (the start and the end too) to the same place
+    /// as a node between the ends, and select the copy; its index.
+    pub fn duplicate_fountain_stop(&mut self, i: usize) -> Option<usize> {
+        let (id, mut f, _) = self.selected_fountain()?;
+        let j = crate::ui::edit_fill::duplicate_node(&mut f, i)?;
+        self.set_selected_fountain(id, f, false);
+        self.fill_node = Some(j);
+        Some(j)
+    }
+
     /// Remove colour node `i` (not the start or the end).
     pub fn remove_fountain_stop(&mut self, i: usize) -> bool {
         let Some((id, mut f, _)) = self.selected_fountain() else {
@@ -460,16 +471,46 @@ impl App {
     /// the pick distance, it takes the whole fill, which the drag then
     /// moves by its line. False when it is on neither.
     pub fn begin_fountain_drag(&mut self, at: Point, press: Point) -> bool {
+        self.begin_fountain_drag_with(at, press, false)
+    }
+
+    /// [`App::begin_fountain_drag`]; with `copy` (Alt held) a colour node
+    /// pressed is copied first and the drag takes the copy, so the two
+    /// can be pulled apart into a band of one colour, or one put against
+    /// its neighbour for a hard edge. The copy and the drag make one
+    /// undo step.
+    pub fn begin_fountain_drag_with(&mut self, at: Point, press: Point, copy: bool) -> bool {
+        // A node of a pattern fill's first tile (#3379).
+        if let Some(handle) = self
+            .pattern_handle_at(at)
+            .or_else(|| self.pattern_handle_at(press))
+        {
+            self.drag = crate::app::Drag::PatternHandle {
+                handle,
+                begun: false,
+            };
+            return true;
+        }
         let held = self
             .fountain_handle_at(at)
             .or_else(|| self.fountain_handle_at(press));
-        if let Some(h) = held {
+        if let Some(mut h) = held {
+            let mut copied = false;
+            if copy {
+                if let Some(j) = self
+                    .fountain_stop_of(h)
+                    .and_then(|i| self.duplicate_fountain_stop(i))
+                {
+                    h = FountainHandle::Stop(j);
+                    copied = true;
+                }
+            }
             if let Some(i) = self.fountain_stop_of(h) {
                 self.fill_node = Some(i);
             }
             self.drag = crate::app::Drag::FountainHandle {
                 handle: h,
-                begun: false,
+                begun: copied,
             };
             return true;
         }
@@ -515,6 +556,15 @@ impl App {
     pub fn fountain_drag_to(&mut self, p: Point, ctrl: bool) -> bool {
         use crate::app::Drag;
         match self.drag {
+            Drag::PatternHandle { handle, begun } => {
+                let p = self.snap_point(p);
+                self.drag_pattern_handle(handle, p, begun);
+                self.drag = Drag::PatternHandle {
+                    handle,
+                    begun: true,
+                };
+                true
+            }
             Drag::FountainHandle { handle, begun } => {
                 // A node snaps as the pointer does: onto the object's own
                 // corners and centre, other objects, guidelines and the
@@ -617,12 +667,19 @@ impl App {
     /// white, #2498), the skew handle square to the axis.
     pub fn fill_from_drag(&mut self, id: ShapeId, from: Point, to: Point) {
         use tracedraw_core::geometry::Shape as _;
+        // A pattern fill (a bitmap one too) keeps its tiles and lays
+        // them along the drag, not a gradient in their place (#3379).
+        if self.pattern_from_drag(id, from, to) {
+            return;
+        }
         let Some(s) = self.doc().shape_on_page(id) else {
             return;
         };
         let b = s.page_path().bounding_box();
         let mut f = match &s.fill {
-            Fill::Fountain(f) if f.kind != FountainKind::Shaped => f.clone(),
+            Fill::Fountain(f) if !matches!(f.kind, FountainKind::Shaped | FountainKind::Points) => {
+                f.clone()
+            }
             other => {
                 let first = match (other, &self.default_fill()) {
                     (Fill::Solid(c), _) | (_, Fill::Solid(c)) => *c,

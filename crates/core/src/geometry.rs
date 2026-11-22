@@ -73,10 +73,64 @@ pub fn ellipse_arc_path(rect: Rect, start_deg: f64, end_deg: f64, pie: bool) -> 
     } else {
         path.move_to(start);
     }
-    arc.append_iter(0.1).for_each(|el| path.push(el));
+    // A tolerance of 0.1 mm, or a millionth of the radius on a huge arc:
+    // the number of pieces grows with radius over tolerance, so an arc
+    // with a radius of 1e300 from a damaged file asked for more pieces
+    // than memory holds (#3338).
+    let tolerance = (radii.x.abs().max(radii.y.abs()) * 1e-6).max(0.1);
+    arc.append_iter(tolerance).for_each(|el| path.push(el));
     if pie {
         path.close_path();
     }
+    path
+}
+
+/// A ring sector of the ellipse that fills `rect`: the band between the
+/// ellipse and a smaller one at `inner` times its radii (0 to 0.99), from
+/// `start_deg` to `end_deg` counter-clockwise, closed across both ends; a
+/// whole turn is a ring (the outline and the inner ellipse turning the
+/// other way, so the middle stays empty under either fill rule). `inner`
+/// 0 or less is the pie itself.
+pub fn ellipse_ring_path(rect: Rect, start_deg: f64, end_deg: f64, inner: f64) -> BezPath {
+    if !inner.is_finite() || inner <= 0.0 {
+        return ellipse_arc_path(rect, start_deg, end_deg, true);
+    }
+    let k = inner.min(0.99);
+    let c = rect.center();
+    let radii = kurbo::Vec2::new(rect.width() / 2.0, rect.height() / 2.0);
+    let inner_radii = radii * k;
+    let mut sweep = (end_deg - start_deg).rem_euclid(360.0);
+    let whole = sweep == 0.0;
+    if whole {
+        sweep = 360.0;
+    }
+    let tolerance = (radii.x.abs().max(radii.y.abs()) * 1e-6).max(0.1);
+    let at = |r: kurbo::Vec2, deg: f64| {
+        Point::new(
+            c.x + r.x * deg.to_radians().cos(),
+            c.y + r.y * deg.to_radians().sin(),
+        )
+    };
+    let mut path = BezPath::new();
+    path.move_to(at(radii, start_deg));
+    kurbo::Arc::new(c, radii, start_deg.to_radians(), sweep.to_radians(), 0.0)
+        .append_iter(tolerance)
+        .for_each(|el| path.push(el));
+    let back = kurbo::Arc::new(
+        c,
+        inner_radii,
+        (start_deg + sweep).to_radians(),
+        -sweep.to_radians(),
+        0.0,
+    );
+    if whole {
+        path.close_path();
+        path.move_to(at(inner_radii, start_deg + sweep));
+    } else {
+        path.line_to(at(inner_radii, start_deg + sweep));
+    }
+    back.append_iter(tolerance).for_each(|el| path.push(el));
+    path.close_path();
     path
 }
 
@@ -111,6 +165,71 @@ pub fn twisted_polygon_path(rect: Rect, points: u32, sharpness: f64, twist: f64)
     path.close_path();
     path
 }
+
+/// [`twisted_polygon_path`] with every side bent the same way (#2451):
+/// each side from one point to the next becomes a curve whose control
+/// points stand off the side's thirds by `bend` times the side's length,
+/// away from the inside of the outline (towards it when negative). Every
+/// side gets the same curve, so a polygon or star keeps its mirror
+/// symmetry. The curves are made in the unit circle and then stretched
+/// to `rect`, as the points are.
+pub fn bent_polygon_path(
+    rect: Rect,
+    points: u32,
+    sharpness: f64,
+    twist: f64,
+    bend: f64,
+) -> BezPath {
+    let bend = if bend.is_finite() {
+        bend.clamp(-MAX_POLYGON_BEND, MAX_POLYGON_BEND)
+    } else {
+        0.0
+    };
+    if bend == 0.0 {
+        return twisted_polygon_path(rect, points, sharpness, twist);
+    }
+    let c = rect.center();
+    let (rx, ry) = (rect.width() / 2.0, rect.height() / 2.0);
+    let page = |x: f64, y: f64| Point::new(c.x + rx * x, c.y + ry * y);
+    let unit: Vec<(f64, f64)> = polygon_unit_vertices(points, sharpness, twist).collect();
+    let mut path = BezPath::new();
+    let Some(&(x0, y0)) = unit.first() else {
+        return path;
+    };
+    path.move_to(page(x0, y0));
+    // Which side is out: the way the points go round.
+    let area: f64 = (0..unit.len())
+        .map(|i| {
+            let (ax, ay) = unit[i];
+            let (bx, by) = unit[(i + 1) % unit.len()];
+            ax * by - bx * ay
+        })
+        .sum();
+    let out = if area < 0.0 { -bend } else { bend };
+    for i in 0..unit.len() {
+        let (ax, ay) = unit[i];
+        let (bx, by) = unit[(i + 1) % unit.len()];
+        let (dx, dy) = (bx - ax, by - ay);
+        let (nx, ny) = (dy * out, -dx * out);
+        path.curve_to(
+            page(ax + dx / 3.0 + nx, ay + dy / 3.0 + ny),
+            page(bx - dx / 3.0 + nx, by - dy / 3.0 + ny),
+            page(bx, by),
+        );
+    }
+    path.close_path();
+    path
+}
+
+/// The points a polygon or star's outline goes through, in the unit
+/// circle (y down, centre at 0), in order: its vertices and, on a star,
+/// the points between them.
+pub fn polygon_unit_points(points: u32, sharpness: f64, twist: f64) -> Vec<(f64, f64)> {
+    polygon_unit_vertices(points, sharpness, twist).collect()
+}
+
+/// The most a polygon's sides bend either way, as a part of their length.
+pub const MAX_POLYGON_BEND: f64 = 2.0;
 
 /// Whether `sharpness` makes a polygon a star: any finite value but 0
 /// (a negative one an inverted star).
@@ -149,6 +268,9 @@ pub fn star_sharpness_for_ratio(ratio: f64) -> f64 {
     }
 }
 
+/// The most points a polygon or star has (the tools' limit too).
+pub const POLYGON_MAX_POINTS: u32 = 500;
+
 /// The fewest points a complex star has.
 pub const COMPLEX_STAR_MIN_POINTS: u32 = 5;
 
@@ -165,7 +287,7 @@ pub fn complex_star_max_sharpness(points: u32) -> u32 {
 /// the count the star is several closed subpaths (two triangles for six
 /// points). Filled even-odd, the middle stays empty.
 pub fn complex_star_path(rect: Rect, points: u32, sharpness: u32) -> BezPath {
-    let n = points.clamp(COMPLEX_STAR_MIN_POINTS, 500) as usize;
+    let n = points.clamp(COMPLEX_STAR_MIN_POINTS, POLYGON_MAX_POINTS) as usize;
     let step = sharpness.clamp(1, complex_star_max_sharpness(n as u32)) as usize + 1;
     let verts: Vec<Point> = {
         let c = rect.center();
@@ -203,7 +325,10 @@ fn polygon_unit_vertices(
     sharpness: f64,
     twist: f64,
 ) -> impl Iterator<Item = (f64, f64)> {
-    let points = points.max(3) as usize;
+    // The tools and bars go to 500 points; a file or a macro giving
+    // millions (or 4 billion) made drawing it take minutes or ask for more
+    // memory than there is, ending the program.
+    let points = points.clamp(3, POLYGON_MAX_POINTS) as usize;
     let twist = if twist.is_finite() {
         twist.clamp(-std::f64::consts::PI, std::f64::consts::PI)
     } else {
@@ -357,9 +482,21 @@ pub fn simplify(points: &[Point], tolerance: f64) -> Vec<Point> {
     out
 }
 
-/// Axis-aligned bounds of a path after an affine transform.
+/// Axis-aligned bounds of a path after an affine transform: the box of
+/// each mapped segment, as the box of the mapped path computes it, but
+/// without copying the path. An object's box is asked for on every
+/// pointer move (snapping, picking) and on every render, and the copy
+/// was its cost on large drawings.
 pub fn transformed_bounds(path: &BezPath, transform: Affine) -> Rect {
-    (transform * path.clone()).bounding_box()
+    let mut bbox: Option<Rect> = None;
+    for seg in path.segments() {
+        let b = kurbo::ParamCurveExtrema::bounding_box(&(transform * seg));
+        bbox = Some(match bbox {
+            Some(bb) => bb.union(b),
+            None => b,
+        });
+    }
+    bbox.unwrap_or_default()
 }
 
 /// [`bspline_path`] with the control points `fixed` says (one flag a
@@ -383,6 +520,104 @@ pub fn bspline_path_fixed(points: &[Point], fixed: &[bool], closed: bool) -> Bez
         all.extend(std::iter::repeat_n(*p, times));
     }
     bspline_path(&all, closed)
+}
+
+/// A smooth curve through every point of `points` (the Curvature Pen):
+/// cubic segments whose handles at a point lie along the chord from the
+/// point before to the point after, each as long as a third of its own
+/// segment times that direction's length per millimetre of the two
+/// chords (a chord-length cardinal spline), so the curve passes each
+/// point without a kink and bends least where the points are even. At a
+/// point flagged in `fixed` (and at the ends of an open curve) the curve
+/// has a corner: the run of points up to it ends there, its last handle
+/// pointing so the end bends as a parabola would. Two points of a run
+/// make a straight segment. Closed: the curve runs on from the last
+/// point to the first (smooth there unless that point is fixed).
+pub fn curvature_path(points: &[Point], fixed: &[bool], closed: bool) -> BezPath {
+    let mut path = BezPath::new();
+    // Points on top of the one before are left out: they give no way on.
+    let mut pts: Vec<Point> = Vec::with_capacity(points.len());
+    let mut fix: Vec<bool> = Vec::with_capacity(points.len());
+    for (i, p) in points.iter().enumerate() {
+        let f = fixed.get(i).copied().unwrap_or(false);
+        match pts.last() {
+            Some(q) if (*q - *p).hypot() < 1e-9 => {
+                if let Some(l) = fix.last_mut() {
+                    *l |= f;
+                }
+            }
+            _ => {
+                pts.push(*p);
+                fix.push(f);
+            }
+        }
+    }
+    if closed && pts.len() > 2 && (pts[0] - pts[pts.len() - 1]).hypot() < 1e-9 {
+        pts.pop();
+        let f = fix.pop().unwrap_or(false);
+        fix[0] |= f;
+    }
+    let n = pts.len();
+    if n == 0 {
+        return path;
+    }
+    path.move_to(pts[0]);
+    if n == 1 {
+        return path;
+    }
+    let closed = closed && n > 2;
+    let segs = if closed { n } else { n - 1 };
+    let at = |i: usize| pts[i % n];
+    // A corner where fixed, and at the two ends of an open curve.
+    let corner = |i: usize| fix[i % n] || (!closed && (i == 0 || i == n - 1));
+    // The direction (per unit of chord) at a smooth point.
+    let smooth_dir = |i: usize| -> Vec2 {
+        let prev = at((i + n - 1) % n);
+        let next = at(i + 1);
+        let cur = at(i);
+        let (d0, d1) = ((cur - prev).hypot(), (next - cur).hypot());
+        (next - prev) / (d0 + d1).max(1e-12)
+    };
+    // The handle leaving point `i` along segment `i` and the one arriving
+    // at its end.
+    let handles = |i: usize| -> (Point, Point) {
+        let (a, b) = (at(i), at(i + 1));
+        let d = (b - a).hypot();
+        let (ca, cb) = (corner(i), corner(i + 1));
+        let chord = (b - a) / d.max(1e-12);
+        let out_dir = if !ca { Some(smooth_dir(i)) } else { None };
+        let in_dir = if !cb { Some(smooth_dir(i + 1)) } else { None };
+        // At a corner the handle points so the segment bends as a
+        // parabola through the smooth side: mirrored about the chord.
+        let reflect = |m: Vec2| chord * (2.0 * m.dot(chord)) - m;
+        let out = match (out_dir, in_dir) {
+            (Some(m), _) => m,
+            (None, Some(m)) => reflect(m),
+            (None, None) => chord,
+        };
+        let inn = match (in_dir, out_dir) {
+            (Some(m), _) => m,
+            (None, Some(m)) => reflect(m),
+            (None, None) => chord,
+        };
+        if ca && cb {
+            return (a, b);
+        }
+        (a + out * (d / 3.0), b - inn * (d / 3.0))
+    };
+    for i in 0..segs {
+        let (c1, c2) = handles(i);
+        let b = at(i + 1);
+        if c1 == at(i) && c2 == b {
+            path.line_to(b);
+        } else {
+            path.curve_to(c1, c2, b);
+        }
+    }
+    if closed {
+        path.close_path();
+    }
+    path
 }
 
 /// A cubic B-spline over the control points `points` as Bezier
@@ -511,6 +746,67 @@ fn open_bspline_path(points: &[Point]) -> BezPath {
 mod tests {
     use super::*;
 
+    /// #2451: a polygon's sides bent alike bow out (in when negative) by
+    /// the same curve each, as far at every side's middle; unbent it is
+    /// the plain polygon, and the bend is kept in a native file only when
+    /// it is not 0.
+    #[test]
+    fn bent_polygon_sides_all_take_the_same_curve() {
+        let r = Rect::new(-10.0, -10.0, 10.0, 10.0);
+        assert_eq!(
+            bent_polygon_path(r, 6, 0.0, 0.0, 0.0),
+            twisted_polygon_path(r, 6, 0.0, 0.0)
+        );
+        let mid = |bend: f64| -> Vec<f64> {
+            bent_polygon_path(r, 6, 0.0, 0.0, bend)
+                .segments()
+                .map(|s| kurbo::ParamCurve::eval(&s, 0.5).to_vec2().hypot())
+                .collect()
+        };
+        let flat = mid(0.0);
+        let out = mid(0.2);
+        let inward = mid(-0.2);
+        assert_eq!(out.len(), 6);
+        for k in 0..6 {
+            assert!((out[k] - out[0]).abs() < 1e-9 && (inward[k] - inward[0]).abs() < 1e-9);
+        }
+        // A side 10 long, its middle 0.75 * 0.2 * 10 = 1.5 further out.
+        assert!((out[0] - flat[0] - 1.5).abs() < 1e-6, "{out:?} {flat:?}");
+        assert!(
+            (flat[0] - inward[0] - 1.5).abs() < 1e-6,
+            "{inward:?} {flat:?}"
+        );
+        // A star's sides bend alike too: its outline stays mirror symmetric.
+        let star: Vec<f64> = bent_polygon_path(r, 5, 0.5, 0.0, 0.3)
+            .segments()
+            .map(|s| kurbo::ParamCurve::eval(&s, 0.5).to_vec2().hypot())
+            .collect();
+        for k in 0..10 {
+            assert!((star[k] - star[0]).abs() < 1e-9, "{star:?}");
+        }
+        let kind = crate::document::ShapeKind::Polygon {
+            rect: r,
+            points: 6,
+            sharpness: 0.0,
+            complex: None,
+            twist: 0.0,
+            bend: 0.0,
+        };
+        assert!(!serde_json::to_string(&kind).unwrap().contains("bend"));
+        let bent = crate::document::ShapeKind::Polygon {
+            rect: r,
+            points: 6,
+            sharpness: 0.0,
+            complex: None,
+            twist: 0.0,
+            bend: 0.25,
+        };
+        let json = serde_json::to_string(&bent).unwrap();
+        assert!(json.contains("\"bend\":0.25"), "{json}");
+        let back: crate::document::ShapeKind = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, bent);
+    }
+
     /// The corner points of a closed polygon path, in order.
     fn corners(p: &BezPath) -> Vec<Point> {
         p.elements()
@@ -560,6 +856,57 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// The Curvature Pen's curve passes through every point, smooth at
+    /// each (the handles on either side in line), with a corner at a
+    /// fixed point; two points make a line; closed, it runs on round.
+    #[test]
+    fn a_curvature_curve_runs_through_its_points() {
+        let pts = [
+            Point::new(0.0, 0.0),
+            Point::new(10.0, 10.0),
+            Point::new(20.0, 0.0),
+            Point::new(30.0, 10.0),
+        ];
+        let p = curvature_path(&pts, &[], false);
+        let els = p.elements();
+        assert_eq!(els.len(), 4);
+        let ends: Vec<Point> = els.iter().filter_map(|e| e.end_point()).collect();
+        assert_eq!(ends, pts.to_vec());
+        // Smooth at the inner points: the arriving and leaving handles
+        // lie on one line through the point.
+        for k in 1..3 {
+            let (PathEl::CurveTo(_, c2, at), PathEl::CurveTo(c1, _, _)) = (els[k], els[k + 1])
+            else {
+                panic!("curves");
+            };
+            let cross = (at - c2).cross(c1 - at);
+            assert!(cross.abs() < 1e-9, "kink at {k}: {cross}");
+            assert!((c1 - at).dot(at - c2) > 0.0);
+        }
+        // A fixed point: a corner there.
+        let mut five = pts.to_vec();
+        five.push(Point::new(40.0, 0.0));
+        let q = curvature_path(&five, &[false, false, true], false);
+        let (PathEl::CurveTo(_, c2, at), PathEl::CurveTo(c1, _, _)) =
+            (q.elements()[2], q.elements()[3])
+        else {
+            panic!("curves");
+        };
+        let (a, b) = (at - c2, c1 - at);
+        assert!(
+            a.cross(b).abs() > 1.0 || a.dot(b) < 0.0,
+            "a corner at the fixed point"
+        );
+        // Two points: a line.
+        let two = curvature_path(&pts[..2], &[], false);
+        assert!(matches!(two.elements()[1], PathEl::LineTo(_)));
+        // Closed: one more segment back to the first point, then closed.
+        let c = curvature_path(&pts, &[], true);
+        assert_eq!(c.elements().len(), 6);
+        assert!(matches!(c.elements()[5], PathEl::ClosePath));
+        assert_eq!(c.elements()[4].end_point(), Some(pts[0]));
     }
 
     /// A fixed control point is on the curve, a floating one is not; an
@@ -811,6 +1158,19 @@ mod tests {
     }
 
     #[test]
+    fn polygons_of_billions_of_points_draw_the_most_points() {
+        // A file or a macro asked for 4 billion points: drawing the
+        // polygon ran out of memory and ended the program.
+        let r = Rect::new(0.0, 0.0, 10.0, 10.0);
+        for (sharpness, twist, per_point) in [(0.0, 0.0, 1), (0.5, 0.0, 2), (0.0, 0.3, 2)] {
+            let p = twisted_polygon_path(r, u32::MAX, sharpness, twist);
+            let n = POLYGON_MAX_POINTS as usize * per_point;
+            assert_eq!(p.elements().len(), n + 1, "{sharpness} {twist}");
+        }
+        assert_eq!(polygon_path(r, 7, 0.0).elements().len(), 8);
+    }
+
+    #[test]
     fn complex_stars_cross_their_sides() {
         let r = Rect::new(0.0, 0.0, 10.0, 10.0);
         let count =
@@ -861,5 +1221,62 @@ mod tests {
                 "{n} {sharp}: {b:?}"
             );
         }
+    }
+
+    /// A ring sector is the band between the outline and the inner
+    /// ellipse: its area is the pie's less the inner pie's, a whole turn
+    /// leaves the middle empty under both fill rules, and no inner radius
+    /// is the pie.
+    #[test]
+    fn a_ring_sector_is_the_band_between_two_ellipses() {
+        let r = Rect::new(-10.0, -10.0, 10.0, 10.0);
+        let quarter = ellipse_ring_path(r, 0.0, 90.0, 0.5);
+        let want = std::f64::consts::PI * (100.0 - 25.0) / 4.0;
+        assert!(
+            (quarter.area().abs() - want).abs() < 0.2,
+            "{}",
+            quarter.area()
+        );
+        for (x, y, inside) in [(7.0, 3.0, true), (2.0, 2.0, false), (-7.0, 3.0, false)] {
+            let w = quarter.winding(Point::new(x, y));
+            assert_eq!(w != 0, inside, "({x}, {y}) winding {w}");
+        }
+        let ring = ellipse_ring_path(r, 30.0, 30.0, 0.5);
+        assert_eq!(ring.winding(Point::new(0.0, 0.0)), 0, "middle is empty");
+        assert_ne!(ring.winding(Point::new(0.0, 7.5)), 0, "band is filled");
+        let want = std::f64::consts::PI * (100.0 - 25.0);
+        assert!((ring.area().abs() - want).abs() < 0.5, "{}", ring.area());
+        assert_eq!(
+            ellipse_ring_path(r, 0.0, 90.0, 0.0),
+            ellipse_arc_path(r, 0.0, 90.0, true)
+        );
+        assert_eq!(
+            ellipse_ring_path(r, 0.0, 90.0, f64::NAN),
+            ellipse_arc_path(r, 0.0, 90.0, true)
+        );
+    }
+
+    /// An arc with a huge radius, as a damaged file gives, is a handful of
+    /// curves: the pieces once grew with the radius and an arc of 1e300
+    /// asked for more than memory holds. An arc of drawing size keeps its
+    /// pieces as they were.
+    #[test]
+    fn an_arc_of_huge_radius_is_a_handful_of_curves() {
+        for r in [1e300, 1e60, f64::INFINITY, f64::NAN] {
+            let p = ellipse_arc_path(Rect::new(-r, -r, r, r), 0.0, 270.0, false);
+            assert!(p.elements().len() < 64, "{r}: {}", p.elements().len());
+        }
+        let small = ellipse_arc_path(Rect::new(-50.0, -50.0, 50.0, 50.0), 0.0, 270.0, false);
+        let pieces = |r: f64| {
+            let arc = kurbo::Arc::new(
+                Point::ZERO,
+                kurbo::Vec2::new(r, r),
+                0.0,
+                1.5 * std::f64::consts::PI,
+                0.0,
+            );
+            arc.append_iter(0.1).count()
+        };
+        assert_eq!(small.elements().len(), 1 + pieces(50.0));
     }
 }

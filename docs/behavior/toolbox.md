@@ -16,6 +16,11 @@
   the active tool's button is tinted.
 - A right click on a tool button or on the toolbox's empty part opens the
   bars' menu (Customize, button size, the bars), as on the other bars.
+  On a tool button the menu starts with Properties... (#3326): it opens
+  Options > Customization > Commands at that tool, on its Shortcut Keys
+  tab, as a right click on a menu row does (#2504;
+  `bars::bar_menu_of`,
+  `pick_drag_tests::a_right_click_on_a_tool_button_opens_its_properties`).
 - Buttons with a flyout have a small arrow at the bottom-right. Clicking
   the arrow, dragging, or pressing and holding the button for 0.4 s
   opens the flyout; a click on the button's main area picks the tool it
@@ -118,6 +123,23 @@ Docked on a side, the toolbox fits the window's height: when its buttons
 do not fit, they get shorter (their icons smaller) down to 22 px, and
 only below that do the overflow arrows take over; with room they keep
 their size (#494, `ui::toolbox::tests::a_column_toolbox_fits_the_window`).
+
+## Commands on the toolbox
+
+Docked on a side, at the top or at the bottom, the toolbox takes menu
+commands and tools dragged onto it from Tools > Options > Customization >
+Commands, as the toolbars do (see `toolbars.md`). They follow its tools,
+before the "+" button, each a button of the toolbox's size: the
+command's menu picture, a tool's icon, or as much of the command's name
+as fits when it has no picture (Page Border), with the whole name in the
+tooltip. A click runs the command as its menu item would. In customize
+mode (the Customization pages open, or Alt held) a button moves along the
+toolbox, goes to a toolbar, or goes away when dropped off the bars; a
+drop anywhere on the toolbox puts the command after its tools. Reset on
+the Command Bars page takes them away again. The floating toolbox shows
+its tools only (#3211,
+`ui::tests::the_toolbox_takes_commands_after_its_tools`,
+`ui::bar_items::tests::the_drop_place_is_the_gap_under_the_pointer`).
 
 ## Checks
 

@@ -29,7 +29,7 @@ fn std_frame(ui: &Ui, rect: egui::Rect, hovered: bool, pressed: bool) {
 }
 
 /// The Save button is lit while the drawing has changes to save (or has
-/// never been saved) and pale once it is saved, as in CorelDRAW: it
+/// never been saved) and pale once it is saved: it
 /// looked the same whether the drawing was saved or not (#2640).
 pub(crate) fn save_button_lit(app: &App) -> bool {
     app.engine.is_dirty() || app.file.is_none()
@@ -682,7 +682,7 @@ pub(crate) fn draw_item(app: &mut App, ui: &mut Ui, bar: &str, id: &str) {
             )
             .clicked()
             {
-                app.fullscreen_preview = true;
+                super::preview::begin(app, ui.ctx(), false);
             }
         }
         "rulers" => {
@@ -1098,6 +1098,25 @@ pub fn zoom_toolbar(app: &mut App, ui: &mut Ui) {
     });
 }
 
+/// A toolbar the user made (#3264): the buttons dragged onto it, menu
+/// commands named in words when they have no picture; while it has none,
+/// a line saying how to give it some (which is also where they drop).
+pub fn custom_toolbar(app: &mut App, ui: &mut Ui, slot: u8) {
+    let bar = crate::ui::bar_items::ItemBar::Custom(slot);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 1.0;
+        ui.set_min_height(std_btn());
+        if crate::ui::bar_items::items(app, bar).is_empty() {
+            ui.label(
+                egui::RichText::new(tr("bars.custom_bar_empty"))
+                    .color(Tokens::text_dim())
+                    .size(11.0),
+            );
+        }
+        crate::ui::bar_items::draw_bar(app, ui, bar, draw_item);
+    });
+}
+
 /// Window > Toolbars > Transform.
 pub fn transform_toolbar(app: &mut App, ui: &mut Ui) {
     ui.horizontal(|ui| {
@@ -1188,6 +1207,59 @@ fn balloon_bar(app: &mut App, ui: &mut Ui) {
     .changed()
     {
         app.set_balloon_settings(|_, _, b| *b = bend);
+    }
+    // Text typed inside the selected balloon (discussion #3522).
+    if ui
+        .add_enabled(
+            !app.selected_balloons().is_empty(),
+            egui::Button::new(tr("balloon.add_text")),
+        )
+        .rich_tip(crate::ui::tips::keyed("balloon.add_text"))
+        .clicked()
+    {
+        app.add_text_in_balloon();
+    }
+}
+
+/// The Shape Builder's bar (#3220): Add or Delete, what a drag or a click
+/// does with the parts (Alt does the other); Keep Originals, a merge
+/// leaving the objects it came from as they were; Accept, the shapes
+/// built kept and back to the Pick tool; Cancel, the tool's steps since
+/// it was chosen undone.
+fn shape_builder_bar(app: &mut App, ui: &mut Ui) {
+    if ui
+        .selectable_label(!app.builder.delete_mode, tr("toolbar.builder_add"))
+        .rich_tip(crate::ui::tips::keyed("toolbar.builder_add"))
+        .clicked()
+    {
+        app.builder.delete_mode = false;
+    }
+    if ui
+        .selectable_label(app.builder.delete_mode, tr("toolbar.builder_delete"))
+        .rich_tip(crate::ui::tips::keyed("toolbar.builder_delete"))
+        .clicked()
+    {
+        app.builder.delete_mode = true;
+    }
+    vsep(ui);
+    ui.checkbox(&mut app.builder.keep_originals, tr("toolbar.builder_keep"))
+        .rich_tip(crate::ui::tips::keyed("toolbar.builder_keep"));
+    vsep(ui);
+    let made = app.builder.session_steps > 0;
+    if ui
+        .button(tr("toolbar.builder_accept"))
+        .rich_tip(crate::ui::tips::keyed("toolbar.builder_accept"))
+        .clicked()
+    {
+        app.builder_accept();
+    }
+    if ui
+        .add_enabled(made, egui::Button::new(tr("toolbar.builder_cancel")))
+        .rich_tip(crate::ui::tips::keyed("toolbar.builder_cancel"))
+        .rich_disabled_tip(crate::ui::tips::keyed("toolbar.builder_cancel"))
+        .clicked()
+    {
+        app.builder_cancel();
     }
 }
 
@@ -1329,7 +1401,8 @@ fn brush_strokes_bar(app: &mut App, ui: &mut Ui) {
     let shapes: &[&str] = match app.media_mode {
         MediaMode::Preset | MediaMode::Brush => &crate::media::BRUSH_KEYS,
         MediaMode::Sprayer => &crate::media::SPRAY_KEYS,
-        MediaMode::Calligraphic | MediaMode::Expression => &[],
+        MediaMode::Tiles => &crate::media::TILE_KEYS,
+        MediaMode::Calligraphic | MediaMode::Expression | MediaMode::Merge => &[],
     };
     if !shapes.is_empty() {
         dim_labelled_as(
@@ -1386,7 +1459,7 @@ fn brush_strokes_bar(app: &mut App, ui: &mut Ui) {
                 )
             });
         }
-        MediaMode::Preset | MediaMode::Brush => {}
+        MediaMode::Preset | MediaMode::Brush | MediaMode::Tiles | MediaMode::Merge => {}
     }
 }
 
@@ -1595,11 +1668,13 @@ pub fn property_bar(app: &mut App, ui: &mut Ui) {
             | Tool::Polyline
             | Tool::TwoPointLine
             | Tool::BSpline
+            | Tool::CurvaturePen
             | Tool::ThreePointCurve => curve_tool_properties(app, ui),
             Tool::Blend => crate::ui::effect_bars::blend_bar(app, ui),
             Tool::Extrude => crate::ui::extrude_bar::extrude_bar(app, ui),
             Tool::Envelope => crate::ui::envelope_ui::envelope_bar(app, ui),
             Tool::Distort => crate::ui::distort_bar::distort_bar(app, ui),
+            Tool::ShapeBuilder => shape_builder_bar(app, ui),
             Tool::Eraser => {
                 let mut w = app.units.from_mm(app.eraser_width);
                 if dim_labelled(ui, "toolbar.eraser_thickness", |ui| {
@@ -1627,6 +1702,26 @@ pub fn property_bar(app: &mut App, ui: &mut Ui) {
                     .clicked()
                 {
                     app.eraser_square = true;
+                }
+                // On pictures: a soft edge and how much it takes (#3043).
+                for (key, v) in [
+                    ("toolbar.eraser_hardness", &mut app.eraser_hardness),
+                    ("toolbar.eraser_strength", &mut app.eraser_strength),
+                ] {
+                    let mut pct = (*v * 100.0).round();
+                    if dim_labelled(ui, key, |ui| {
+                        ui.add(
+                            crate::ui::field::NumField::new(&mut pct)
+                                .speed(1.0)
+                                .range(0.0..=100.0)
+                                .max_decimals(0)
+                                .suffix(" %"),
+                        )
+                    })
+                    .changed()
+                    {
+                        *v = (pct / 100.0).clamp(0.0, 1.0);
+                    }
                 }
                 ui.label(
                     egui::RichText::new(tr("hint.bar_eraser"))
@@ -1708,12 +1803,37 @@ pub fn property_bar(app: &mut App, ui: &mut Ui) {
                 }
             }
             Tool::GraphPaper => {
-                dim_labelled(ui, "toolbar.rows", |ui| {
-                    ui.add(crate::ui::field::NumField::new(&mut app.graph_rows).range(1..=99))
-                });
-                dim_labelled(ui, "toolbar.columns", |ui| {
-                    ui.add(crate::ui::field::NumField::new(&mut app.graph_cols).range(1..=99))
-                });
+                if ui
+                    .selectable_label(!app.graph_radial, tr("toolbar.graph_cells"))
+                    .rich_tip(crate::ui::tips::keyed("toolbar.graph_cells"))
+                    .clicked()
+                {
+                    app.graph_radial = false;
+                }
+                if ui
+                    .selectable_label(app.graph_radial, tr("toolbar.graph_radial"))
+                    .rich_tip(crate::ui::tips::keyed("toolbar.graph_radial"))
+                    .clicked()
+                {
+                    app.graph_radial = true;
+                }
+                if app.graph_radial {
+                    dim_labelled(ui, "toolbar.rings", |ui| {
+                        ui.add(crate::ui::field::NumField::new(&mut app.graph_rings).range(1..=99))
+                    });
+                    dim_labelled(ui, "toolbar.spokes", |ui| {
+                        ui.add(
+                            crate::ui::field::NumField::new(&mut app.graph_spokes).range(0..=360),
+                        )
+                    });
+                } else {
+                    dim_labelled(ui, "toolbar.rows", |ui| {
+                        ui.add(crate::ui::field::NumField::new(&mut app.graph_rows).range(1..=99))
+                    });
+                    dim_labelled(ui, "toolbar.columns", |ui| {
+                        ui.add(crate::ui::field::NumField::new(&mut app.graph_cols).range(1..=99))
+                    });
+                }
             }
             Tool::ActionLines => action_lines_bar(app, ui),
             Tool::CommonShapes => common_shapes_bar(app, ui),
@@ -1826,6 +1946,19 @@ pub fn property_bar(app: &mut App, ui: &mut Ui) {
                     tr("toolbar.sample_after_apply"),
                 )
                 .rich_tip(crate::ui::tips::keyed("toolbar.sample_after_apply"));
+                // The next click anywhere in the window, the panels and
+                // bars too, samples the colour shown there (#3040).
+                if ui
+                    .selectable_label(app.eyedropper_screen, tr("toolbar.sample_screen"))
+                    .rich_tip(crate::ui::tips::keyed("toolbar.sample_screen"))
+                    .clicked()
+                {
+                    app.eyedropper_screen = !app.eyedropper_screen;
+                    if app.eyedropper_screen {
+                        app.eyedropper_apply = false;
+                        app.status = tr("status.sample_screen");
+                    }
+                }
                 vsep(ui);
                 dim_labelled(ui, "toolbar.sample_size", |ui| {
                     for n in [1u32, 2, 5] {
@@ -2034,6 +2167,8 @@ pub fn property_bar(app: &mut App, ui: &mut Ui) {
                 }
             }
         }
+        // Draw Inside on the bars of the tools that draw (#3407).
+        crate::draw_inside::draw_inside_toggle(app, ui);
     });
 }
 
@@ -2067,6 +2202,17 @@ fn curve_tool_properties(app: &mut App, ui: &mut Ui) {
         if pic_button(ui, Pic::CloseCurve, &tr("toolbar.close_tip"), open, false).clicked() {
             app.close_selected_curves();
         }
+    }
+    if app.tool == Tool::TwoPointLine {
+        // Arcs instead of straight lines, bowed one way or the other.
+        sep(ui);
+        ui.toggle_value(&mut app.line_arc, tr("toolbar.line_arc"))
+            .rich_tip(crate::ui::tips::pair("toolbar.line_arc", "toolbar.line_arc_desc"));
+        ui.add_enabled_ui(app.line_arc, |ui| {
+            ui.toggle_value(&mut app.line_arc_flip, tr("toolbar.line_arc_flip"))
+                .rich_tip(tr("toolbar.line_arc_flip_desc"))
+                .rich_disabled_tip(tr("toolbar.line_arc_flip_desc"));
+        });
     }
     if app.tool == Tool::Freehand {
         sep(ui);
@@ -2102,6 +2248,37 @@ fn curve_tool_properties(app: &mut App, ui: &mut Ui) {
         {
             c.pen_auto_add_delete = !c.pen_auto_add_delete;
         }
+    }
+    if app.draws_parallel_lines() {
+        // Lines drawn alongside each new curve (#3626).
+        sep(ui);
+        let units = app.units;
+        let p = &mut app.settings.curves.parallel;
+        ui.toggle_value(&mut p.on, tr("toolbar.parallel_lines"))
+            .rich_tip(crate::ui::tips::pair(
+                "toolbar.parallel_lines",
+                "toolbar.parallel_lines_desc",
+            ));
+        ui.add_enabled_ui(p.on, |ui| {
+            dim_labelled(ui, "toolbar.parallel_count", |ui| {
+                ui.add(crate::ui::field::NumField::new(&mut p.count).range(1..=10))
+            });
+            let mut gap = units.from_mm(p.gap);
+            if dim_labelled(ui, "toolbar.parallel_gap", |ui| {
+                ui.add(
+                    crate::ui::field::NumField::new(&mut gap)
+                        .speed(0.1)
+                        .range(0.01..=1000.0)
+                        .suffix(format!(" {}", units.short())),
+                )
+            })
+            .changed()
+            {
+                p.gap = units.to_mm(gap).max(0.01);
+            }
+            ui.toggle_value(&mut p.both_sides, tr("toolbar.parallel_both"))
+                .rich_tip(tr("toolbar.parallel_both_desc"));
+        });
     }
     if !selected {
         vsep(ui);
@@ -2354,6 +2531,11 @@ fn text_properties(app: &mut App, ui: &mut Ui) {
             app.text_default_align = a;
         }
     }
+    // Curve Text: with artistic text selected, a curve for it (circle,
+    // arch, bowl, wave) with no path to draw.
+    if let Some(curve) = app.text_curve() {
+        curve_text_button(app, ui, curve);
+    }
     // Horizontal or vertical text, offered with a CJK interface language
     // or for text in those scripts (#257).
     if app.vertical_text_offered() {
@@ -2413,6 +2595,70 @@ fn text_properties(app: &mut App, ui: &mut Ui) {
     if changed {
         app.apply_text_style();
     }
+}
+
+/// The little picture of curve `k` (straight with `None`) in `r`.
+fn curve_picture(p: &egui::Painter, r: egui::Rect, k: Option<tracedraw_core::CurvePreset>, c: egui::Color32) {
+    use tracedraw_core::CurvePreset as K;
+    let s = egui::Stroke::new(1.4, c);
+    let r = r.shrink(4.0);
+    let pts: Vec<egui::Pos2> = (0..=24)
+        .map(|i| {
+            let t = i as f32 / 24.0;
+            match k {
+                Some(K::Circle) => {
+                    let a = std::f32::consts::TAU * t;
+                    r.center() + Vec2::new(a.cos(), a.sin()) * r.width().min(r.height()) / 2.0
+                }
+                Some(K::ArcUp) | Some(K::ArcDown) => {
+                    let x = r.left() + r.width() * t;
+                    let bump = (std::f32::consts::PI * t).sin() * r.height() * 0.7;
+                    let y = if k == Some(K::ArcUp) {
+                        r.bottom() - bump
+                    } else {
+                        r.top() + bump
+                    };
+                    egui::pos2(x, y)
+                }
+                Some(K::Wave) => egui::pos2(
+                    r.left() + r.width() * t,
+                    r.center().y - (std::f32::consts::TAU * t).sin() * r.height() * 0.35,
+                ),
+                None => egui::pos2(r.left() + r.width() * t, r.center().y),
+            }
+        })
+        .collect();
+    p.add(egui::Shape::line(pts, s));
+}
+
+/// The text bar's Curve Text button: its curve's picture; a click lists
+/// the curves, straight first.
+fn curve_text_button(app: &mut App, ui: &mut Ui, curve: Option<tracedraw_core::CurvePreset>) {
+    let resp = ui
+        .add_sized([22.0, 22.0], egui::Button::selectable(curve.is_some(), ""))
+        .rich_tip(crate::ui::tips::keyed("toolbar.curve_text"));
+    curve_picture(ui.painter(), resp.rect, curve.or(Some(tracedraw_core::CurvePreset::ArcUp)), Tokens::text());
+    egui::Popup::menu(&resp)
+        .id(egui::Id::new("curve_text_menu"))
+        .show(|ui| {
+            let mut pick = None;
+            for k in std::iter::once(None).chain(tracedraw_core::CurvePreset::ALL.map(Some)) {
+                ui.horizontal(|ui| {
+                    let (rect, _) = ui.allocate_exact_size(Vec2::splat(20.0), egui::Sense::hover());
+                    curve_picture(ui.painter(), rect, k, Tokens::text());
+                    if ui
+                        .selectable_label(curve == k, tr(crate::text_curve::preset_key(k)))
+                        .clicked()
+                    {
+                        pick = Some(k);
+                    }
+                });
+            }
+            if let Some(k) = pick {
+                app.set_text_curve(k);
+                ui.close();
+            }
+        });
 }
 
 /// The transparency settings of the Transparency tool's bar: the kind
@@ -2613,8 +2859,11 @@ fn transparency_controls(app: &mut App, ui: &mut Ui, stacked: bool) {
                     f.angle = angle;
                     field = Some(F::MaskAngle);
                 }
-                let kinds = tracedraw_core::style::FountainKind::ALL
-                    .map(|k| (k, crate::ui::dockers::fountain_kind_key(k)));
+                let kinds: Vec<_> = tracedraw_core::style::FountainKind::ALL
+                    .into_iter()
+                    .filter(|k| *k != tracedraw_core::style::FountainKind::Points)
+                    .map(|k| (k, crate::ui::dockers::fountain_kind_key(k)))
+                    .collect();
                 let kind_shown = !mixed.contains(&F::MaskKind);
                 let name = kinds
                     .iter()
@@ -3034,6 +3283,23 @@ fn shape_tool_bar(app: &mut App, ui: &mut Ui) {
     }
     if button(ui, Pic::ToCurve, "toolbar.to_curve_tip", has_nodes, false) {
         app.selected_segments_to_curve();
+    }
+    // Bulge: the chosen segments bow into arcs by a percentage, on any
+    // curve, as a rectangle's Edge Bulge bows its sides (#3335).
+    dim_labelled(ui, "toolbar.segment_bulge", |ui| {
+        ui.add(
+            crate::ui::field::NumField::new(&mut app.segment_bulge)
+                .range(-100.0..=100.0)
+                .suffix(" %"),
+        )
+    });
+    if ui
+        .add_enabled(has_nodes, egui::Button::new(tr("toolbar.apply_bulge")))
+        .rich_tip(crate::ui::tips::keyed("toolbar.apply_bulge"))
+        .rich_disabled_tip(crate::ui::tips::keyed("toolbar.apply_bulge"))
+        .clicked()
+    {
+        app.bulge_selected_segments();
     }
     sep(ui);
     let current = app.current_node_type();
@@ -3991,6 +4257,24 @@ fn inner_shadow_bar(app: &mut App, ui: &mut Ui) {
     let has_selection = !app.selection.is_empty();
     let (mut offset, mut st) = current.unwrap_or((CVec2::new(2.0, -2.0), app.inner_shadow));
     let mut changed = false;
+    // Apply where the Drop Shadow bar has it, after the tool buttons, and
+    // always there (greyed while the object has one), so it is not lost
+    // past the end of a narrow bar (#3353).
+    ui.label(
+        egui::RichText::new(tr("effect.inner_shadow"))
+            .color(Tokens::text_dim())
+            .size(11.0),
+    );
+    let apply = ui
+        .add_enabled(
+            has_selection && current.is_none(),
+            egui::Button::new(tr("docker.apply")),
+        )
+        .rich_tip(crate::ui::tips::pair(
+            "docker.apply",
+            "toolbar.apply_inner_shadow_desc",
+        ))
+        .clicked();
     let mut dx = offset.x;
     let mut dy = offset.y;
     changed |= dim_labelled_as(
@@ -4069,6 +4353,7 @@ fn inner_shadow_bar(app: &mut App, ui: &mut Ui) {
         opacity: st.opacity,
         blur: st.blur,
         merge: st.merge,
+        spread: st.spread,
     };
     if changed {
         app.inner_shadow = st;
@@ -4076,18 +4361,10 @@ fn inner_shadow_bar(app: &mut App, ui: &mut Ui) {
             app.push_effect(effect.clone(), true);
         }
     }
-    vsep(ui);
-    if current.is_none()
-        && ui
-            .add_enabled(
-                has_selection,
-                egui::Button::new(tr("toolbar.apply_inner_shadow")),
-            )
-            .rich_tip(crate::ui::tips::keyed("toolbar.apply_inner_shadow"))
-            .clicked()
-    {
+    if apply {
         app.push_effect(effect.clone(), true);
     }
+    vsep(ui);
     if ui
         .add_enabled(
             current.is_some(),
@@ -4404,6 +4681,57 @@ mod tests {
     use super::*;
     use crate::ui::dialogs::Dialog;
 
+    /// #3352: with the Speech Balloon tool and a balloon selected, a
+    /// click on another style in the property bar turns that balloon to
+    /// the style, keeping its box and the tip of its tail.
+    #[test]
+    fn a_style_clicked_on_the_bar_changes_the_selected_balloon() {
+        use crate::balloons::{Balloon, BalloonStyle};
+        let mut app = App::headless();
+        app.set_tool(Tool::Balloon);
+        app.create_box_shape(
+            tracedraw_core::geometry::Point::new(10.0, 50.0),
+            tracedraw_core::geometry::Point::new(50.0, 70.0),
+        );
+        let (id, before, _) = app.selected_balloons()[0];
+        let ctx = crate::theme::ui_context();
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(6000.0, 60.0));
+        let run = |app: &mut App, events: Vec<egui::Event>| {
+            let mut out = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(screen),
+                    events,
+                    ..Default::default()
+                },
+                |ui| property_bar(app, ui),
+            );
+            out.textures_delta.clear();
+            out.shapes.iter().find_map(|c| match &c.shape {
+                egui::epaint::Shape::Text(t) if t.galley.text() == tr("balloon.thought") => {
+                    Some(t.visual_bounding_rect().center())
+                }
+                _ => None,
+            })
+        };
+        run(&mut app, Vec::new());
+        let at = run(&mut app, Vec::new()).expect("the Thought style on the bar");
+        let press = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        run(&mut app, vec![egui::Event::PointerMoved(at)]);
+        run(&mut app, vec![press(true)]);
+        run(&mut app, vec![press(false)]);
+        run(&mut app, Vec::new());
+        let s = app.doc().find_shape(id).expect("balloon");
+        let after = Balloon::of(s).expect("still a balloon");
+        assert_eq!(after.style, BalloonStyle::Thought, "the selected balloon");
+        assert_eq!(after.body, before.body, "same box");
+        assert_eq!(after.tip, before.tip, "same tail tip");
+    }
+
     /// #1892: with a drawing tool and nothing selected, the property bar
     /// shows the outline of the next object (width, line style,
     /// arrowheads) and follows the defaults when they change.
@@ -4596,6 +4924,48 @@ mod tests {
         );
         assert_eq!(app.nudge_mm, 1.5);
         assert_eq!(app.settings.micro_nudge_mm, 0.125);
+    }
+
+    /// The Inner Shadow bar has Apply where the Drop Shadow bar has it,
+    /// right after the tool buttons; it gives the selected object an
+    /// inner shadow and stays on the bar, greyed, once it has one (#3353).
+    #[test]
+    fn the_inner_shadow_bar_applies_like_the_drop_shadow_bar() {
+        use crate::tools::Tool;
+        let ctx = crate::theme::ui_context();
+        let mut app = App::headless();
+        app.show_welcome = false;
+        app.set_tool(Tool::InnerShadow);
+        let id = app
+            .new_shape(ShapeKind::Rect {
+                rect: tracedraw_core::Rect::new(10.0, 10.0, 40.0, 30.0),
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("shape");
+        app.select(vec![id]);
+        frame(&ctx, &mut app, Vec::new());
+        let texts = frame(&ctx, &mut app, Vec::new());
+        let find = |texts: &[(String, egui::Rect)], v: &str| {
+            texts.iter().find(|(t, _)| t == v).map(|(_, r)| *r)
+        };
+        let apply = find(&texts, &tr("docker.apply")).expect("Apply on the bar");
+        let offset = find(&texts, &tr("docker.offset")).expect("the offset");
+        assert!(apply.max.x < offset.min.x, "Apply before the settings");
+        assert!(app.selected_inner_shadow_at().is_none());
+        let at = apply.center();
+        let button = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame(&ctx, &mut app, vec![egui::Event::PointerMoved(at)]);
+        frame(&ctx, &mut app, vec![button(true)]);
+        frame(&ctx, &mut app, vec![button(false)]);
+        assert!(app.selected_inner_shadow_at().is_some(), "applied");
+        let texts = frame(&ctx, &mut app, Vec::new());
+        assert!(find(&texts, &tr("docker.apply")).is_some(), "still there");
     }
 
     /// Both shadow bars start with the Drop Shadow and Inner Shadow tools'

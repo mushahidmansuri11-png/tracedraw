@@ -7,7 +7,7 @@ start with `%!` (the PostScript-based versions of that format; the later
 PDF-based ones go through the PDF import). A classic `.ai` file whose
 header carries the format's version comments (`%AI5_FileFormat`,
 `%%AI8_CreatorVersion` or an `%AI3_` comment) and whose prolog brings no
-procedure set of its own, as the files of TraceDraw's Illustrator 8
+procedure set of its own, as the files of TraceDraw's Classic AI (EPS)
 export (see `export.md`, AI files), is run with the format's operators
 defined first in PostScript: paths (`m`, `l`, `L`, `c`, `C`, `v`, `V`,
 `y`, `Y`), painting (`f`, `F`, `s`, `S`, `b`, `B`, `n`, `N`, with the
@@ -51,7 +51,13 @@ what the program paints; no external PostScript engine is involved.
   line width, caps, joins, dashes scaled by the CTM; `clip`, `eoclip`,
   `rectclip`, `initclip`, `clippath`; all matrix operators;
   `gsave`/`grestore` restore the current path too, so
-  `gsave fill grestore stroke` strokes the same path.
+  `gsave fill grestore stroke` strokes the same path. Such an outline,
+  stroked over the fill just painted on the same path (a classic
+  `.ai` file's `b` and `B` too, also in a clipping group), is
+  that object's outline: one object with its fill and outline, not a
+  filled object with an outline object over it. A stroke of another
+  path, or one after a group or a page began, stays an object of its
+  own.
 - Images: `image`, `imagemask` and `colorimage` in the Level 1 operand
   form and the Level 2 dictionary form, 1 to 16 bits, 1/3/4 components,
   single or multiple data sources (read row by row in turn), Decode
@@ -78,7 +84,9 @@ what the program paints; no external PostScript engine is involved.
 
 6 million operations, 200 nested procedure levels, 50 000 operand
 stack entries, 64 MB strings; past any of them the import stops with a
-warning and keeps what was painted. LZW filters and font programs are
+warning and keeps what was painted. A loop whose procedure is a plain
+name (`/a loop`, found in damaged files) counts against the
+operations too, so it stops like any other. LZW filters and font programs are
 not run (warnings). Unknown operators are reported once and ignored.
 
 ## Checks

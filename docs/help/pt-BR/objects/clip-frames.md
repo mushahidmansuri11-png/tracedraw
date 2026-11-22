@@ -54,6 +54,21 @@ podem ser escolhidos (por clique, quadro de seleção, Selecionar tudo ou
 edição com a moldura como estava; refazer entra de novo, e desfazer Concluir
 volta para dentro dela.
 
+## Desenhar dentro de uma forma {#draw-inside}
+
+Para desenhar direto dentro de uma forma em vez de colocar objetos nela
+depois, selecione uma forma fechada (retângulo, elipse, polígono, curva
+fechada ou uma moldura), escolha uma ferramenta de desenho, como Mão livre,
+Bézier, Pinceladas ou Retângulo, e clique em [[toolbar.draw_inside]] no fim
+da barra de propriedades. Desenhe como sempre; o resto da página fica fora de
+alcance. Clique de novo em [[toolbar.draw_inside]], ou em Concluir edição do
+conteúdo, e o que você desenhou vai para dentro da forma, recortado por ela.
+
+[[toolbar.draw_behind]], ao lado, põe o que você desenha atrás dos objetos
+selecionados da camada em vez de por cima, ou no fundo da camada quando nada
+dela está selecionado. O que você acabou de desenhar fica selecionado, então a
+próxima forma vai para trás dela. Clique de novo para desenhar por cima.
+
 ## Máscaras de opacidade {#opacity-mask}
 
 [[menu.object > menu.object.clip_frame > menu.object.clip_frame_opacity_mask]]

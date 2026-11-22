@@ -121,6 +121,23 @@ There are never more than 1000 objects in all.
 - [[docker.fit_to_path_reverse]] (off): starts from the other end of the
   path.
 
+## Keeping objects on the path {#live}
+
+Turn on [[docker.fit_to_path_live]] before Apply and the objects stay on
+the path: move, scale or reshape the path and they follow; resize or
+recolour an object and it is fitted again, with its copies. Select the
+path or one of its objects to change the settings in the panel and see
+the objects move at once. With the Pick tool two handles show: drag the
+diamond on the second object along the path to change the spacing, or
+the ring under the path to turn all the objects (Ctrl turns in steps of
+15 degrees). Turn [[docker.fit_to_path_live]] off to leave the objects
+where they are.
+
+A brush stroke in a `.cdr` file, whose objects are repeated
+along a curve and linked to it, opens this way too: the curve keeps the
+objects on it, at the spacing and turn the file had, so editing the curve
+places them again.
+
 ## Tips and limits {#tips}
 
 - On a closed shape the objects go all the way round, the closing side

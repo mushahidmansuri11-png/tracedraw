@@ -4,7 +4,10 @@
 //! through a menu. A small handle floats over the right edge of the
 //! drawing: a tap unfolds a strip of buttons, one per panel, each showing
 //! or hiding its panel at once, and "Full" hides every panel (and puts
-//! back the ones that were shown) so the drawing has the whole screen.
+//! back the ones that were shown) so the drawing has the whole screen. In
+//! Full the menu bar, the tabs and the scrollbars are away too, and any
+//! panel can still be called back by its button (the toolbox, say) with
+//! the drawing staying full screen; the Full button ends it.
 //! The handle can be dragged up and down the edge out of the way. It is
 //! offered where the keys on the drawing are (`touch_modifiers::offered`).
 //! See docs/behavior/android.md.
@@ -40,6 +43,9 @@ pub struct TouchPanels {
     pub open: bool,
     pub y: f32,
     pub stash: Option<Stash>,
+    /// Full is on: the menu bar, the tabs and the scrollbars are away,
+    /// whichever panels were called back since.
+    pub full: bool,
 }
 
 impl Default for TouchPanels {
@@ -48,6 +54,7 @@ impl Default for TouchPanels {
             open: false,
             y: 0.35,
             stash: None,
+            full: false,
         }
     }
 }
@@ -62,10 +69,11 @@ pub fn all_hidden(app: &App) -> bool {
         && BARS.iter().all(|(b, _, _)| !b.visible(app))
 }
 
-/// Whether "Full" has the drawing alone on the screen: no panel, no
-/// menu bar, no tabs and no scrollbars.
+/// Whether "Full" is on with a drawing open: no menu bar, no tabs and no
+/// scrollbars, and the panels the strip's buttons call back are the only
+/// ones shown.
 pub fn immersive(app: &App) -> bool {
-    app.touch_panels.stash.is_some() && all_hidden(app) && app.has_document() && !app.show_welcome
+    app.touch_panels.full && app.has_document() && !app.show_welcome
 }
 
 /// Hide every panel, keeping what was shown for [`restore`].
@@ -91,11 +99,13 @@ pub fn hide_all(app: &mut App) {
     });
     app.show_dockers = false;
     app.show_rulers = false;
+    app.touch_panels.full = true;
 }
 
 /// Show the panels that [`hide_all`] hid; with none kept (every panel
 /// was hidden one by one), the toolbox, the bars and the palette.
 pub fn restore(app: &mut App) {
+    app.touch_panels.full = false;
     match app.touch_panels.stash.take() {
         Some(s) => {
             for (on, (bar, _, _)) in s.bars.iter().zip(BARS.iter()) {
@@ -117,7 +127,7 @@ pub fn restore(app: &mut App) {
 
 /// The "Full" button: every panel away, or back.
 pub fn toggle_full(app: &mut App) {
-    if all_hidden(app) {
+    if app.touch_panels.full || all_hidden(app) {
         restore(app);
     } else {
         hide_all(app);
@@ -136,7 +146,7 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: egui::Rect) {
         canvas.right() - 26.0,
         canvas.top() + 8.0 + app.touch_panels.y.clamp(0.0, 1.0) * (canvas.height() - 16.0),
     );
-    let hidden = all_hidden(app);
+    let hidden = app.touch_panels.full;
     egui::Area::new(egui::Id::new("touch_panels_on_drawing"))
         .order(egui::Order::Middle)
         .pivot(egui::Align2::RIGHT_TOP)
@@ -173,9 +183,8 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: egui::Rect) {
                             let on = bar.visible(app);
                             let b = egui::Button::new(tr(label)).min_size(side).selected(on);
                             if ui.add(b).on_hover_text(tr(tip)).clicked() {
+                                // In Full the drawing stays full screen.
                                 bar.set_visible(app, !on);
-                                // One panel by hand ends what "Full" kept.
-                                app.touch_panels.stash = None;
                             }
                         }
                         let on = app.show_dockers;
@@ -188,7 +197,6 @@ pub fn on_drawing(app: &mut App, ui: &mut egui::Ui, canvas: egui::Rect) {
                             .clicked()
                         {
                             app.show_dockers = !on;
-                            app.touch_panels.stash = None;
                         }
                         let b = egui::Button::new(tr("touch_panels.full"))
                             .min_size(side)
@@ -229,6 +237,27 @@ mod tests {
         assert!(app.show_dockers);
         assert!(!app.show_status_bar && !app.show_rulers);
         assert!(app.touch_panels.stash.is_none());
+        assert!(!app.touch_panels.full);
+    }
+
+    /// A panel called back in Full leaves the menu bar, the tabs and the
+    /// scrollbars away; Full again puts everything back.
+    #[test]
+    fn a_panel_called_back_in_full_keeps_the_screen_full() {
+        let mut app = App::headless();
+        app.show_welcome = false;
+        app.show_toolbox = true;
+        app.show_property_bar = true;
+        toggle_full(&mut app);
+        assert!(app.touch_panels.full);
+        assert_eq!(immersive(&app), app.has_document());
+        Bar::Toolbox.set_visible(&mut app, true);
+        assert!(Bar::Toolbox.visible(&app));
+        assert!(app.touch_panels.full, "the toolbox does not end Full");
+        assert_eq!(immersive(&app), app.has_document());
+        toggle_full(&mut app);
+        assert!(!app.touch_panels.full && !immersive(&app));
+        assert!(app.show_toolbox && app.show_property_bar);
     }
 
     /// With everything hidden by hand, "Full" shows the working panels.

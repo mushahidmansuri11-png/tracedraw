@@ -647,6 +647,7 @@ mod tests {
                     sharpness: 0.5,
                     complex: None,
                     twist: 0.0,
+                    bend: 0.0,
                 },
                 2 => ShapeKind::Rect {
                     rect: r,

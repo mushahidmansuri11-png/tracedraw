@@ -31,6 +31,14 @@ Ctrl+F7).
   the steps between the two objects follow the envelope; they used to be
   mixed toward the unbent end and stayed where they were (#2120,
   `tracedraw_core::live::tests::a_grouped_blend_bends_with_the_group`).
+- A picture bends with the frame, alone or inside a group or clip frame:
+  it is cut into a fine mesh (48 cells a side) whose corners go through
+  the same map as the outlines, and each cell takes the picture's pixels
+  between its corners, transparent where the bent picture does not reach.
+  Pictures used to stay as they were while the outlines around them bent
+  (#3608, `tracedraw_core::live::tests::envelope_bends_pictures_alone_and_in_groups`,
+  `tracedraw_core::bitmap_warp::tests::a_bent_picture_follows_the_warp`).
+  Keep lines does not apply to a picture, which always bends smoothly.
 - On an extruded object the envelope bends the body too, whichever of
   the two was put on first: an outline warp (envelope, perspective,
   distortion) after an extrusion in the object's effects is put on the
@@ -59,6 +67,12 @@ Ctrl+F7).
 - In the Unconstrained mode a click on a node selects it and shows its two
   handles (the end of the segment coming in and the start of the one
   going out); dragging a handle bends that segment alone.
+- Several nodes can be chosen at once (#3001): Shift+click on a node adds
+  it to the chosen nodes or takes it out, and a drag on empty space draws
+  a marquee that chooses the nodes inside it (with Shift, adds them).
+  Dragging any chosen node moves all of them by the same amount, as one
+  undo step; dragging a node that is not chosen chooses it alone
+  (`envelope_edit::tests::several_envelope_nodes_move_together`).
 - Dragging a segment of the frame (anywhere along it, within 4 screen
   pixels, away from its nodes and handles) bends it, in every mode, as
   the Shape tool bends a curve's segment: the point grabbed follows the
@@ -170,11 +184,11 @@ nothing selected, how to start.
   frame's nodes are the outline's, its corners the outline's own sharp
   nodes nearest the corners of its box when there are four such (a band,
   a trapezoid, a rectangle), else the outline's points nearest those
-  corners (a node goes in there). As in CorelDRAW, each object takes
+  corners (a node goes in there). Each object takes
   that shape at the shape's size, upright as it lies on the page and
   centred where the object is, with the mapping and Keep Lines new
   envelopes take; it is not moved into the shape (#2178: text above an
-  arched band went down onto it, where CorelDRAW leaves it above the
+  arched band went down onto it, where it should stay above the
   band, arched like it; the video of #2344 shows the same, the object
   moved into the shape by hand afterwards) (#993, #2344, #2178,
   `tracedraw_core::envelope::tests::frames_are_made_from_outlines`,

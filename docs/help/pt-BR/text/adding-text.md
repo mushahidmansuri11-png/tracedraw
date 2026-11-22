@@ -126,6 +126,11 @@ cabe não é desenhado, impresso nem exportado. Para fazê-lo caber:
   mantêm o tamanho;
 - escolha [[menu.text > menu.text.paragraph_text_frame > menu.text.frame_fit_text]]
   para redimensionar o texto até preencher a moldura;
+- marque **Bloco tipográfico** nas configurações de quadro do painel de texto:
+  as palavras são distribuídas entre as linhas e cada linha ganha um tamanho
+  próprio, de modo que cada linha preenche exatamente a largura do quadro e as
+  linhas juntas preenchem a altura. Redimensione o quadro e o bloco se refaz;
+  cada palavra mantém a sua fonte;
 - ligue a moldura a outra, para o texto continuar nela:
   [[menu.text.frame_link]]. [[menu.text.frame_unlink]] desfaz a ligação.
   Ou clique na pequena aba sob a borda de baixo do quadro e depois clique
@@ -156,16 +161,27 @@ verticais.
 1. Selecione um texto e uma curva ou forma.
 2. Escolha [[menu.text > menu.text.fit_text_to_path]].
 
+Para curvar um texto sem desenhar caminho, selecione-o e clique no botão
+**Curvar texto** da barra de propriedades do texto (ao lado do alinhamento):
+escolha círculo, arco para cima, arco para baixo ou onda, ou Reto para desfazer.
+O texto continua editável, fica no mesmo lugar e ganha os campos de caminho.
+Arraste um texto em círculo para cima de um objeto redondo e solte perto do
+meio: o texto pega o centro do objeto e corre por dentro da borda.
+
 Ou clique no contorno de um caminho com a ferramenta [[tool.text]] e digite. O
 texto em uma forma fechada fica do lado de fora dela, centralizado no alto;
 clicado na parte de baixo de uma elipse, ele começa ali.
+
+Um texto que você estreitou ou alargou com uma alça lateral mantém a forma das
+letras no caminho: a mudança vai para a largura dos caracteres.
 
 Com texto em um caminho selecionado (também com a ferramenta [[tool.pick]]), a
 barra de propriedades mostra primeiro os campos do caminho e depois os campos
 de texto de sempre:
 
 - A orientação das letras: giradas, inclinação vertical, inclinação
-  horizontal ou em pé.
+  horizontal, em pé ou radiais (a haste de cada letra numa linha que passa
+  pelo meio da caixa do caminho, como os números de um mostrador).
 - A posição vertical: na linha de base, na ascendente, na descendente ou
   centralizada no caminho.
 - A posição ao longo do caminho: no início, no centro ou no fim e, em um
@@ -178,6 +194,10 @@ de texto de sempre:
   círculo continua centralizada ao se afastar ou se aproximar.
 - Os dois botões de espelhar, que põem o texto do outro lado do caminho ou o
   viram, e [[menu.text.straighten_text]], que o tira do caminho.
+- **Seguir caminho** (desligado): pressionado, o texto é ajustado de novo ao
+  caminho sempre que o caminho é movido, redimensionado ou remodelado,
+  mantendo seu lugar ao longo dele. Desfazer volta a mudança do caminho e a do
+  texto juntas. Apagar o caminho deixa o texto como está.
 
 Arraste o texto para deslizá-lo pelo caminho, ou através do caminho para
 afastá-lo dele.

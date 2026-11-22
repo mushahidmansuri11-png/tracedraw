@@ -1,8 +1,10 @@
 # Bitmap import
 
-File > Import (Ctrl+I) of a PNG, JPEG, BMP, GIF, TIFF or WebP file
+File > Import (Ctrl+I) of a PNG, JPEG, BMP, GIF, TIFF, WebP or JPEG XL file
 embeds the image as a bitmap object centred on the page and remembers
-the file (Image > Update from Link reads it again). PNG files of 8 or
+the file (Image > Update from Link reads it again; Options > Global >
+File Formats > Link imported pictures to their files, on by default,
+can embed it only, #3089). PNG files of 8 or
 16 bits, grey or colour, with or without alpha or with a palette, and
 baseline or progressive JPEG files all come in
 (`bitmap_file::tests::every_common_png_and_jpeg_imports`, #2167).
@@ -43,10 +45,21 @@ open at all, opens with its colours: it is read as the grey levels that
 are its indices, looked up in its colour map (TIFF 6.0, section 5)
 (#3025, `bitmap_file::tests::imported_pictures_keep_their_colour_mode`).
 
+## JPEG XL (#3210)
+
+`.jxl` files, the bare codestream or the ISO container, are read by
+`jxl-oxide` (pure Rust, MIT OR Apache-2.0) through the image crate's
+decoder interface, under the same memory limit as the other pictures
+(`files::decode_picture`): 8 and 16 bits and float, grey or colour,
+with or without alpha, lossless or lossy; a CMYK file comes in as RGB
+pixels. The codestream's own orientation is applied by the decoder and
+an Exif orientation in the file is not applied again
+(`bitmap_file::tests::jpeg_xl_files_export_and_import_losslessly`).
+
 ## Opening a picture (#2600)
 
 A picture file opened (Open With TraceDraw in the file manager, the
-command line, a recent file: PNG, JPG, BMP, GIF, WebP, TIFF) becomes a
+command line, a recent file: PNG, JPG, BMP, GIF, WebP, TIFF, JPEG XL) becomes a
 new, untitled drawing named after the file, whose page is the picture's
 size at the resolution the file records; the picture fills the page.
 There is nothing to undo or save yet, and Save asks where. A file that
@@ -76,7 +89,7 @@ Browse picks it, Clear empties it). Empty, the default, opens it with the
 system's program for PNG files (#593, `export::tests::the_bitmap_editor_gets_the_file`).
 The browser build has no outside editor.
 
-The file is a PNG, or a CMYK TIFF for a CMYK picture (a `.cdr` CMYK
+The file is a PNG, a CIE Lab TIFF for a Lab Color picture (#3539), or a CMYK TIFF for a CMYK picture (a `.cdr` CMYK
 image, or one in the CMYK colour mode), holding the inks it prints from
 as Save Bitmap As writes them, so the editor works on the inks and not
 on RGB pixels (#1834); a picture with see-through pixels goes with its

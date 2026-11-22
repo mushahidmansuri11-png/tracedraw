@@ -123,6 +123,11 @@ drawn, printed or exported. To make it fit:
   keep their size;
 - choose [[menu.text > menu.text.paragraph_text_frame > menu.text.frame_fit_text]]
   to resize the text to fill the frame;
+- tick **Type block** in the frame settings of the text panel: the words are
+  shared out between the lines and each line takes a size of its own, so that
+  every line fills the frame's width exactly and the lines together fill its
+  height. Resize the frame and the block is set anew; each word keeps its
+  font;
 - link the frame to another one, so the text flows on:
   [[menu.text.frame_link]]. [[menu.text.frame_unlink]] breaks the link.
   With two frames picked, the first flows into the second; an empty frame
@@ -159,11 +164,22 @@ Or click the outline of a path with the [[tool.text]] tool and type. Text on a
 closed shape stands on its outside, centered on its top; clicked on the bottom
 of an ellipse, it starts there.
 
+A text you made narrower or wider with a side handle keeps its letters'
+shape on the path: the change goes into the character width.
+
+To bend a text with no path to draw, select it and click the **Curve Text**
+button on the text property bar (beside the alignment): choose a circle, an
+arch, a bowl or a wave, or Straight to undo it. The text stays editable, keeps
+its place and takes the path fields below. Drag a circle text onto a round
+object and let go near its middle: the text takes the object's center and runs
+round just inside its edge.
+
 With text on a path selected (also with the [[tool.pick]] tool), the property
 bar shows the path's fields first, then the usual text fields:
 
-- The orientation of the letters: rotated, vertical skew, horizontal skew or
-  upright.
+- The orientation of the letters: rotated, vertical skew, horizontal skew,
+  upright, or radial (each letter's upright on a line through the middle of
+  the path's box, like the numbers round a dial).
 - The vertical placement: on the baseline, the ascender, the descender, or
   centred on the path.
 - The placement along the path: at its start, centre or end, and on a closed
@@ -176,6 +192,10 @@ bar shows the path's fields first, then the usual text fields:
 - The two mirror buttons, which put the text on the other side of the path
   or turn it round, and [[menu.text.straighten_text]], which takes it off the
   path.
+- **Follow path** (off): pressed, the text is fitted to the path again
+  whenever the path is moved, resized or reshaped, keeping its place along
+  it. Undo takes back the path's change and the text's together. Deleting
+  the path leaves the text as it is.
 
 Drag the text to slide it along the path, or across the path to move it away
 from it.
@@ -185,7 +205,9 @@ from it.
 - [[menu.text > menu.text.insert_formatting_code]]: special characters such as
   [[menu.text.code_em_space]], [[menu.text.code_nonbreaking_space]],
   [[menu.text.code_optional_hyphen]] and [[menu.text.code_column_break]].
-- [[menu.text.show_non_printing]] shows spaces, tabs and breaks.
+- [[menu.text.show_non_printing]] shows spaces (dots), tabs (arrows),
+  paragraph ends (pilcrows) and line breaks in the text you are editing.
+  The marks never print.
 - [[menu.text.make_web_compatible]] prepares text for web pages.
 - [[menu.text > menu.text.convert]] switches between artistic and paragraph
   text.

@@ -120,6 +120,7 @@ original, #471). Checks:
 | Ctrl+G, Ctrl+U | Group, Ungroup |
 | Ctrl+L, Ctrl+K | Combine, Break apart |
 | While typing text: Ctrl+L, Ctrl+E, Ctrl+R, Ctrl+J, Ctrl+H, Ctrl+N | Align left, center, right, justify, force justify, no alignment (the whole text typed at a point, which stays in place at the reference point of the X and Y fields; the paragraphs at the caret in a frame) (`pick_drag_tests::alignment_keys_while_typing`, `text_wrap_tests::a_new_alignment_keeps_the_reference_point_in_place`) |
+| While typing text: Ctrl+Z, Alt+Backspace, Ctrl+Shift+Z, Ctrl+Shift+T, Ctrl+S, Ctrl+Shift+S | Undo and redo the typing (the text is edited on, the caret where it was), Edit Text, Save, Save As; a function key (F1 to F35, F13 to F24 of large keyboards among them) or a Ctrl key the typing does not use runs the command or tool given it in Options > Customization > Commands (#3108, #3266, #3251, `pick_drag_tests::field_focus_tests`) |
 | Ctrl+Q, Ctrl+Shift+Q | Convert to curves, Convert outline to object (a dashed outline keeps its dashes, each a closed shape, the pattern in widths as drawn; #490, `tools2::tests::a_dashed_outline_becomes_one_shape_per_dash`) |
 | Ctrl+Home, Ctrl+End | To front and back of the page |
 | Shift+PgUp, Shift+PgDn | To front and back of the layer |
@@ -129,6 +130,7 @@ original, #471). Checks:
 | Ctrl+Shift+A | Paste Style From: a dialog with Outline pen, Outline color, Fill and Text properties (all ticked at first, kept), then a click on the object to copy them from to the other selected objects, one undo step; a right click or Esc cancels the wait (#1345, `pick_drag_tests::ctrl_shift_a_copies_the_ticked_properties_from_the_object_clicked`). They are read from the object clicked inside a group or clip frame and written as the Attributes Eyedropper writes them (see `eyedroppers.md`; #1550, `pick_drag_tests::copying_properties_from_a_group_takes_the_object_clicked`) |
 | Alt+F7, Alt+F8, Alt+F9, Alt+F10 | Transformations panel on Position, Rotate, Scale and Mirror, Size |
 | Ctrl+M | Merge table cells |
+| Ctrl+Shift+L | Text > Bullets On/Off: bullets on or off for the selected paragraph text, or for the paragraphs at the caret while typing; the bullet keeps its settings (#3593, `pick_drag_tests::ctrl_shift_l_turns_bullets_on_and_off`) |
 | Ctrl+Shift+F3 | Edit Contents of the selected clip frame; while its contents are edited, Finish Editing (Object > Clip to Frame, the canvas context menu; #1273, `pick_drag_tests::the_context_menu_and_a_key_edit_and_extract_clip_frame_contents`) |
 | Alt+Shift+F8, Alt+F11 | Run Macro, Macro Editor (Tools > Macros) |
 
@@ -171,8 +173,8 @@ Looked at and left without a key, because the usual key is taken:
 Redo's Ctrl+Y (Snap to Document Grid; Redo is Ctrl+Shift+Z), Paste
 Special's Ctrl+Alt+V (the windowing layer turns every Ctrl+V into a
 paste), Text > Convert's Ctrl+F8 and Spell Check's
-Ctrl+F12 (the Blend and Fonts panels, #1779) and Bullets' Ctrl+M (Merge
-Cells).
+Ctrl+F12 (the Blend and Fonts panels, #1779). Bullets' usual Ctrl+M is
+Merge Cells, so Bullets On/Off has Ctrl+Shift+L (#3593).
 
 ## Distribute keys
 
@@ -214,6 +216,10 @@ keys (`pick_drag_tests::node_commands_have_keys_of_their_own`).
 
 ## Modal dialogs
 
+- A field of a bar, a docker or a panel with the keyboard keeps it when
+  Shift, Ctrl or Alt is pressed on its own (each arrives as a key press
+  too): Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V and Ctrl+Z edit the field's text,
+  other Ctrl shortcuts apply the field and run (#2893, #3198).
 - Esc closes any dialog without applying; while a dialog is open the
   shortcuts above are not interpreted, and typing does not reach text
   or a table cell being edited on the canvas.
@@ -298,6 +304,13 @@ row is not lit until the pointer moves.
   the same letter again goes on to the next name with it). Enter picks
   the row and closes the list, Esc closes it as it was. The list's
   button (a combo box's) keeps the keyboard afterwards.
+- A combo box's list is as tall as seven tenths of the window (at
+  least 200 points) before it scrolls, so a list that fits shows whole
+  with no scroll bar (#3492, `keynav::list_height`, set each frame as
+  `combo_height`). Its rows' resting frame has no edge (`list_style`):
+  egui leaves a frameless row's padding short by the edge's width, so
+  every name moved a point when the pointer lit its row (#3491,
+  `keynav::tests::a_combo_list_keeps_its_names_still_and_shows_whole`).
 - A list's button with the keyboard (reached with Tab from a field of
   the bar or dialog): Down, Up, Alt+Down, F4, Enter or Space open the
   list with its chosen row lit.
@@ -358,6 +371,16 @@ name.
   shortcuts does, which gives back every built-in shortcut, tool keys
   included. Shortcuts are kept in the preferences (`shortcuts`: the
   menu item's key or tool id and the keys, empty for none).
+- Shortcut table (#3243), above the list: Main, or Node editing (Shape
+  tool). Keys set in the Node editing table hold only while the Shape
+  tool is chosen, and are looked at before the main table's and the
+  built-in keys, so one key can run one command on objects and another
+  on nodes; a key not set there does what it does with any other tool.
+  The table takes no key from other commands (its list shows its own
+  keys only), Delete just takes a key out of it, and Reset gives it back
+  empty. The menus show the main keys. It is kept in the preferences
+  (`node_shortcuts`) and goes with a workspace file's shortcuts
+  (`ui::options::tests::a_node_editing_key_holds_only_with_the_shape_tool`).
 - Tools are listed under the toolbox on the same page and take keys as
   commands do: a key alone or with Ctrl, Alt and Shift. Alt and a
   letter you give a command or tool runs it instead of opening the

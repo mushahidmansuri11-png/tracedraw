@@ -290,5 +290,8 @@ globalThis.__member_alias = function (name) {
     );
     assert_eq!(r.lines, vec!["10            A", "1,2"]);
     let err = r.result.expect_err("no member, no other name");
-    assert!(err.contains("438") || err.contains("doesn't support"), "{err}");
+    assert!(
+        err.contains("438") || err.contains("doesn't support"),
+        "{err}"
+    );
 }

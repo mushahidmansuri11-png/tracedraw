@@ -191,7 +191,7 @@ pub fn for_key(key: &str) -> Option<Glyph> {
         "menu.layout.switch_orientation" => PageOrientation,
         "menu.layout.page_number_settings" | "menu.object.insert_page_number" => PageNumber,
         "menu.layout.document_options" | "menu.layout.page_layout" => DocOptions,
-        "menu.layout.page_background" => PageBackground,
+        "menu.layout.page_background" | "menu.effects.frame_generator" => PageBackground,
         "menu.layout.page_size" => PageSize,
         "menu.object.align_left" | "menu.object.align_distribute" => AlignLeft,
         "menu.object.align_right" => AlignRight,
@@ -238,11 +238,13 @@ pub fn for_key(key: &str) -> Option<Glyph> {
         | "menu.object.symbol" => Symbol,
         "menu.effects.blend" => Blend,
         "menu.effects.contour" => Contour,
-        "menu.effects.extrude" => Extrude,
+        "menu.effects.extrude" | "menu.effects.shape3d" => Extrude,
         "menu.effects.lens" => Lens,
         "menu.effects.bevel" => Bevel,
         "menu.effects.brush_strokes" => BrushStrokes,
-        "menu.effects.picture_mosaic" | "menu.effects.vector_mosaic" => Mosaic,
+        "menu.effects.picture_mosaic"
+        | "menu.effects.vector_mosaic"
+        | "menu.effects.symbol_scatter" => Mosaic,
         "menu.effects.flatten" => Flatten,
         "menu.table.create_new_table" | "menu.object.create_table" => TableNew,
         "menu.table.convert_text_to_table" => TextToTable,
@@ -1231,7 +1233,11 @@ mod tests {
         let ctx = crate::theme::ui_context();
         let mut out = ctx.run_ui(Default::default(), |ui| {
             let r = Rect::from_min_size(Pos2::ZERO, Vec2::splat(16.0));
-            for g in [Glyph::PreviewSelected, Glyph::Perspective, Glyph::ViewPixels] {
+            for g in [
+                Glyph::PreviewSelected,
+                Glyph::Perspective,
+                Glyph::ViewPixels,
+            ] {
                 draw(ui.painter(), r, g, Color32::GRAY);
             }
         });

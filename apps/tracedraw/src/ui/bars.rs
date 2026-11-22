@@ -60,6 +60,41 @@ pub enum Bar {
     Zoom,
     Transform,
     TimeTracker,
+    /// A toolbar the user made (Options > Customization > Command Bars,
+    /// New), by its slot in [`CUSTOM_IDS`] (#3264).
+    Custom(u8),
+}
+
+/// The most toolbars the user can make (#3264).
+pub const MAX_CUSTOM: usize = 10;
+
+/// The names in the preferences of the toolbars the user makes, by slot.
+pub const CUSTOM_IDS: [&str; MAX_CUSTOM] = [
+    "custom1", "custom2", "custom3", "custom4", "custom5", "custom6", "custom7", "custom8",
+    "custom9", "custom10",
+];
+
+/// A toolbar the user made (#3264): its slot in [`CUSTOM_IDS`], its name,
+/// whether it is shown and where it is. Its buttons are kept with the
+/// other bars' (`bar_items`, under its id).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CustomBar {
+    pub slot: u8,
+    pub name: String,
+    pub shown: bool,
+    pub dock: Dock,
+}
+
+impl Default for CustomBar {
+    fn default() -> Self {
+        CustomBar {
+            slot: 0,
+            name: String::new(),
+            shown: true,
+            dock: Dock::Top,
+        }
+    }
 }
 
 impl Bar {
@@ -94,6 +129,38 @@ impl Bar {
             Bar::Zoom => "menu.window.toolbar_zoom",
             Bar::Transform => "menu.window.toolbar_transform",
             Bar::TimeTracker => "menu.window.toolbar_time_tracker",
+            Bar::Custom(_) => "bars.custom_bar",
+        }
+    }
+
+    /// The bar's name as shown: a toolbar the user made has the name it
+    /// was given.
+    pub fn name(self, app: &App) -> String {
+        match self {
+            Bar::Custom(n) => app
+                .settings
+                .bars
+                .custom_bar(n)
+                .map(|c| c.name.clone())
+                .filter(|n| !n.trim().is_empty())
+                .unwrap_or_else(|| tr(self.key())),
+            _ => tr(self.key()),
+        }
+    }
+
+    /// A number of its own for the bar, for the ids of what it draws.
+    pub fn salt(self) -> u8 {
+        match self {
+            Bar::Toolbox => 0,
+            Bar::Palette => 1,
+            Bar::Standard => 2,
+            Bar::Property => 3,
+            Bar::Status => 4,
+            Bar::Text => 5,
+            Bar::Zoom => 6,
+            Bar::Transform => 7,
+            Bar::TimeTracker => 8,
+            Bar::Custom(n) => 100u8.saturating_add(n),
         }
     }
 
@@ -109,12 +176,13 @@ impl Bar {
             Bar::Zoom => "zoom",
             Bar::Transform => "transform",
             Bar::TimeTracker => "time_tracker",
+            Bar::Custom(n) => CUSTOM_IDS[(n as usize).min(MAX_CUSTOM - 1)],
         }
     }
 
     /// The toolbar lies in a row when docked along the top or the bottom.
     pub fn in_rows(self) -> bool {
-        Bar::ROWS.contains(&self)
+        matches!(self, Bar::Custom(_)) || Bar::ROWS.contains(&self)
     }
 
     /// The height of the toolbar's band in a row, its line included, at
@@ -151,10 +219,11 @@ impl Bar {
         }
     }
 
-    /// Where the bar can go.
+    /// Where the bar can go. A toolbar the user made also docks at a
+    /// side, a column of buttons beside the toolbox (#3723).
     pub fn docks(self) -> &'static [Dock] {
         match self {
-            Bar::Toolbox | Bar::Palette => &[
+            Bar::Toolbox | Bar::Palette | Bar::Custom(_) => &[
                 Dock::Top,
                 Dock::Bottom,
                 Dock::Left,
@@ -181,7 +250,8 @@ impl Bar {
             | Bar::Text
             | Bar::Zoom
             | Bar::Transform
-            | Bar::TimeTracker => Dock::Top,
+            | Bar::TimeTracker
+            | Bar::Custom(_) => Dock::Top,
         }
     }
 
@@ -196,6 +266,7 @@ impl Bar {
             Bar::Zoom => app.show_zoom_toolbar,
             Bar::Transform => app.show_transform_toolbar,
             Bar::TimeTracker => app.settings.time_tracker.show_bar,
+            Bar::Custom(n) => app.settings.bars.custom_bar(n).is_some_and(|c| c.shown),
         }
     }
 
@@ -210,6 +281,11 @@ impl Bar {
             Bar::Zoom => app.show_zoom_toolbar = on,
             Bar::Transform => app.show_transform_toolbar = on,
             Bar::TimeTracker => app.settings.time_tracker.show_bar = on,
+            Bar::Custom(n) => {
+                if let Some(c) = app.settings.bars.custom.iter_mut().find(|c| c.slot == n) {
+                    c.shown = on;
+                }
+            }
         }
     }
 
@@ -226,7 +302,21 @@ impl Bar {
             Bar::Text => vec2(760.0, 36.0 + TITLE_H + 4.0),
             Bar::Zoom => vec2(420.0, 36.0 + TITLE_H + 4.0),
             Bar::Transform => vec2(820.0, 36.0 + TITLE_H + 4.0),
+            Bar::TimeTracker if app.settings.time_tracker.mini => vec2(190.0, 36.0 + TITLE_H + 4.0),
             Bar::TimeTracker => vec2(520.0, 36.0 + TITLE_H + 4.0),
+            // Room for its buttons (a few more for those named in words),
+            // and for its name.
+            Bar::Custom(n) => {
+                let count = crate::ui::bar_items::items(
+                    app,
+                    crate::ui::bar_items::ItemBar::Custom(n),
+                )
+                .len() as f32;
+                vec2(
+                    (count * 40.0 + 40.0).clamp(160.0, 1200.0),
+                    36.0 + TITLE_H + 4.0,
+                )
+            }
         }
     }
 }
@@ -331,6 +421,9 @@ pub struct BarLayout {
     /// docker columns of that side (see [`PaletteSpot::Between`]).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub palette_between: bool,
+    /// The toolbars the user made, in the order they were made (#3264).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub custom: Vec<CustomBar>,
 }
 
 /// Where the docked palette lies on its side, from the window's edge
@@ -375,6 +468,7 @@ impl Default for BarLayout {
             version: LAYOUT_VERSION,
             palette_beside: None,
             palette_between: false,
+            custom: Vec::new(),
         }
     }
 }
@@ -391,6 +485,57 @@ impl BarLayout {
             self.palette = Dock::Bottom;
         }
         self.version = self.version.max(LAYOUT_VERSION);
+    }
+
+    /// The toolbar the user made in slot `slot`, if there is one.
+    pub fn custom_bar(&self, slot: u8) -> Option<&CustomBar> {
+        self.custom.iter().find(|c| c.slot == slot)
+    }
+
+    /// Make a toolbar named `name` (shown, in a row of its own at the
+    /// bottom of the top rows): its bar, or none when there are
+    /// [`MAX_CUSTOM`] already (#3264).
+    pub fn add_custom(&mut self, name: &str) -> Option<Bar> {
+        let slot = (0..MAX_CUSTOM as u8).find(|s| self.custom_bar(*s).is_none())?;
+        self.custom.push(CustomBar {
+            slot,
+            name: name.trim().to_string(),
+            shown: true,
+            dock: Dock::Top,
+        });
+        let bar = Bar::Custom(slot);
+        let at = self.rows_at(Dock::Top).len();
+        self.place_in_row(
+            bar,
+            RowTarget::NewRow {
+                dock: Dock::Top,
+                at,
+            },
+        );
+        Some(bar)
+    }
+
+    /// Give the toolbar the user made in `slot` the name `name`.
+    pub fn rename_custom(&mut self, slot: u8, name: &str) {
+        if let Some(c) = self.custom.iter_mut().find(|c| c.slot == slot) {
+            c.name = name.trim().to_string();
+        }
+    }
+
+    /// Take away the toolbar the user made in `slot`, and its place.
+    pub fn remove_custom(&mut self, slot: u8) {
+        self.custom.retain(|c| c.slot != slot);
+        let id = Bar::Custom(slot).id();
+        self.rows.remove(id);
+        self.floating_pos.remove(id);
+    }
+
+    /// Every toolbar that lies in rows: the built-in ones, then those the
+    /// user made.
+    pub fn row_bars(&self) -> Vec<Bar> {
+        let mut out = Bar::ROWS.to_vec();
+        out.extend(self.custom.iter().map(|c| Bar::Custom(c.slot)));
+        out
     }
 
     /// Whether the docked palette lies beside the drawing (see
@@ -424,6 +569,7 @@ impl BarLayout {
             Bar::Zoom => self.zoom,
             Bar::Transform => self.transform,
             Bar::TimeTracker => self.time_tracker,
+            Bar::Custom(n) => self.custom_bar(n).map_or(Dock::Top, |c| c.dock),
         };
         if bar.docks().contains(&d) {
             d
@@ -447,6 +593,10 @@ impl BarLayout {
             Bar::Zoom => self.zoom = dock,
             Bar::Transform => self.transform = dock,
             Bar::TimeTracker => self.time_tracker = dock,
+            Bar::Custom(n) => match self.custom.iter_mut().find(|c| c.slot == n) {
+                Some(c) => c.dock = dock,
+                None => return false,
+            },
         }
         true
     }
@@ -482,7 +632,7 @@ impl BarLayout {
     /// The row and place of a toolbar along the top or the bottom.
     pub fn row_place(&self, bar: Bar) -> RowPlace {
         self.rows.get(bar.id()).copied().unwrap_or_else(|| {
-            let first = Bar::ROWS.iter().position(|b| *b == bar).unwrap_or(0);
+            let first = self.row_bars().iter().position(|b| *b == bar).unwrap_or(0);
             [first as u32, 0]
         })
     }
@@ -490,7 +640,8 @@ impl BarLayout {
     /// The rows of the toolbars docked at `dock`, top to bottom, each
     /// left to right; hidden toolbars keep their places in them.
     pub fn rows_at(&self, dock: Dock) -> Vec<Vec<Bar>> {
-        let mut placed: Vec<(RowPlace, usize, Bar)> = Bar::ROWS
+        let mut placed: Vec<(RowPlace, usize, Bar)> = self
+            .row_bars()
             .iter()
             .enumerate()
             .filter(|(_, b)| self.dock(**b) == dock)
@@ -732,7 +883,7 @@ pub fn grip(app: &mut App, ui: &mut Ui, bar: Bar, horizontal: bool) {
 /// Make `r` (already painted as a grip) drag `bar` and open its menu;
 /// `salt` tells apart several grips of one bar (the palette's rows).
 pub fn grip_zone(app: &mut App, ui: &mut Ui, bar: Bar, r: Rect, salt: u8) {
-    let id = egui::Id::new(("bar_grip", bar as u8, salt));
+    let id = egui::Id::new(("bar_grip", bar.salt(), salt));
     let desc = if app.settings.bars.locked {
         "bars.grip_locked_desc"
     } else {
@@ -740,7 +891,7 @@ pub fn grip_zone(app: &mut App, ui: &mut Ui, bar: Bar, r: Rect, salt: u8) {
     };
     let resp = ui
         .interact(r, id, Sense::click_and_drag())
-        .rich_tip(crate::ui::tips::pair(bar.key(), desc));
+        .rich_tip(format!("{}\n{}", bar.name(app), tr(desc)));
     let resp = if app.settings.bars.locked {
         resp
     } else {
@@ -761,7 +912,7 @@ pub fn grip_zone(app: &mut App, ui: &mut Ui, bar: Bar, r: Rect, salt: u8) {
 /// A background response for the empty part of a bar: a right click there
 /// opens the bar's menu. Call before drawing the bar's controls.
 pub fn background(app: &mut App, ui: &mut Ui, bar: Bar) -> egui::Response {
-    let id = egui::Id::new(("bar_background", bar as u8));
+    let id = egui::Id::new(("bar_background", bar.salt()));
     let resp = ui.interact(ui.max_rect(), id, Sense::click());
     bar_menu(app, &resp, bar);
     resp
@@ -795,17 +946,35 @@ fn menu_anywhere(app: &mut App, ui: &mut Ui, bar: Bar, rect: Rect, opened: bool)
 
 /// The popup of [`menu_anywhere`] for `bar`.
 fn anywhere_menu_id(bar: Bar) -> egui::Id {
-    egui::Id::new(("bar_anywhere", bar as u8))
+    egui::Id::new(("bar_anywhere", bar.salt()))
 }
 
 /// The bar's context menu on `resp`. Each place that opens it (a grip, the
 /// bar's background, a floating title) keeps its own popup, so one menu
 /// never shows twice in a frame.
 pub fn bar_menu(app: &mut App, resp: &egui::Response, bar: Bar) {
+    bar_menu_of(app, resp, bar, None);
+}
+
+/// The bar's menu for a right click on one of its buttons, the command
+/// `id` (a tool's id or a menu key): it starts with Properties, which
+/// opens Options > Customization > Commands at that command, on its
+/// Shortcut Keys tab, as a right click on a menu row does (#3326, #2504).
+pub fn bar_menu_of(app: &mut App, resp: &egui::Response, bar: Bar, id: Option<&str>) {
     egui::Popup::context_menu(resp)
         .id(resp.id.with("bar_menu"))
         .style(crate::ui::menus::menu_popup_style)
-        .show(|ui| crate::ui::menus::body(ui, |ui| menu_body(app, ui, bar)));
+        .show(|ui| {
+            crate::ui::menus::body(ui, |ui| {
+                if let Some(id) = id {
+                    if crate::ui::menus::item(ui, "bars.button_properties", "", true) {
+                        crate::ui::menus::open_command_properties(app, id);
+                    }
+                    crate::ui::menus::sep(ui);
+                }
+                menu_body(app, ui, bar)
+            })
+        });
 }
 
 /// The entries of a button size list in the bars' menu > Customize:
@@ -908,8 +1077,22 @@ fn menu_body(app: &mut App, ui: &mut Ui, bar: Bar) {
 /// was.
 pub fn reset(app: &mut App) {
     let locked = app.settings.bars.locked;
+    // The toolbars the user made stay, each in a row of its own after
+    // the first rows, keeping their buttons (#3264).
+    let custom: Vec<CustomBar> = app
+        .settings
+        .bars
+        .custom
+        .iter()
+        .map(|c| CustomBar {
+            dock: Dock::Top,
+            shown: true,
+            ..c.clone()
+        })
+        .collect();
     app.settings.bars = BarLayout {
         locked,
+        custom,
         ..BarLayout::default()
     };
     for b in Bar::ALL {
@@ -1212,6 +1395,9 @@ fn beside_zone(app: &App, dock: Dock, drawing: Rect) -> Rect {
 fn drop_zone(app: &App, drag: BarDrag, dock: Dock, screen: Rect, menu_h: f32, p: Pos2) -> Rect {
     let thick = match drag.bar {
         Bar::Toolbox => crate::ui::toolbox::column_width(app),
+        Bar::Custom(_) if matches!(dock, Dock::Left | Dock::Right) => {
+            crate::ui::toolbox::column_width(app)
+        }
         Bar::Palette => crate::ui::palette::thickness(app, crate::ui::palette::Row::Main),
         Bar::Status => crate::ui::status::BAR_H,
         b => b.row_height(),
@@ -1263,7 +1449,69 @@ fn toolbar_body(app: &mut App, ui: &mut Ui, bar: Bar) -> f32 {
         Bar::Zoom => overflow::row(ui, "zoom", |ui| toolbar::zoom_toolbar(app, ui)),
         Bar::Transform => overflow::row(ui, "transform", |ui| toolbar::transform_toolbar(app, ui)),
         Bar::TimeTracker => overflow::row(ui, "time_tracker", |ui| time_tracker::toolbar(app, ui)),
+        Bar::Custom(n) => overflow::row(ui, bar.id(), |ui| toolbar::custom_toolbar(app, ui, n)),
         Bar::Toolbox | Bar::Palette | Bar::Status => 0.0,
+    }
+}
+
+/// The toolbars the user made docked at a side (#3723): each a column
+/// as wide as the toolbox's, inside it, its grip on top and its buttons
+/// down it at the toolbox's size; the whole column takes a command
+/// dragged from Options > Customization > Commands. Where each was drawn
+/// goes to the palette bars' side marks, as the toolbox's does.
+pub fn docked_columns(app: &mut App, ui: &mut Ui) {
+    use crate::ui::bar_items::ItemBar;
+    let bars: Vec<(Bar, Dock)> = app
+        .settings
+        .bars
+        .custom
+        .iter()
+        .filter(|c| c.shown)
+        .map(|c| Bar::Custom(c.slot))
+        .map(|b| (b, app.settings.bars.dock(b)))
+        .filter(|(_, d)| matches!(d, Dock::Left | Dock::Right))
+        .collect();
+    for (bar, dock) in bars {
+        let Bar::Custom(n) = bar else { continue };
+        let panel = if dock == Dock::Left {
+            egui::Panel::left(egui::Id::new(("custom_bar_column", n)))
+        } else {
+            egui::Panel::right(egui::Id::new(("custom_bar_column", n)))
+        };
+        let r = panel
+            .exact_size(crate::ui::toolbox::column_width(app))
+            .resizable(false)
+            .show_separator_line(false)
+            .frame(
+                egui::Frame::new()
+                    .fill(crate::theme::Tokens::panel())
+                    .inner_margin(egui::Margin::symmetric(3, 0)),
+            )
+            .show(ui, |ui| {
+                if !app.drawing_shown() {
+                    ui.disable();
+                }
+                background(app, ui, bar);
+                let room = ui.max_rect();
+                crate::ui::overflow::column(ui, bar.id(), |ui| {
+                    ui.spacing_mut().item_spacing = vec2(0.0, 1.0);
+                    grip(app, ui, bar, false);
+                    let side = crate::theme::Tokens::tool_button();
+                    crate::ui::toolbox::commands(app, ui, ItemBar::Custom(n), side, false);
+                });
+                // An empty column still takes a dropped command.
+                if let Some(s) = app
+                    .bar_slots
+                    .iter_mut()
+                    .rev()
+                    .find(|s| s.bar == ItemBar::Custom(n))
+                {
+                    s.rect = s.rect.union(room);
+                }
+            })
+            .response
+            .rect;
+        crate::ui::palette_bars::mark_bar(app, dock, r);
     }
 }
 
@@ -1317,7 +1565,7 @@ pub fn docked_rows(app: &mut App, ui: &mut Ui, dock: Dock) {
                 let widths: Vec<f32> = bars
                     .iter()
                     .map(|b| {
-                        ui.data(|d| d.get_temp::<f32>(egui::Id::new(("bar_natural", *b as u8))))
+                        ui.data(|d| d.get_temp::<f32>(egui::Id::new(("bar_natural", b.salt()))))
                             .unwrap_or(row.width())
                     })
                     .collect();
@@ -1334,7 +1582,7 @@ pub fn docked_rows(app: &mut App, ui: &mut Ui, dock: Dock) {
                         egui::UiBuilder::new()
                             .max_rect(slot)
                             .layout(egui::Layout::left_to_right(egui::Align::Center))
-                            .id_salt(("bar_slot", *bar as u8)),
+                            .id_salt(("bar_slot", bar.salt())),
                     );
                     child.set_clip_rect(slot.intersect(ui.clip_rect()));
                     let back = background(app, &mut child, *bar);
@@ -1353,7 +1601,7 @@ pub fn docked_rows(app: &mut App, ui: &mut Ui, dock: Dock) {
                     // The length the toolbar takes whole: its margins, grip
                     // and buttons.
                     let natural = (2.0 + 9.0 + gap + len + 4.0).ceil();
-                    let key = egui::Id::new(("bar_natural", *bar as u8));
+                    let key = egui::Id::new(("bar_natural", bar.salt()));
                     if ui.data(|d| d.get_temp::<f32>(key)) != Some(natural) {
                         ui.data_mut(|d| d.insert_temp(key, natural));
                         ui.ctx().request_repaint();
@@ -1406,14 +1654,7 @@ pub const MIN_SLOT: f32 = 90.0;
 
 /// The floating bars, each in a small window with its name, at its place.
 pub fn floating_bars(app: &mut App, ctx: &egui::Context) {
-    for bar in [
-        Bar::Standard,
-        Bar::Property,
-        Bar::Text,
-        Bar::Zoom,
-        Bar::Transform,
-        Bar::TimeTracker,
-    ] {
+    for bar in app.settings.bars.row_bars() {
         // The floating palette is drawn with the palette bars
         // (`palette_bars::floating`), which flow and resize.
         if !bar.visible(app) || app.settings.bars.dock(bar) != Dock::Floating {
@@ -1429,7 +1670,7 @@ pub fn floating_bars(app: &mut App, ctx: &egui::Context) {
         pos.y = pos
             .y
             .clamp(screen.top(), (screen.bottom() - TITLE_H).max(screen.top()));
-        egui::Area::new(egui::Id::new(("floating_bar", bar as u8)))
+        egui::Area::new(egui::Id::new(("floating_bar", bar.salt())))
             .fixed_pos(pos)
             .order(egui::Order::Middle)
             .show(ctx, |ui| {
@@ -1476,7 +1717,7 @@ pub fn floating_bars(app: &mut App, ctx: &egui::Context) {
 /// down smaller. The wheel is taken, so the bar does not slide with it
 /// and the drawing does not zoom.
 pub fn size_buttons_by_wheel(app: &mut App, ui: &Ui, rect: Rect, bar: Bar) {
-    if let Some(steps) = ctrl_wheel_steps(ui, rect, egui::Id::new(("bar_size_wheel", bar as u8))) {
+    if let Some(steps) = ctrl_wheel_steps(ui, rect, egui::Id::new(("bar_size_wheel", bar.salt()))) {
         app.settings.button_size = app.settings.button_size.stepped(steps);
     }
 }
@@ -1560,7 +1801,7 @@ fn floating_toolbox(app: &mut App, ctx: &egui::Context) {
     if resize.is_some() && app.settings.bars.pos(bar) != pos {
         app.settings.bars.set_pos(bar, pos);
     }
-    let area = egui::Area::new(egui::Id::new(("floating_bar", bar as u8)))
+    let area = egui::Area::new(egui::Id::new(("floating_bar", bar.salt())))
         .fixed_pos(pos)
         .order(egui::Order::Middle)
         .show(ctx, |ui| {
@@ -1739,10 +1980,10 @@ fn title_strip_at(app: &mut App, ui: &mut Ui, bar: Bar, rect: Rect) {
     let width = rect.width();
     let resp = ui.interact(
         rect,
-        egui::Id::new(("bar_title", bar as u8)),
+        egui::Id::new(("bar_title", bar.salt())),
         Sense::click_and_drag(),
     );
-    let name = tr(bar.key());
+    let name = bar.name(app);
     let galley = title_galley(ui, &name, title_room(width));
     let p = ui.painter();
     p.rect_filled(rect, 0.0, crate::theme::Tokens::tab_strip());
@@ -1761,7 +2002,7 @@ fn title_strip_at(app: &mut App, ui: &mut Ui, bar: Bar, rect: Rect) {
     );
     let close_resp = ui.interact(
         close,
-        egui::Id::new(("bar_close", bar as u8)),
+        egui::Id::new(("bar_close", bar.salt())),
         Sense::click(),
     );
     let c = close.center();
@@ -1828,7 +2069,7 @@ fn floating_body(app: &mut App, ui: &mut Ui, bar: Bar, size: Vec2) {
                     crate::ui::toolbar::property_bar(app, ui);
                 });
         }
-        Bar::Text | Bar::Zoom | Bar::Transform | Bar::TimeTracker => {
+        Bar::Text | Bar::Zoom | Bar::Transform | Bar::TimeTracker | Bar::Custom(_) => {
             egui::Frame::new()
                 .inner_margin(egui::Margin::symmetric(4, 2))
                 .show(ui, |ui| {
@@ -1955,7 +2196,7 @@ mod tests {
             frame(&ctx, &mut app, Vec::new(), egui::Modifiers::NONE);
         }
         let window = ctx
-            .memory(|m| m.area_rect(egui::Id::new(("floating_bar", Bar::Property as u8))))
+            .memory(|m| m.area_rect(egui::Id::new(("floating_bar", Bar::Property.salt()))))
             .expect("the floating property bar");
         let nominal = Bar::Property.floating_size(&app).x;
         assert!(
@@ -1963,7 +2204,7 @@ mod tests {
             "the body is wider than the nominal width: {window:?}"
         );
         let close = ctx
-            .read_response(egui::Id::new(("bar_close", Bar::Property as u8)))
+            .read_response(egui::Id::new(("bar_close", Bar::Property.salt())))
             .expect("the close button")
             .rect;
         assert!(
@@ -1971,7 +2212,7 @@ mod tests {
             "{close:?} at the right end of {window:?}"
         );
         let title = ctx
-            .read_response(egui::Id::new(("bar_title", Bar::Property as u8)))
+            .read_response(egui::Id::new(("bar_title", Bar::Property.salt())))
             .expect("the title")
             .rect;
         assert!(close.right() <= title.right() + 0.5);
@@ -2639,6 +2880,160 @@ mod tests {
         move_bar(&mut app, Bar::Property, Dock::Bottom, None);
         assert!(Bar::Property.visible(&app));
         assert_eq!(app.settings.bars.dock(Bar::Property), Dock::Bottom);
+    }
+
+    /// #3264: toolbars the user makes take free slots, each a row of
+    /// its own under the top rows, up to [`MAX_CUSTOM`]; they move and
+    /// float like the built-in toolbars, keep their names and places in
+    /// the preferences (older preferences have none), and Reset keeps
+    /// them, back at the top.
+    #[test]
+    fn toolbars_the_user_makes_are_kept_and_placed() {
+        let mut app = App::headless();
+        let rows = app.settings.bars.rows_at(Dock::Top).len();
+        let a = app.settings.bars.add_custom(" Signs ").expect("made");
+        let b = app.settings.bars.add_custom("Cutting").expect("made");
+        assert_eq!((a, b), (Bar::Custom(0), Bar::Custom(1)));
+        assert_eq!(a.name(&app), "Signs");
+        assert!(a.visible(&app) && a.in_rows());
+        let top = app.settings.bars.rows_at(Dock::Top);
+        assert_eq!(top.len(), rows + 2);
+        assert_eq!(top[rows], vec![a]);
+        assert_eq!(top[rows + 1], vec![b]);
+        // An unnamed one is called by its kind.
+        app.settings.bars.rename_custom(1, "  ");
+        assert_eq!(b.name(&app), tr("bars.custom_bar"));
+        app.settings.bars.rename_custom(1, "Cut");
+        // Moved to the bottom, floated, hidden.
+        move_bar(&mut app, a, Dock::Bottom, None);
+        assert_eq!(app.settings.bars.dock(a), Dock::Bottom);
+        assert_eq!(
+            app.settings.bars.rows_at(Dock::Bottom).last(),
+            Some(&vec![a])
+        );
+        move_bar(&mut app, b, Dock::Floating, Some(pos2(300.0, 200.0)));
+        assert_eq!(app.settings.bars.pos(b), pos2(300.0, 200.0));
+        assert!(b.floating_size(&app).x >= 160.0);
+        b.set_visible(&mut app, false);
+        assert!(!b.visible(&app));
+        // The preferences keep them; older ones have none.
+        let json = serde_json::to_string(&app.settings.bars).expect("json");
+        let back: BarLayout = serde_json::from_str(&json).expect("back");
+        assert_eq!(back, app.settings.bars);
+        let old: BarLayout = serde_json::from_str("{\"locked\":true}").expect("old");
+        assert!(old.custom.is_empty());
+        // A slot freed is taken again; no more than MAX_CUSTOM.
+        app.settings.bars.remove_custom(0);
+        assert!(!app.settings.bars.rows.contains_key("custom1"));
+        assert_eq!(app.settings.bars.add_custom("Again"), Some(Bar::Custom(0)));
+        while app.settings.bars.custom.len() < MAX_CUSTOM {
+            assert!(app.settings.bars.add_custom("More").is_some());
+        }
+        assert_eq!(app.settings.bars.add_custom("Too many"), None);
+        // Reset: they stay, shown again at the top, named as before.
+        reset(&mut app);
+        assert_eq!(app.settings.bars.custom.len(), MAX_CUSTOM);
+        assert_eq!(app.settings.bars.dock(b), Dock::Top);
+        assert_eq!(b.name(&app), "Cut");
+        assert!(b.visible(&app));
+        let salts: std::collections::BTreeSet<u8> = Bar::ALL
+            .iter()
+            .chain(Bar::ROWS.iter())
+            .copied()
+            .chain((0..MAX_CUSTOM as u8).map(Bar::Custom))
+            .map(Bar::salt)
+            .collect();
+        assert_eq!(salts.len(), 9 + MAX_CUSTOM, "every bar's ids its own");
+    }
+
+    /// #3723: a toolbar the user made also docks at the left or the
+    /// right, a column as wide as the toolbox's, inside it: dropped near
+    /// a side it goes there, its buttons lie down the column, the whole
+    /// column takes a dragged command, and the drawing gives it the room.
+    /// The toolbox's "+" menu ends with Customize..., which opens the
+    /// Commands page whose commands drag onto it.
+    #[test]
+    fn a_toolbar_the_user_makes_docks_at_a_side() {
+        use crate::ui::bar_items::{self, ItemBar};
+        let ctx = crate::theme::ui_context();
+        let mut app = App::headless();
+        app.show_welcome = false;
+        let bar = app.settings.bars.add_custom("Mine").expect("made");
+        bar_items::set_items(
+            &mut app,
+            ItemBar::Custom(0),
+            vec!["new".into(), "open".into()],
+        );
+        assert!(bar.docks().contains(&Dock::Left) && bar.docks().contains(&Dock::Right));
+        assert_eq!(
+            target_dock(bar, screen(), 30.0, pos2(4.0, 500.0)),
+            Dock::Left
+        );
+        assert_eq!(
+            target_dock(bar, screen(), 30.0, pos2(1596.0, 500.0)),
+            Dock::Right
+        );
+        for _ in 0..3 {
+            frame(&ctx, &mut app, Vec::new(), egui::Modifiers::NONE);
+        }
+        let before = app.canvas_rect;
+        move_bar(&mut app, bar, Dock::Left, None);
+        assert_eq!(app.settings.bars.dock(bar), Dock::Left);
+        assert!(app
+            .settings
+            .bars
+            .rows_at(Dock::Top)
+            .iter()
+            .all(|r| !r.contains(&bar)));
+        for _ in 0..3 {
+            frame(&ctx, &mut app, Vec::new(), egui::Modifiers::NONE);
+        }
+        let width = crate::ui::toolbox::column_width(&app);
+        assert!(
+            (app.canvas_rect.left() - before.left() - width).abs() < 2.0,
+            "the drawing makes room: {before:?} then {:?}",
+            app.canvas_rect
+        );
+        let slot = app
+            .shown_bar_slots
+            .iter()
+            .find(|s| s.bar == ItemBar::Custom(0))
+            .expect("the column");
+        assert!(slot.vertical);
+        assert_eq!(slot.items.len(), 2);
+        assert!(slot.items[1].top() > slot.items[0].top(), "down the column");
+        assert!(slot.rect.right() <= app.canvas_rect.left() + 1.0);
+        assert!(slot.rect.height() > 300.0, "the whole column takes a drop");
+        let column_x = slot.rect.center().x;
+        // Emptied, it still takes a drop.
+        bar_items::set_items(&mut app, ItemBar::Custom(0), Vec::new());
+        frame(&ctx, &mut app, Vec::new(), egui::Modifiers::NONE);
+        let p = pos2(column_x, 600.0);
+        assert_eq!(
+            bar_items::drop_target(&app.shown_bar_slots, p).map(|t| (t.0, t.1)),
+            Some((ItemBar::Custom(0), 0))
+        );
+        // At the right, the drawing gives the room on that side.
+        move_bar(&mut app, bar, Dock::Right, None);
+        for _ in 0..3 {
+            frame(&ctx, &mut app, Vec::new(), egui::Modifiers::NONE);
+        }
+        assert!((app.canvas_rect.left() - before.left()).abs() < 2.0);
+        assert!(app.canvas_rect.right() < before.right() - width + 2.0);
+        // Back to the top, in a row.
+        move_bar(&mut app, bar, Dock::Top, None);
+        assert!(app
+            .settings
+            .bars
+            .rows_at(Dock::Top)
+            .iter()
+            .any(|r| r.contains(&bar)));
+        // The "+" menu's Customize...: the Commands page, General tab.
+        app.shortcut_editor.keys_tab = true;
+        crate::ui::toolbox::open_commands_page(&mut app);
+        assert_eq!(app.options_page, crate::ui::options::OptionsPage::Commands);
+        assert!(matches!(app.dialog, crate::ui::dialogs::Dialog::Options));
+        assert!(!app.shortcut_editor.keys_tab);
     }
 
     #[test]

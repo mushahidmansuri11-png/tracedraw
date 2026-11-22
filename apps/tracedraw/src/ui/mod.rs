@@ -37,6 +37,7 @@ pub mod crop_bar;
 pub mod cursors;
 pub mod curve_edit;
 pub mod defaults_dialog;
+pub mod detached;
 pub mod dialogs;
 pub mod dimension_bar;
 pub mod distort_bar;
@@ -54,6 +55,7 @@ pub mod envelope_ui;
 pub mod export_docker;
 pub mod extrude_bar;
 pub mod field;
+pub mod flare;
 pub mod fill_tool_bars;
 pub mod focus_bar;
 pub mod font_list;
@@ -103,6 +105,7 @@ pub mod print_preview;
 pub mod propbar;
 pub mod publish_pdf;
 pub mod recolor;
+pub mod replace_color;
 pub mod rulers;
 pub mod save_as;
 pub mod screen_margins;
@@ -112,6 +115,9 @@ pub mod sizes;
 pub mod slider;
 pub mod status;
 pub mod straighten_dialog;
+pub mod stretch_zones_dialog;
+pub mod pixel_bar;
+pub mod pixel_lights;
 pub mod symmetry_bar;
 pub mod tab_focus;
 pub mod table_bar;
@@ -121,6 +127,7 @@ pub mod text_bar;
 pub mod text_docker;
 pub mod text_path_bar;
 pub mod time_tracker;
+pub mod workflow;
 pub mod trace_dialog;
 pub mod trace_progress;
 pub mod tracecut;
@@ -136,7 +143,12 @@ pub mod tips;
 pub mod toolbar;
 pub mod toolbox;
 pub mod transform_docker;
+pub mod transform_each;
 pub mod transparency_docker;
+pub mod shape_gen_docker;
+pub mod symbol_scatter_docker;
+pub mod frame_gen_docker;
+pub mod shape3d_docker;
 pub mod vector_mosaic_docker;
 pub mod welcome;
 pub mod window_bars;
@@ -313,6 +325,8 @@ fn set_window_title(ctx: &egui::Context, title: String) {
 
 pub fn root(app: &mut App, ui: &mut Ui) {
     let steps = app.step_merge_start();
+    // The Color Eyedropper's sample of the window's pixels (#3040).
+    app.screen_sample_frame(ui.ctx());
     // Tab and Shift+Tab stay in the window that has the focus (#1258).
     tab_focus::begin(ui.ctx());
     // The interface keeps inside the screen's safe area: clear of the
@@ -325,6 +339,11 @@ pub fn root(app: &mut App, ui: &mut Ui) {
     } else {
         root_frame(app, ui);
     }
+    // The drawings in windows of their own (#2904).
+    let ctx = ui.ctx().clone();
+    detached::show(app, &ctx);
+    // Sample from Screen: a cover over everything takes the next click.
+    app.screen_pick_cover(&ctx);
     // An import that asked a question first goes where it was placed.
     app.finish_waiting_import_placement();
     // The next of several files picked with File > Import (#2695).
@@ -404,6 +423,12 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     crate::theme::set_button_sizes(app.settings.button_size, app.settings.toolbox_button_size);
     apply_theme(&ctx, &crate::settings::effective_theme(&app.settings));
     apply_shadows(&ctx, app.settings.ui_shadows && !software_renderer());
+    // Customization > Appearance > Translucent menus.
+    crate::theme::set_menu_opacity(
+        app.settings
+            .translucent_menus
+            .then_some(app.settings.menu_opacity),
+    );
     // Said once in the status bar: a software adapter draws the window.
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(name) = crate::gpu::take_software_note() {
@@ -433,8 +458,11 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     keep_tab_on_the_drawing(app, &ctx);
     // The menu bar and an open menu or list take their keys first, so
     // that the arrows never nudge the drawing then (#1839).
-    keynav::frame(&ctx, app.shortcut_editor.capture.is_some());
-    app.keyboard(&ctx);
+    // The preview owns its keys until it returns to the drawing.
+    if !app.fullscreen_preview {
+        keynav::frame(&ctx, app.shortcut_editor.capture.is_some());
+        app.keyboard(&ctx);
+    }
     // A menu command run by a shortcut of the user's.
     if let Some(cmd) = app.pending_command.take() {
         if !menus::run_command(app, &ctx, &cmd) {
@@ -490,10 +518,23 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     if ctx.global_style().interaction.tooltip_delay != delay {
         ctx.all_styles_mut(|s| s.interaction.tooltip_delay = delay);
     }
+    // Combo box lists as tall as the window allows before they scroll
+    // (#3492).
+    let room = crate::ui::keynav::list_height(ctx.content_rect().height());
+    if ctx.global_style().spacing.combo_height != room {
+        ctx.all_styles_mut(|s| s.spacing.combo_height = room);
+    }
     // Session recovery: this session's marker, and what one that ended
     // without closing left. An idle window still checks in, with a frame
     // a minute, so another window never takes it for gone.
     app.session_tick(crate::recovery::now_secs());
+    // Help > Benchmark started TraceDraw again with or without the
+    // graphics card: its test runs again in this start.
+    if app.settings.benchmark_resume.is_some()
+        && matches!(app.dialog, crate::ui::dialogs::Dialog::None)
+    {
+        crate::ui::benchmark::resume(app);
+    }
     if app.session.is_some() {
         ctx.request_repaint_after(std::time::Duration::from_secs(
             crate::recovery::HEARTBEAT_SECS,
@@ -555,12 +596,20 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
                 let split = full.right() - crate::window_buttons::WIDTH;
                 let left = egui::Rect::from_min_max(full.min, egui::pos2(split, full.bottom()));
                 let right = egui::Rect::from_min_max(egui::pos2(split, full.top()), full.max);
+                ui.scope_builder(egui::UiBuilder::new().max_rect(left), |ui| {
+                    menus::menu_bar(app, ui)
+                });
+                // The bar takes the whole width it is given: the empty part
+                // starts after its last title. Taken from the bar's width it
+                // was always empty, so the bar never moved the window (#3134).
                 let used = ui
-                    .scope_builder(egui::UiBuilder::new().max_rect(left), |ui| {
-                        menus::menu_bar(app, ui);
-                        ui.min_rect().right()
+                    .ctx()
+                    .data(|d| {
+                        d.get_temp::<(Vec<egui::Rect>, usize)>(egui::Id::new(menus::MENU_BAR_LAYOUT))
                     })
-                    .inner;
+                    .and_then(|(titles, _)| titles.iter().map(|r| r.right()).reduce(f32::max))
+                    .unwrap_or(left.left())
+                    .clamp(left.left(), split);
                 let gap = egui::Rect::from_min_max(
                     egui::pos2(used, full.top()),
                     egui::pos2(split, full.bottom()),
@@ -625,10 +674,9 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     let palette_edge = palette_spot == bars::PaletteSpot::Edge;
     let show_palette = app.settings.palette.show_palette;
     // A document palette taken out into a bar of its own shows there, not
-    // in the row as well.
-    let show_doc_palette = show_palette
-        && app.settings.palette.show_document
-        && !app.extra_palettes.iter().any(|r| r.document);
+    // in the row as well. Hiding the default palette leaves it shown.
+    let show_doc_palette =
+        app.settings.palette.show_document && !app.extra_palettes.iter().any(|r| r.document);
     // Palette bars lie at the places `BarSlot` names along each side,
     // from the edge inwards; each bar drawn at a side is noted for the
     // drops of a dragged palette bar beside it (`palette_bars::side_target`).
@@ -698,6 +746,8 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
             palette_bars::mark_bar(app, dock, r);
         }
     }
+    // Toolbars the user made docked at a side: columns inside the toolbox.
+    bars::docked_columns(app, ui);
     bars_at(app, ui, COLUMNS, BarSlot::AfterToolbox);
 
     // The docker columns: the default one at the right (right-to-left
@@ -867,19 +917,25 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
         .frame(Frame::NONE)
         .show(ui, |ui| {
             let full = ui.available_rect_before_wrap();
-            if app.window_layout == windows::WindowLayout::Tabs || app.docs.is_empty() {
-                drawing_window(app, ui, full);
-            } else {
+            if app.window_layout != windows::WindowLayout::Tabs && !app.docs.is_empty() {
                 windows::arranged(app, ui, full);
+            } else if detached::is_detached(app, app.active_doc) {
+                // The active drawing is in its own window (#2904): this
+                // one shows its own drawing as it was left.
+                main_window_parked(app, ui, full);
+            } else {
+                drawing_window(app, ui, full);
             }
         });
     crate::frame_mark("the drawing");
 
     if app.has_document() && !app.show_welcome {
         symmetry_bar::show(app, &ctx);
+        pixel_bar::show(app, &ctx);
         clip_bar::show(app, &ctx);
         focus_bar::show(app, &ctx);
         effect_picker::show(app, &ctx);
+        crate::cut_tools::grid_cut_window(app, &ctx);
         crate::perspective_draw::show_bar(app, &ctx);
     }
     update_card::show(app, &ctx);
@@ -1002,6 +1058,23 @@ fn smooth_wheel_notch(unit: egui::MouseWheelUnit, line_speed: f32, height: f32, 
     points.max(1.0)
 }
 
+/// The main window's drawing while the active one is in a window of its
+/// own (#2904): its page as its view left it; a click makes it active.
+fn main_window_parked(app: &mut App, ui: &mut Ui, full: egui::Rect) {
+    match detached::main_doc(app) {
+        Some(m) => {
+            let resp = ui.interact(full, egui::Id::new("main_window_parked"), Sense::click());
+            windows::paint_parked(app, ui, m, full);
+            if resp.clicked() {
+                app.switch_document(m);
+            }
+        }
+        None => {
+            ui.painter().rect_filled(full, 0.0, Tokens::panel());
+        }
+    }
+}
+
 /// The active drawing's window in `full`: rulers, the canvas with its
 /// tools, scrollbars, the page tabs and the navigator.
 pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
@@ -1033,8 +1106,9 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
     let painter = ui.painter_at(canvas_rect);
 
     // Wheel: with the default setting the wheel zooms about the
-    // pointer, Ctrl+wheel scrolls vertically and Alt+wheel
-    // horizontally; with the scroll setting the wheel scrolls,
+    // pointer, Ctrl+wheel and Shift+wheel scroll horizontally (Ctrl+wheel
+    // zooms with Ctrl+wheel zooms ticked, #3473) and
+    // Alt+wheel vertically (#3087); with the scroll setting the wheel scrolls,
     // Shift+wheel horizontally and Ctrl+wheel zooms. Pinch zooms.
     // Edit Fill and Outline Pen leave the wheel to the drawing outside
     // them, so it can be zoomed to see the change; nothing else of the
@@ -1057,6 +1131,13 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
         // egui leaves unsmoothed) apply at once.
         let mut zoom_glide_notches = 0.0f32;
         let mut zoom_now_notches = 0.0f32;
+        // The wheel's own turn in points: egui takes Ctrl+wheel for a
+        // zoom and gives no scroll for it.
+        let mut wheel_points = egui::Vec2::ZERO;
+        // Whether this frame's wheel turned in notches (a mouse wheel),
+        // not in a touchpad's fine steps, and whether it held a pinch.
+        let mut wheel_notched = false;
+        let mut pinched = false;
         let (scroll, notches, any_notches, zoom_delta, mods) = ui.input(|i| {
             // Wheel notches this frame (the smoothed delta is spread
             // over several frames, so the zoom steps come from the
@@ -1073,11 +1154,16 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
                         ..
                     } => {
                         if *phase == egui::TouchPhase::Move {
-                            let points = match u {
-                                egui::MouseWheelUnit::Point => delta.y,
-                                egui::MouseWheelUnit::Line => delta.y * line,
-                                egui::MouseWheelUnit::Page => delta.y * height,
+                            let scale = match u {
+                                egui::MouseWheelUnit::Point => 1.0,
+                                egui::MouseWheelUnit::Line => line,
+                                egui::MouseWheelUnit::Page => height,
                             };
+                            wheel_points += *delta * scale;
+                            if *u != egui::MouseWheelUnit::Point || delta.length() >= 8.0 {
+                                wheel_notched = true;
+                            }
+                            let points = delta.y * scale;
                             let n = points / smooth_wheel_notch(*u, line, height, web);
                             if *u == egui::MouseWheelUnit::Point && delta.length() < 8.0 {
                                 zoom_now_notches += n;
@@ -1090,6 +1176,10 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
                         // sideways.
                         any_notches += (delta.x + delta.y) / per;
                         delta.y / per
+                    }
+                    egui::Event::Zoom(_) => {
+                        pinched = true;
+                        0.0
                     }
                     _ => 0.0,
                 })
@@ -1124,7 +1214,7 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
             // to the middle of the view, and the pointer with it, and the
             // zoom (its whole glide) goes about the middle.
             let wheel_zooms = if app.settings.wheel_zooms {
-                !mods.alt && !mods.ctrl
+                !mods.alt && !mods.ctrl && !mods.shift
             } else {
                 mods.ctrl
             };
@@ -1141,13 +1231,46 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
             } else {
                 h
             };
-            if zoom_delta != 1.0 {
+            // Ctrl+wheel scrolls sideways (#3087): egui makes a mouse
+            // wheel's turn with Ctrl a zoom, spread over a few frames, and
+            // the drawing zoomed as with the plain wheel. A touchpad's
+            // fine steps with Ctrl (a pinch on some systems) still zoom,
+            // and so does every Ctrl+wheel with Ctrl+wheel zooms (#3473).
+            let ctrl_pans = app.settings.wheel_zooms
+                && !app.settings.ctrl_wheel_zooms
+                && mods.ctrl
+                && !pinched;
+            let pan_id = egui::Id::new("ctrl_wheel_pans");
+            if ctrl_pans && wheel_points != egui::Vec2::ZERO {
+                ui.ctx().data_mut(|d| d.insert_temp(pan_id, wheel_notched));
+            }
+            let ctrl_pans = ctrl_pans
+                && ui
+                    .ctx()
+                    .data(|d| d.get_temp::<bool>(pan_id))
+                    .unwrap_or(false);
+            if ctrl_pans {
+                if wheel_points != egui::Vec2::ZERO {
+                    app.view.pan(if wheel_points.y != 0.0 {
+                        egui::vec2(wheel_points.y, wheel_points.x)
+                    } else {
+                        wheel_points
+                    });
+                }
+            } else if zoom_delta != 1.0 {
                 app.view.zoom_at(h, zoom_delta);
             } else if app.settings.wheel_zooms {
+                // Alt+wheel scrolls up and down, Shift+wheel sideways (the
+                // system may send it sideways already); Alt+wheel scrolled
+                // sideways (#3087).
                 if mods.alt && scroll != egui::Vec2::ZERO {
-                    app.view.pan(egui::vec2(scroll.y, scroll.x));
-                } else if mods.ctrl && scroll != egui::Vec2::ZERO {
                     app.view.pan(scroll);
+                } else if mods.shift && scroll != egui::Vec2::ZERO {
+                    app.view.pan(if scroll.y != 0.0 {
+                        egui::vec2(scroll.y, scroll.x)
+                    } else {
+                        scroll
+                    });
                 } else if !mods.shift && (zoom_glide_notches != 0.0 || zoom_now_notches != 0.0) {
                     // A notch zooms in one glide over a few frames instead
                     // of one jump; its frames multiply to the step a
@@ -1221,7 +1344,14 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
                 .flatten()
         });
         if let Some(s) = press.filter(|s| canvas_rect.contains(*s)) {
-            app.multipage_press(s);
+            // Shift+click on the facing page's object adds it to the
+            // selection (#3488).
+            let adopted = mods.shift
+                && app.tool == crate::tools::Tool::Pick
+                && app.spread_shift_press(s);
+            if !adopted {
+                app.multipage_press(s);
+            }
         }
     }
     if two_fingers.is_none()
@@ -1263,6 +1393,8 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
     }
     crate::touch_bars::bars_on_drawing(app, ui, canvas_rect);
     crate::touch_panels::on_drawing(app, ui, canvas_rect);
+    crate::artboard::on_drawing(app, ui, canvas_rect);
+    crate::dynamic_text::on_drawing(app, ui, canvas_rect);
     context::context_menu(app, ui, &response);
     crate::drop_menu::drop_menu_ui(app, ui);
     crate::fill_tool::node_bar(app, ui);
@@ -1295,7 +1427,7 @@ pub(crate) fn drawing_window(app: &mut App, ui: &mut Ui, full: egui::Rect) {
         // pointer beside it (#990).
         let picker = crate::ui::color_picker::picking(ui.ctx());
         if let (true, Some(at), Some(p)) = (
-            (picker || app.eyedropper_sampling(ctrl)) && !primary && !middle,
+            (picker || app.color_readout_wanted(ctrl)) && !primary && !middle,
             pos,
             app.pointer_page,
         ) {
@@ -1408,10 +1540,38 @@ pub(crate) fn view_navigator(app: &mut App, ui: &mut Ui, corner: egui::Rect, can
             ));
         }
     }
-    let area_rect = egui::Rect::from_min_max(
+    let mut area_rect = egui::Rect::from_min_max(
         egui::pos2(corner.max.x - thumb_w - 8.0, corner.min.y - thumb_h - 8.0),
         egui::pos2(corner.max.x, corner.min.y),
     );
+    // Opened with its key, it comes up at the pointer,
+    // with the spot of the view's centre under the pointer so the view
+    // does not jump: it always came up in the corner (#3086). The place
+    // is kept while it is open, so moving over it pans.
+    let at_id = egui::Id::new("navigator_at_pointer");
+    if key_held {
+        let kept = ui.ctx().data(|d| d.get_temp::<egui::Pos2>(at_id));
+        let at = kept.or_else(|| {
+            let pointer = ui
+                .input(|i| i.pointer.latest_pos())
+                .filter(|p| canvas.contains(*p))?;
+            let vis = app.view.visible_page_rect(canvas);
+            let cx = (((vis.x0 + vis.x1) / 2.0 - page.x0) / page.width()) as f32 * thumb_w;
+            let cy = ((page.y1 - (vis.y0 + vis.y1) / 2.0) / page.height()) as f32 * thumb_h;
+            let m = egui::Frame::popup(ui.style()).total_margin();
+            let min = pointer - egui::vec2(cx + m.left, cy + m.top);
+            let size = egui::vec2(thumb_w + m.sum().x, thumb_h + m.sum().y);
+            let max = (canvas.max - size).max(canvas.min);
+            let min = min.clamp(canvas.min, max);
+            ui.ctx().data_mut(|d| d.insert_temp(at_id, min));
+            Some(min)
+        });
+        if let Some(min) = at {
+            area_rect = egui::Rect::from_min_size(min, area_rect.size());
+        }
+    } else {
+        ui.ctx().data_mut(|d| d.remove::<egui::Pos2>(at_id));
+    }
     // Shown only because View > Navigator opened it (no button or key
     // held): the picture follows clicks, not the pointer passing over.
     let pinned_only =
@@ -1822,6 +1982,147 @@ mod tests {
         frame(&ctx, &mut app);
     }
 
+    /// #3211: the toolbox takes commands dragged onto it, after its
+    /// tools; one without a picture (Page Border) shows the start of its
+    /// name and runs with a click, and dragged off it goes.
+    #[test]
+    fn the_toolbox_takes_commands_after_its_tools() {
+        use crate::ui::bar_items::{apply_drop, drop_target, items, ItemBar, ItemDrag};
+        let ctx = crate::theme::ui_context();
+        let mut app = mixed_app();
+        app.show_welcome = false;
+        frame(&ctx, &mut app);
+        frame(&ctx, &mut app);
+        let drawn = |app: &App| {
+            app.shown_bar_slots
+                .iter()
+                .find(|s| s.bar == ItemBar::Toolbox)
+                .cloned()
+                .expect("the toolbox takes drops")
+        };
+        let toolbox = drawn(&app);
+        assert!(toolbox.items.is_empty(), "no commands at first");
+        assert!(toolbox.vertical, "a column on the left");
+        // A drop anywhere on the toolbox goes after its tools.
+        assert_eq!(
+            drop_target(&app.shown_bar_slots, toolbox.rect.center()).map(|t| (t.0, t.1)),
+            Some((ItemBar::Toolbox, 0))
+        );
+        let key = "menu.view.page_border";
+        let page_border = ItemDrag {
+            item: key.into(),
+            from: None,
+        };
+        apply_drop(&mut app, &page_border, Some((ItemBar::Toolbox, 0)));
+        assert_eq!(items(&app, ItemBar::Toolbox), vec![key.to_string()]);
+        frame(&ctx, &mut app);
+        frame(&ctx, &mut app);
+        let r = drawn(&app).items[0];
+        assert!(
+            r.top() > toolbox.rect.top() + 100.0,
+            "after the tools: {r:?}"
+        );
+        let shown = app.show_page_border;
+        frame_with(&ctx, &mut app, vec![egui::Event::PointerMoved(r.center())]);
+        frame_with(
+            &ctx,
+            &mut app,
+            vec![button(r.center(), true, egui::PointerButton::Primary)],
+        );
+        frame_with(
+            &ctx,
+            &mut app,
+            vec![button(r.center(), false, egui::PointerButton::Primary)],
+        );
+        frame(&ctx, &mut app);
+        assert_ne!(app.show_page_border, shown, "the button runs Page Border");
+        // Off the toolbox it goes; Reset leaves it with its tools only.
+        apply_drop(
+            &mut app,
+            &ItemDrag {
+                item: key.into(),
+                from: Some((ItemBar::Toolbox, 0)),
+            },
+            None,
+        );
+        assert!(items(&app, ItemBar::Toolbox).is_empty());
+        apply_drop(&mut app, &page_border, Some((ItemBar::Toolbox, 0)));
+        crate::ui::bars::reset(&mut app);
+        assert!(items(&app, ItemBar::Toolbox).is_empty());
+    }
+
+    /// #3264: a toolbar the user makes in Options > Customization >
+    /// Command Bars is drawn in a row of its own, empty at first; a menu
+    /// command without a picture dragged onto it from the Commands page
+    /// sits on it named in words and runs with a click; the Command Bars
+    /// page's New and Delete make and take it away.
+    #[test]
+    fn a_toolbar_the_user_makes_holds_commands_without_pictures() {
+        use crate::ui::bar_items::{apply_drop, items, ItemBar, ItemDrag};
+        use crate::ui::bars::Bar;
+        let ctx = crate::theme::ui_context();
+        let mut app = mixed_app();
+        app.show_welcome = false;
+        frame(&ctx, &mut app);
+        let Some(Bar::Custom(slot)) = app.settings.bars.add_custom("Mine") else {
+            panic!("a toolbar made");
+        };
+        let bar = ItemBar::Custom(slot);
+        frame(&ctx, &mut app);
+        frame(&ctx, &mut app);
+        let drawn = |app: &App| {
+            app.shown_bar_slots
+                .iter()
+                .find(|s| s.bar == bar)
+                .cloned()
+                .expect("the new toolbar is drawn")
+        };
+        assert!(drawn(&app).items.is_empty(), "made empty");
+        assert!(drawn(&app).rect.width() >= 40.0, "with room to drop on");
+        // Page Border has no picture of its own (#3211).
+        let key = "menu.view.page_border";
+        assert!(!crate::ui::menus::has_menu_picture(key));
+        apply_drop(
+            &mut app,
+            &ItemDrag {
+                item: key.into(),
+                from: None,
+            },
+            Some((bar, 0)),
+        );
+        assert_eq!(items(&app, bar), vec![key.to_string()]);
+        frame(&ctx, &mut app);
+        frame(&ctx, &mut app);
+        let r = drawn(&app).items[0];
+        assert!(
+            r.width() > 40.0,
+            "named in words, wider than a picture button: {r:?}"
+        );
+        let shown = app.show_page_border;
+        frame_with(&ctx, &mut app, vec![egui::Event::PointerMoved(r.center())]);
+        frame_with(
+            &ctx,
+            &mut app,
+            vec![button(r.center(), true, egui::PointerButton::Primary)],
+        );
+        frame_with(
+            &ctx,
+            &mut app,
+            vec![button(r.center(), false, egui::PointerButton::Primary)],
+        );
+        frame(&ctx, &mut app);
+        assert_ne!(app.show_page_border, shown, "the button runs Page Border");
+        // Hidden from Window > Toolbars, it is not drawn.
+        Bar::Custom(slot).set_visible(&mut app, false);
+        frame(&ctx, &mut app);
+        assert!(app.shown_bar_slots.iter().all(|s| s.bar != bar));
+        // Deleted, it goes with its buttons.
+        crate::ui::options::delete_custom_bar(&mut app, slot);
+        assert!(app.settings.bars.custom.is_empty());
+        assert!(!app.settings.bar_items.contains_key(Bar::Custom(slot).id()));
+        frame(&ctx, &mut app);
+    }
+
     /// The Touch workspace with a finger only (#1611): the Standard
     /// toolbar's Delete deletes the selection, its Panels button shows
     /// the dockers the workspace starts without, and a finger held on an
@@ -2024,6 +2325,17 @@ mod tests {
         timed(&mut app, Vec::new());
         // No finger yet: no bars.
         app.select(vec![a]);
+        timed(&mut app, Vec::new());
+        assert!(app.touch_bar_shown.is_empty() || crate::files::ANDROID);
+        // With a mouse too, when asked (#3456): the column shows with no
+        // finger, and goes when the option is off again.
+        app.settings.selection_bar_mouse = true;
+        timed(&mut app, Vec::new());
+        assert!(app
+            .touch_bar_shown
+            .iter()
+            .any(|(c, _)| *c == BarCommand::Duplicate));
+        app.settings.selection_bar_mouse = false;
         timed(&mut app, Vec::new());
         assert!(app.touch_bar_shown.is_empty() || crate::files::ANDROID);
         let on_a = app.view.to_screen(Point::new(35.0, 25.0));
@@ -2547,6 +2859,33 @@ mod tests {
         // switch.
         tap(&mut app, ctrl);
         assert!(!app.touch_mods.any(), "{:?}", app.touch_mods);
+        // Two quick taps lock it down until the next tap, as a phone
+        // keyboard's Shift (#3101, #3102); taps far apart do not.
+        for _ in 0..10 {
+            timed(&mut app, Vec::new());
+        }
+        tap(&mut app, ctrl);
+        for _ in 0..10 {
+            timed(&mut app, Vec::new());
+        }
+        tap(&mut app, ctrl);
+        assert!(!app.touch_mods.any(), "slow taps: {:?}", app.touch_mods);
+        tap(&mut app, ctrl);
+        assert!(app.touch_mods.ctrl, "double tap locks: {:?}", app.touch_mods);
+        assert!(ctx.input(|i| i.modifiers.ctrl));
+        // Locked: it stays down while another finger taps.
+        let at = app.view.to_screen(Point::new(150.0, 220.0));
+        timed(&mut app, vec![finger(9, egui::TouchPhase::Start, at)]);
+        timed(&mut app, vec![finger(9, egui::TouchPhase::End, at)]);
+        timed(&mut app, Vec::new());
+        assert!(app.touch_mods.ctrl);
+        // The next tap lets it go, and does not start a double tap.
+        tap(&mut app, ctrl);
+        assert!(!app.touch_mods.any(), "{:?}", app.touch_mods);
+        tap(&mut app, ctrl);
+        assert!(!app.touch_mods.any(), "{:?}", app.touch_mods);
+        tap(&mut app, ctrl);
+        assert!(app.touch_mods.ctrl, "{:?}", app.touch_mods);
     }
 
     /// Ctrl held from the keys on the drawing by one finger while another

@@ -19,6 +19,7 @@
 mod ast;
 mod builtins;
 mod codegen;
+pub mod convert;
 mod lexer;
 mod parser;
 mod preprocess;

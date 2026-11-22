@@ -82,12 +82,54 @@ pub fn page_screen_rect(app: &App) -> ERect {
     ERect::from_min_max(r.min.round(), r.max.round())
 }
 
+/// Where the page's shadow lies under a paper on screen, as Options set
+/// it (#3078): the paper moved by the shadow's offset.
+pub fn page_shadow_rect(app: &App, paper: ERect) -> ERect {
+    let [x, y] = app.settings.page_look.sanitized().shadow_offset;
+    paper.expand(1.0).translate(egui::vec2(x, y))
+}
+
+/// The page's shadow under `paper`, in the colour, offset and softness
+/// Options set (#3078); the theme's flat grey shadow as it always was
+/// when nothing is set.
+pub fn paint_page_shadow(app: &App, painter: &Painter, paper: ERect) {
+    let look = app.settings.page_look.sanitized();
+    let color = look
+        .shadow_color
+        .map(|[r, g, b, a]| Color32::from_rgba_unmultiplied(r, g, b, a))
+        .unwrap_or_else(Tokens::page_shadow);
+    let at = page_shadow_rect(app, paper);
+    if look.shadow_softness < 0.5 {
+        painter.rect_filled(at, 0.0, color);
+        return;
+    }
+    let [x, y] = look.shadow_offset;
+    let shadow = epaint::Shadow {
+        offset: [x.round() as i8, y.round() as i8],
+        blur: look.shadow_softness.round() as u8,
+        spread: 1,
+        color,
+    };
+    painter.add(shadow.as_shape(paper, 0.0));
+}
+
+/// The page border's stroke as Options set it (#3078): the theme's grey
+/// one-pixel line when nothing is set.
+pub fn page_border_stroke(app: &App) -> EStroke {
+    let look = app.settings.page_look.sanitized();
+    let color = look
+        .border_color
+        .map(|[r, g, b, a]| Color32::from_rgba_unmultiplied(r, g, b, a))
+        .unwrap_or_else(Tokens::page_border);
+    EStroke::new(look.border_width, color)
+}
+
 /// True when a screen point is on the page border (within 3 px) or on
 /// its shadow: double-clicking there opens the page size options.
 pub fn on_page_frame(app: &App, s: Pos2) -> bool {
     let paper = page_screen_rect(app);
     let near_border = paper.expand(3.0).contains(s) && !paper.shrink(3.0).contains(s);
-    let shadow = paper.expand(1.0).translate(Tokens::PAGE_SHADOW_OFFSET);
+    let shadow = page_shadow_rect(app, paper);
     near_border || (shadow.contains(s) && !paper.contains(s))
 }
 
@@ -102,8 +144,12 @@ pub fn draw_canvas(app: &App, painter: &Painter, rect: ERect) {
     };
     // While the selection is moved, scaled, turned or slanted, the
     // objects stay where they are and their outline shows where they
-    // would go; the handles wait for the release.
-    draw_page(app, painter, rect, None);
+    // would go; the handles wait for the release. With Show objects
+    // while transforming on (Options > Display, #3569), the objects
+    // themselves are drawn there too.
+    let live = preview.filter(|_| app.settings.live_transform_preview);
+    draw_page(app, painter, rect, live);
+    crate::pixel_edit_app::draw(app, painter);
     let doc: &Document = app.doc();
     draw_text_frames(app, painter, preview);
 
@@ -129,18 +175,45 @@ pub fn draw_canvas(app: &App, painter: &Painter, rect: ERect) {
     draw_drop_frame(app, painter);
     draw_drop_colour(app, painter);
     draw_symmetry_lines(app, painter, rect);
+    draw_grid_handles(app, painter);
     draw_anchors(app, painter);
     draw_fountain_handles(app, painter);
+    draw_pattern_handles(app, painter);
     draw_shadow_handles(app, painter);
     draw_shadow_edge_hint(app, painter);
     draw_contour_handles(app, painter);
     draw_offset_shadow_handle(app, painter);
     draw_blend_controls(app, painter);
+    draw_live_fit_handles(app, painter);
 
+    // Rotate by Two Lines: the lines clicked so far, the last to the
+    // pointer (#2870).
+    if let Some(pts) = &app.pending_rotate_lines {
+        let mut pts = pts.clone();
+        if let Some(p) = app.pointer_page {
+            pts.push(app.snap_point(p));
+        }
+        for line in pts.chunks(2) {
+            let screen: Vec<Pos2> = line.iter().map(|q| view.to_screen(*q)).collect();
+            if screen.len() == 2 {
+                haloed_polyline(painter, &screen, false, Tokens::SELECTION);
+            }
+            for q in &screen {
+                painter.circle_filled(*q, 3.0, Tokens::SELECTION);
+            }
+        }
+    }
     // Fit Text to Path waiting for its path: the text on the one near.
     if app.pending_text_path {
         if let Some(p) = app.pointer_page {
             draw_text_path_preview(app, painter, p);
+        }
+    }
+    // The Text tool over a path's outline: the path lights up, as a
+    // click there starts a text along it (#3255).
+    if app.tool == Tool::Text && !app.pending_text_path && matches!(app.drag, Drag::None) {
+        if let Some(p) = app.pointer_page {
+            draw_text_tool_path_hover(app, painter, p);
         }
     }
     // 3-point tools: base segment waiting for the third click, previewed to the pointer.
@@ -165,6 +238,18 @@ pub fn draw_canvas(app: &App, painter: &Painter, rect: ERect) {
     // The box a drag sizes File > Import's file to (#1936).
     if let Some(r) = app.import_placement_box() {
         haloed_rect(painter, view.rect_to_screen(r), Tokens::SELECTION);
+        // Several files: the cells they go to.
+        let cells = app.import_placement_cells();
+        if cells.len() > 1 {
+            for c in cells {
+                painter.rect_stroke(
+                    view.rect_to_screen(c),
+                    0.0,
+                    EStroke::new(1.0, Tokens::SELECTION),
+                    egui::StrokeKind::Inside,
+                );
+            }
+        }
     }
     draw_import_tag(app, painter);
     // Rubber bands and in-progress tools.
@@ -342,7 +427,7 @@ pub fn draw_canvas(app: &App, painter: &Painter, rect: ERect) {
         let ctrl = painter.ctx().input(|i| app.constrain_held(&i.modifiers));
         let preview = app.curve_preview_point(ctrl);
         let path = c.path(preview);
-        if c.bspline {
+        if c.bspline && !c.curvature {
             // The control polygon, dashed, as the curve is drawn.
             let poly: Vec<egui::Pos2> = c
                 .bspline_controls(preview)
@@ -397,6 +482,7 @@ pub fn draw_canvas(app: &App, painter: &Painter, rect: ERect) {
     }
     // Text selection and caret.
     if app.text_edit.is_some() {
+        draw_non_printing(painter, view, &app.non_printing_marks());
         if let Some((top, bottom, quads)) = app.text_caret_geometry() {
             for q in quads {
                 let pts: Vec<Pos2> = q.iter().map(|p| view.to_screen(*p)).collect();
@@ -408,6 +494,78 @@ pub fn draw_canvas(app: &App, painter: &Painter, rect: ERect) {
             }
             draw_text_caret(painter, view.to_screen(top), view.to_screen(bottom));
             ime_at_caret(app, painter, view.to_screen(top), view.to_screen(bottom));
+        }
+    }
+}
+
+/// The marks of the spaces, tabs, paragraph ends and line breaks of the
+/// text being edited (Text > Show Non-Printing Characters, #3271): a dot,
+/// an arrow, a pilcrow and a bent arrow, blue on a white edge so they
+/// show on any fill.
+fn draw_non_printing(
+    painter: &Painter,
+    view: &View,
+    marks: &[crate::text_editing::NonPrintingMark],
+) {
+    use crate::text_editing::NonPrinting;
+    const MARK: Color32 = Color32::from_rgb(40, 110, 220);
+    for m in marks {
+        let a = view.to_screen(m.from);
+        let b = view.to_screen(m.to);
+        // The line's height on screen sizes the marks.
+        let h = (m.height as f32 * view.zoom).max(4.0);
+        let w = (h * 0.06).clamp(1.0, 2.5);
+        let halo = EStroke::new(w + 2.0, Color32::WHITE);
+        let line = EStroke::new(w, MARK);
+        let both = |p: &Painter, pts: [Pos2; 2]| {
+            p.line_segment(pts, halo);
+            p.line_segment(pts, line);
+        };
+        match m.kind {
+            NonPrinting::Space => {
+                let c = a + (b - a) * 0.5;
+                painter.circle_filled(c, w + 1.0, Color32::WHITE);
+                painter.circle_filled(c, w, MARK);
+            }
+            NonPrinting::Tab => {
+                let d = b - a;
+                let len = d.length();
+                if len < 2.0 {
+                    continue;
+                }
+                let dir = d / len;
+                let n = egui::vec2(-dir.y, dir.x);
+                let head = (h * 0.15).min(len * 0.5);
+                let tip = b - dir * (w * 0.5);
+                both(painter, [a + dir * (len * 0.1), tip]);
+                both(painter, [tip, tip - dir * head + n * head * 0.6]);
+                both(painter, [tip, tip - dir * head - n * head * 0.6]);
+            }
+            NonPrinting::Paragraph => {
+                let font = egui::FontId::proportional(h * 0.7);
+                let at = a + egui::vec2(h * 0.08, 0.0);
+                painter.text(
+                    at + egui::vec2(1.0, 1.0),
+                    egui::Align2::LEFT_CENTER,
+                    "\u{b6}",
+                    font.clone(),
+                    Color32::WHITE,
+                );
+                painter.text(at, egui::Align2::LEFT_CENTER, "\u{b6}", font, MARK);
+            }
+            NonPrinting::LineBreak => {
+                // Down from the top right, then left with a head.
+                let s = h * 0.3;
+                let x0 = a.x + h * 0.1;
+                let top = egui::pos2(x0 + s, a.y - s * 0.6);
+                let corner = egui::pos2(x0 + s, a.y + s * 0.4);
+                let tip = egui::pos2(x0, a.y + s * 0.4);
+                both(painter, [top, corner]);
+                both(painter, [corner, tip]);
+                let hd = s * 0.4;
+                both(painter, [tip, tip + egui::vec2(hd, -hd)]);
+                both(painter, [tip, tip + egui::vec2(hd, hd)]);
+            }
         }
     }
 }
@@ -548,7 +706,16 @@ fn draw_page(app: &App, painter: &Painter, rect: ERect, preview: Option<Affine>)
     // copies (the canvas outlines them in red); a revision of its own so
     // the picture is not taken for the full one.
     let without_copies = app.symmetry_without_copies();
-    let doc: &Document = without_copies.as_deref().unwrap_or(app.doc());
+    // A picture edited in place: the page without it, its pixels drawn
+    // over the page as they are edited.
+    let without_picture = app.pixel_edit_doc();
+    // View > Separations: the page as one ink prints it.
+    let one_ink = app.separation_view_doc();
+    let doc: &Document = without_picture
+        .as_deref()
+        .or(without_copies.as_deref())
+        .or(one_ink.as_deref())
+        .unwrap_or(app.doc());
     // Nodes being dragged: the drawing as it was before the drag, its
     // picture already made, until the button is released (#1259).
     let revision = app
@@ -558,6 +725,15 @@ fn draw_page(app: &App, painter: &Painter, rect: ERect, preview: Option<Affine>)
             1u64 << 62
         } else {
             0
+        }
+        ^ if without_picture.is_some() {
+            1u64 << 61
+        } else {
+            0
+        }
+        ^ match (one_ink.is_some(), app.view_plate) {
+            (true, Some(p)) => (1u64 << 60) ^ ((p as u64 + 1) << 48),
+            _ => 0,
         };
     // Paragraph text being resized keeps its letters while the frame
     // follows the drag (the drag outline shows the text flowed anew); a
@@ -587,6 +763,12 @@ fn draw_page(app: &App, painter: &Painter, rect: ERect, preview: Option<Affine>)
                 app.raster.borrow_mut().snapshot = Some(d.clone());
             }
         }
+    }
+    // The drawing as it stands is shared with the render for nothing:
+    // no copy of it on the window's thread at each change (#3440).
+    #[cfg(not(target_arch = "wasm32"))]
+    if revision == app.engine.revision() && std::ptr::eq(doc, app.engine.document()) {
+        app.raster.borrow_mut().snapshot = Some(app.engine.shared_document());
     }
     // Shadows blurred on the graphics card when Options asks (the same
     // pixels as on the CPU, so nothing drawn needs drawing again).
@@ -665,11 +847,7 @@ fn draw_page(app: &App, painter: &Painter, rect: ERect, preview: Option<Affine>)
         ERect::from_min_max(r.min.round(), r.max.round())
     };
     if app.show_page_shadow {
-        painter.rect_filled(
-            paper.expand(1.0).translate(Tokens::PAGE_SHADOW_OFFSET),
-            0.0,
-            Tokens::page_shadow(),
-        );
+        paint_page_shadow(app, painter, paper);
     }
     if others {
         crate::multipage::draw_other_papers(app, painter, rect);
@@ -679,7 +857,7 @@ fn draw_page(app: &App, painter: &Painter, rect: ERect, preview: Option<Affine>)
         painter.rect_stroke(
             paper,
             0.0,
-            EStroke::new(1.0, Tokens::page_border()),
+            page_border_stroke(app),
             epaint::StrokeKind::Outside,
         );
     }
@@ -696,12 +874,34 @@ fn draw_page(app: &App, painter: &Painter, rect: ERect, preview: Option<Affine>)
                 shown
             };
             let r = view.rect_to_screen(around.inflate(b, b));
-            painter.rect_stroke(
-                r,
-                0.0,
-                EStroke::new(1.0, Tokens::page_border()),
-                epaint::StrokeKind::Outside,
-            );
+            // The bleed is the band around the page: tinted, with a red
+            // line at its edge, as print programs draw it.
+            let inner = view.rect_to_screen(around);
+            let red = Color32::from_rgb(0xE0, 0x40, 0x40);
+            let tint = Color32::from_rgba_unmultiplied(0xE0, 0x40, 0x40, 28);
+            for band in [
+                ERect::from_min_max(r.left_top(), egui::pos2(r.right(), inner.top())),
+                ERect::from_min_max(egui::pos2(r.left(), inner.bottom()), r.right_bottom()),
+                ERect::from_min_max(
+                    egui::pos2(r.left(), inner.top()),
+                    egui::pos2(inner.left(), inner.bottom()),
+                ),
+                ERect::from_min_max(
+                    egui::pos2(inner.right(), inner.top()),
+                    egui::pos2(r.right(), inner.bottom()),
+                ),
+            ] {
+                painter.rect_filled(band, 0.0, tint);
+            }
+            painter.rect_stroke(r, 0.0, EStroke::new(1.5, red), epaint::StrokeKind::Outside);
+        }
+    }
+    if app.show_margin {
+        // The page margin: a dashed line inside the page, the safe area.
+        let m = app.doc().metadata.margin.max(0.0);
+        if m > 0.0 && m * 2.0 < shown.width().min(shown.height()) {
+            let r = view.rect_to_screen(shown.inflate(-m, -m));
+            dashed_rect(painter, r, Color32::from_rgb(0x25, 0x63, 0xEB));
         }
     }
     if app.show_printable_area {
@@ -722,36 +922,43 @@ fn draw_page(app: &App, painter: &Painter, rect: ERect, preview: Option<Affine>)
     }
 
     if let Some((tex, at)) = main {
+        // The bands of the new picture done so far, sharp over the last
+        // one while it is shown scaled after a zoom (#2389). Under them
+        // the last picture is left out: both are see-through, and a
+        // see-through object showed twice as dark there until the whole
+        // picture came (#3639).
+        #[cfg(not(target_arch = "wasm32"))]
+        let incoming = app.raster.borrow().incoming(view);
+        #[cfg(not(target_arch = "wasm32"))]
+        let covered: &[ERect] = incoming.as_ref().map_or(&[], |i| &i.2);
+        #[cfg(target_arch = "wasm32")]
+        let covered: &[ERect] = &[];
+        let full = ERect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0));
         // Where the picture does not reach (it is shown scaled or shifted
         // into place while the view moves): the whole page drawn small,
         // instead of blank paper until the new picture comes (#2048).
         #[cfg(not(target_arch = "wasm32"))]
         if let Some((back, back_at)) = backdrop {
             for part in backdrop_parts(rect, at, back_at) {
-                painter.with_clip_rect(part).image(
-                    back,
-                    back_at,
-                    ERect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-                    Color32::WHITE,
-                );
+                for part in outside(part, covered) {
+                    painter
+                        .with_clip_rect(part)
+                        .image(back, back_at, full, Color32::WHITE);
+                }
             }
         }
-        painter.image(
-            tex,
-            at,
-            ERect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-            Color32::WHITE,
-        );
-        // The bands of the new picture done so far, sharp over the last
-        // one while it is shown scaled after a zoom (#2389).
+        if covered.is_empty() {
+            painter.image(tex, at, full, Color32::WHITE);
+        } else {
+            for part in outside(at.intersect(rect), covered) {
+                painter
+                    .with_clip_rect(part)
+                    .image(tex, at, full, Color32::WHITE);
+            }
+        }
         #[cfg(not(target_arch = "wasm32"))]
-        if let Some((bands, bands_at)) = app.raster.borrow().incoming(view) {
-            painter.image(
-                bands,
-                bands_at,
-                ERect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-                Color32::WHITE,
-            );
+        if let Some((bands, bands_at, _)) = incoming {
+            painter.image(bands, bands_at, full, Color32::WHITE);
         }
     }
 
@@ -1306,6 +1513,40 @@ fn draw_symmetry_lines(app: &App, painter: &Painter, rect: ERect) {
     }
 }
 
+/// Interactive Fill on a pattern fill (#3379): the first tile's outline
+/// dashed, its corner as a square and the ends of its bottom and left
+/// sides as round nodes on lines from the corner.
+fn draw_pattern_handles(app: &App, painter: &Painter) {
+    if app.tool != Tool::InteractiveFill {
+        return;
+    }
+    let Some((_, p, object)) = app.selected_pattern() else {
+        return;
+    };
+    let view = &app.view;
+    let line = EStroke::new(1.0, Tokens::SELECTION);
+    let mut outline: Vec<egui::Pos2> = crate::pattern_fill_tool::pattern_tile_outline(&p, object)
+        .iter()
+        .map(|q| view.to_screen(*q))
+        .collect();
+    if outline.iter().any(|q| !q.x.is_finite() || !q.y.is_finite()) {
+        return;
+    }
+    outline.push(outline[0]);
+    dashed_polyline(painter, &outline, line, 4.0, 3.0);
+    let hs = crate::pattern_fill_tool::pattern_handles(&p, object);
+    let [o, w, h] = hs.map(|(_, q)| view.to_screen(q));
+    painter.line_segment([o, w], line);
+    painter.line_segment([o, h], line);
+    let rect = ERect::from_center_size(o, egui::vec2(9.0, 9.0));
+    painter.rect_filled(rect, 0.0, Color32::WHITE);
+    painter.rect_stroke(rect, 0.0, line, egui::StrokeKind::Outside);
+    for q in [w, h] {
+        painter.circle_filled(q, 4.5, Color32::WHITE);
+        painter.circle_stroke(q, 4.5, line);
+    }
+}
+
 /// Interactive Fill: the fill's nodes as the reference shows them (#330):
 /// the line from the start to the end (an arrow at the end), a thin line
 /// to the round skew handle, the start and end nodes as squares in the
@@ -1618,9 +1859,83 @@ fn draw_contour_handles(app: &App, painter: &Painter) {
     );
 }
 
+/// Pick tool, a live Fit Objects to Path selected: a diamond on the
+/// second object's point on the path (the spacing) and, under the path's
+/// middle, a ring joined to a dot there (the turn of all the objects);
+/// while one is dragged, its value in a tag beside the pointer.
+fn draw_live_fit_handles(app: &App, painter: &Painter) {
+    let Some(h) = app.live_fit_handles() else {
+        return;
+    };
+    let view = &app.view;
+    let dragged = match &app.drag {
+        Drag::FitPathHandle(d) => Some(d),
+        _ => None,
+    };
+    let stroke = EStroke::new(1.0, Tokens::SELECTION);
+    let fill = |on: bool| {
+        if on {
+            Tokens::SELECTION
+        } else {
+            Color32::WHITE
+        }
+    };
+    if let Some(p) = h.spacing {
+        let c = view.to_screen(p);
+        let r = 5.0;
+        let on =
+            dragged.is_some_and(|d| matches!(d.kind, crate::fit_live::HandleKind::Spacing { .. }));
+        painter.add(egui::Shape::convex_polygon(
+            vec![
+                c + egui::vec2(0.0, -r),
+                c + egui::vec2(r, 0.0),
+                c + egui::vec2(0.0, r),
+                c + egui::vec2(-r, 0.0),
+            ],
+            fill(on),
+            stroke,
+        ));
+    }
+    let mid = view.to_screen(h.centre);
+    let turn = view.to_screen(app.live_turn_handle(&h));
+    painter.line_segment([mid, turn], stroke);
+    painter.circle_filled(mid, 2.0, Tokens::SELECTION);
+    let on = dragged.is_some_and(|d| matches!(d.kind, crate::fit_live::HandleKind::Turn { .. }));
+    painter.circle(turn, 4.5, fill(on), stroke);
+    if let Some(d) = dragged.filter(|d| !d.shown.is_empty()) {
+        if let Some(at) = painter.ctx().pointer_latest_pos() {
+            crate::corner_widgets::tag(painter, at + egui::vec2(14.0, 14.0), &d.shown);
+        }
+    }
+}
+
 /// Block Shadow and Inner Shadow tools: the selected shadow's line from
 /// the object's middle and the square at its end (#1280), filled while it
 /// is dragged.
+/// The handles of the selected object's Grid effect: round ones for the
+/// gaps, a square one for how many cells.
+fn draw_grid_handles(app: &App, painter: &Painter) {
+    use crate::grid_handles::GridHandle;
+    let view = &app.view;
+    let line = EStroke::new(1.5, Tokens::SELECTION);
+    for (h, at) in app.grid_handles() {
+        let q = view.to_screen(at);
+        let held = matches!(&app.drag, Drag::GridHandle { handle, .. } if *handle == h);
+        let fill = if held { Tokens::SELECTION } else { Color32::WHITE };
+        match h {
+            GridHandle::GapX | GridHandle::GapY => {
+                painter.circle_filled(q, 4.5, fill);
+                painter.circle_stroke(q, 4.5, line);
+            }
+            GridHandle::Count => {
+                let r = ERect::from_center_size(q, egui::vec2(8.0, 8.0));
+                painter.rect_filled(r, 0.0, fill);
+                painter.rect_stroke(r, 0.0, line, egui::StrokeKind::Outside);
+            }
+        }
+    }
+}
+
 fn draw_offset_shadow_handle(app: &App, painter: &Painter) {
     let Some(h) = app.offset_shadow_handle() else {
         return;
@@ -1658,7 +1973,8 @@ fn draw_blend_controls(app: &App, painter: &Painter) {
     };
     let view = &app.view;
     let (a, z) = (view.to_screen(c.start), view.to_screen(c.end));
-    haloed_polyline(painter, &[a, z], false, Tokens::SELECTION);
+    let line: Vec<egui::Pos2> = c.line_points().into_iter().map(|q| view.to_screen(q)).collect();
+    haloed_polyline(painter, &line, false, Tokens::SELECTION);
     let n = screen_normal(a, z);
     if (z - a).length() >= 14.0 {
         let along = (z - a).normalized();
@@ -1679,6 +1995,16 @@ fn draw_blend_controls(app: &App, painter: &Painter) {
                 EStroke::new(1.0, Tokens::SELECTION),
             ));
         }
+    }
+    // The round bend handle in the middle of the line.
+    if c.can_bend && (z - a).length() >= 14.0 {
+        let m = view.to_screen(c.bend_point());
+        let fill = if app.blend_handle_drag == Some(BlendHandle::Bend) {
+            Tokens::SELECTION
+        } else {
+            Color32::WHITE
+        };
+        painter.circle(m, 3.5, fill, EStroke::new(1.0, Tokens::SELECTION));
     }
     for (h, p) in [(BlendHandle::Start, a), (BlendHandle::End, z)] {
         let rect = ERect::from_center_size(p, egui::vec2(9.0, 9.0));
@@ -1925,16 +2251,7 @@ pub fn draw_transform_outline(app: &App, painter: &Painter, t: Affine) {
         // What the release will make: rounded corners keep their size,
         // and a paragraph text flows anew in the frame it is given (when
         // that is quick enough to do every frame, #1327).
-        let mut paths = vec![match app.live_frame(s.id, t) {
-            Some(live) => live.outline.clone(),
-            None => s.page_path_after(t),
-        }];
-        // A symmetry out of edit mode goes whole: its copies too, also
-        // those of one inside a group.
-        let mut moved = s.clone();
-        moved.transform_by(t);
-        symmetry_copy_paths(&moved, app.symmetry_edit, &mut paths);
-        for path in &paths {
+        for path in &transform_outline_paths(app, s, t) {
             for (mut pts, closed) in flatten(path, &app.view) {
                 if closed {
                     if let Some(first) = pts.first().copied() {
@@ -1946,6 +2263,51 @@ pub fn draw_transform_outline(app: &App, painter: &Painter, t: Affine) {
             }
         }
     }
+}
+
+/// The outlines of the selected `s` once `t` is applied, as the drag
+/// outline draws them. What the release will make: rounded corners keep
+/// their size, a paragraph text flows anew in the frame it is given
+/// (when that is quick enough to do every frame, #1327), and an object
+/// an envelope, a perspective or a distortion reshapes shows that shape,
+/// not the one beneath it (#3569). A symmetry out of edit mode goes
+/// whole: its copies too, also those of one inside a group.
+pub fn transform_outline_paths(app: &App, s: &tracedraw_core::Shape, t: Affine) -> Vec<BezPath> {
+    let mut moved = s.clone();
+    moved.transform_by(t);
+    let mut paths = Vec::new();
+    match app.live_frame(s.id, t) {
+        Some(live) => paths.push(live.outline.clone()),
+        None if holds_outline_warp(&moved) => warped_outlines(&moved, &mut paths),
+        None => paths.push(s.page_path_after(t)),
+    }
+    symmetry_copy_paths(&moved, app.symmetry_edit, &mut paths);
+    paths
+}
+
+/// Whether `s` or an object inside it is reshaped by an outline warp.
+fn holds_outline_warp(s: &tracedraw_core::Shape) -> bool {
+    s.has_outline_warp()
+        || matches!(&s.kind, ShapeKind::Group { children } if children.iter().any(holds_outline_warp))
+}
+
+/// The page outlines of `s` (in page space) as its outline warps shape
+/// them, object by object inside a group.
+fn warped_outlines(s: &tracedraw_core::Shape, out: &mut Vec<BezPath>) {
+    if let ShapeKind::Group { children } = &s.kind {
+        for c in children {
+            let mut c = c.clone();
+            c.transform_by(s.transform);
+            warped_outlines(&c, out);
+        }
+        return;
+    }
+    let warped = s
+        .has_outline_warp()
+        .then(|| tracedraw_core::live::outline_warp(s))
+        .flatten()
+        .map(|w| s.transform * w.apply(&s.local_path()));
+    out.push(warped.unwrap_or_else(|| s.page_path()));
 }
 
 /// A fitted text dragged along its path: its letters where they would go,
@@ -1987,6 +2349,30 @@ fn draw_along_path(app: &App, painter: &Painter, start: Point, current: Point) {
             Tokens::DRAG_OUTLINE,
         );
     }
+}
+
+/// The path the Text tool would start a text on at `p`, outlined in the
+/// drag colour, with a word by the pointer saying what a click does.
+fn draw_text_tool_path_hover(app: &App, painter: &Painter, p: Point) {
+    let Some(id) = app.text_tool_path_at(p) else {
+        return;
+    };
+    let Some(s) = app.doc().find_shape(id) else {
+        return;
+    };
+    let path = s.page_path();
+    for (pts, closed) in flatten(&path, &app.view) {
+        if pts.len() > 1 {
+            haloed_polyline(painter, &pts, closed, Tokens::DRAG_OUTLINE);
+        }
+    }
+    painter.text(
+        app.view.to_screen(p) + egui::vec2(12.0, 14.0),
+        egui::Align2::LEFT_TOP,
+        crate::i18n::tr("canvas.type_along_path"),
+        egui::FontId::proportional(11.0),
+        Tokens::DRAG_OUTLINE,
+    );
 }
 
 /// Fit Text to Path waiting for its path, the pointer near one: the
@@ -2056,7 +2442,7 @@ fn draw_selection(app: &App, painter: &Painter, preview: Option<Affine>) {
         return;
     }
     // The Mesh Fill tool's box or freehand loop over mesh nodes.
-    if app.tool == Tool::MeshFill {
+    if matches!(app.tool, Tool::MeshFill | Tool::Envelope) {
         draw_node_marquees(app, painter);
     }
     // While text is typed or edited only the text and its cursor show;
@@ -2078,6 +2464,7 @@ fn draw_selection(app: &App, painter: &Painter, preview: Option<Affine>) {
                 | Tool::Bezier
                 | Tool::Pen
                 | Tool::BSpline
+                | Tool::CurvaturePen
                 | Tool::Polyline
                 | Tool::ThreePointCurve
                 | Tool::ShapeRecognition
@@ -2831,6 +3218,65 @@ fn draw_control_handle(painter: &Painter, node: Pos2, ctrl: Pos2, color: Color32
     ));
 }
 
+/// The arc of a rectangle's edge handle (#2978): a shallow curve across
+/// the edge's direction, bowing towards `out`, centred on `at`, about
+/// twice a node marker wide.
+fn edge_handle_arc(at: Pos2, out: egui::Vec2, size: f32) -> Vec<Pos2> {
+    let along = egui::vec2(-out.y, out.x);
+    let half = size.max(5.0);
+    (0..=8)
+        .map(|i| {
+            let t = i as f32 / 4.0 - 1.0;
+            at + along * (t * half) + out * ((1.0 - t * t) * half * 0.45)
+        })
+        .collect()
+}
+
+/// The colour of a node of type `kind` when Options > Nodes and Handles
+/// colours nodes by type (#3000); `None` when it does not.
+pub(crate) fn node_type_color(
+    prefs: &crate::settings::NodePrefs,
+    kind: tracedraw_core::nodes::NodeType,
+) -> Option<Color32> {
+    use tracedraw_core::nodes::NodeType;
+    if !prefs.color_by_type {
+        return None;
+    }
+    let [r, g, b] = match kind {
+        NodeType::Cusp => prefs.cusp_rgb,
+        NodeType::Smooth => prefs.smooth_rgb,
+        NodeType::Symmetrical => prefs.symmetrical_rgb,
+    };
+    Some(Color32::from_rgb(r, g, b))
+}
+
+/// A first or last node showing the curve's direction: a triangle
+/// `size` across pointing along `d` (a unit vector on the screen), its
+/// middle on the node (#3038).
+fn direction_node_marker(
+    painter: &Painter,
+    p: Pos2,
+    size: f32,
+    d: egui::Vec2,
+    fill: Option<Color32>,
+    outline: Color32,
+) {
+    let pts = direction_triangle(p, size, d);
+    painter.add(epaint::PathShape::convex_polygon(
+        pts.to_vec(),
+        fill.unwrap_or(Color32::TRANSPARENT),
+        EStroke::new(1.0, outline),
+    ));
+}
+
+/// The corners of a direction node's triangle: the tip ahead along `d`,
+/// the base behind, `size` across.
+pub(crate) fn direction_triangle(p: Pos2, size: f32, d: egui::Vec2) -> [Pos2; 3] {
+    let h = size / 2.0;
+    let n = egui::vec2(-d.y, d.x);
+    [p + d * h * 1.1, p - d * h * 0.8 + n * h, p - d * h * 0.8 - n * h]
+}
+
 /// The first node of a subpath: a triangle standing on its base, `size`
 /// across.
 fn start_node_marker(
@@ -2894,9 +3340,18 @@ fn node_marker(
     }
 }
 
-/// A text's Interactive spacing arrow: a bar and an arrow pointing right
-/// (character spacing) or down (line spacing), centred on `c`.
+/// A text's Interactive spacing arrow: a line with a head at each end,
+/// left and right (character spacing) or up and down (line spacing),
+/// centred on `c`, as the spacing goes both ways (#2985).
 fn draw_spacing_arrow(painter: &Painter, c: Pos2, horizontal: bool, color: Color32) {
+    for shape in spacing_arrow_shapes(c, horizontal, color) {
+        painter.add(shape);
+    }
+}
+
+/// The shapes of [`draw_spacing_arrow`]: its white disc, its line and its
+/// two heads.
+fn spacing_arrow_shapes(c: Pos2, horizontal: bool, color: Color32) -> Vec<epaint::Shape> {
     let s = EStroke::new(1.5, color);
     let v = |x: f32, y: f32| {
         if horizontal {
@@ -2905,14 +3360,20 @@ fn draw_spacing_arrow(painter: &Painter, c: Pos2, horizontal: bool, color: Color
             c + egui::vec2(y, x)
         }
     };
-    painter.circle_filled(c, 8.0, Color32::from_white_alpha(200));
-    painter.line_segment([v(-6.0, -4.0), v(-6.0, 4.0)], s);
-    painter.line_segment([v(-6.0, 0.0), v(5.0, 0.0)], s);
-    painter.add(epaint::PathShape::convex_polygon(
-        vec![v(7.0, 0.0), v(3.0, -3.5), v(3.0, 3.5)],
-        color,
-        EStroke::NONE,
-    ));
+    vec![
+        epaint::Shape::circle_filled(c, 8.5, Color32::from_white_alpha(200)),
+        epaint::Shape::line_segment([v(-4.0, 0.0), v(4.0, 0.0)], s),
+        epaint::Shape::convex_polygon(
+            vec![v(7.5, 0.0), v(3.5, -3.5), v(3.5, 3.5)],
+            color,
+            EStroke::NONE,
+        ),
+        epaint::Shape::convex_polygon(
+            vec![v(-7.5, 0.0), v(-3.5, 3.5), v(-3.5, -3.5)],
+            color,
+            EStroke::NONE,
+        ),
+    ]
 }
 
 /// The outline of a rectangle, ellipse or polygon the Shape tool edits,
@@ -2961,8 +3422,8 @@ fn draw_node_marquees(app: &App, painter: &Painter) {
 /// Shape tool overlay, as Options > Nodes and Handles sets it: nodes
 /// shaped by type (cusp, smooth, symmetrical), the selected ones filled
 /// with the main colour, the others white or hollow, the first node of a
-/// curve larger, handles of the selected nodes, and an arrow in the
-/// secondary colour showing the curve's direction.
+/// curve larger, handles of the selected nodes, and the first and last
+/// nodes turned along the curve to show its direction (#3038).
 fn draw_nodes(app: &App, painter: &Painter) {
     use tracedraw_core::nodes;
     let view = &app.view;
@@ -3111,8 +3572,10 @@ fn draw_nodes(app: &App, painter: &Painter) {
             // Rectangles, ellipses and polygons show their own nodes.
             let own = crate::kind_nodes::nodes(&s);
             if own.is_empty() {
+                // The box of what it draws: a symbol instance's own box
+                // is a placeholder square (#3437).
                 painter.rect_stroke(
-                    view.rect_to_screen(s.bounds()),
+                    view.rect_to_screen(app.visual_bounds(&s)),
                     0.0,
                     EStroke::new(1.0, Tokens::SELECTION),
                     epaint::StrokeKind::Outside,
@@ -3143,11 +3606,13 @@ fn draw_nodes(app: &App, painter: &Painter) {
                 } else {
                     None
                 };
-                // An edge's bow handle (#2188) is a small diamond, told
-                // apart from the corner nodes.
-                if let crate::kind_nodes::KindNode::Edge { .. } = node {
+                // An edge's bow handle (#2188): a small diamond on the
+                // edge's middle, told apart from the corner nodes, and an
+                // arc bowing outward just outside the edge, where it is
+                // seen and pressed (#2978).
+                if let crate::kind_nodes::KindNode::Edge { edge } = node {
                     let c = view.to_screen(p);
-                    let h = size / 2.0 + 1.0;
+                    let h = size / 2.0;
                     painter.add(egui::Shape::convex_polygon(
                         vec![
                             c + egui::vec2(0.0, -h),
@@ -3158,6 +3623,19 @@ fn draw_nodes(app: &App, painter: &Painter) {
                         Color32::WHITE,
                         EStroke::new(1.0, main),
                     ));
+                    if let Some(out) = crate::kind_nodes::edge_out(&s, edge) {
+                        let tip = view.to_screen(p + out);
+                        let dir = (tip - c).normalized();
+                        if dir.is_finite() {
+                            let at = c + dir * (prefs.pick_px() * crate::kind_nodes::EDGE_HANDLE_OUT) as f32;
+                            for (w, col) in [(3.5, Color32::WHITE), (1.5, main)] {
+                                painter.add(egui::Shape::line(
+                                    edge_handle_arc(at, dir, size),
+                                    EStroke::new(w, col),
+                                ));
+                            }
+                        }
+                    }
                     continue;
                 }
                 node_marker(painter, view.to_screen(p), size, prefs.cusp, fill, main);
@@ -3176,33 +3654,29 @@ fn draw_nodes(app: &App, painter: &Painter) {
             painter.add(egui::Shape::line(pts, EStroke::new(1.0, outline)));
         }
         let all = nodes::nodes(path);
-        if prefs.show_direction {
-            // A small arrow head just after the first node of every
-            // subpath, along the way the curve leaves it, and one just
-            // past the last node of an open subpath, along the way it
-            // arrives: after Break Curve each part shows its direction at
-            // both ends, as the reference program does (#2578).
-            for (at, dir, start) in nodes::direction_marks(path) {
-                let a = view.to_screen(s.transform * at);
-                let ahead = view.to_screen(s.transform * (at + dir));
-                let d = ahead - a;
-                if d.length() <= 1e-6 {
-                    continue;
-                }
-                let d = d.normalized();
-                let n = egui::vec2(-d.y, d.x);
-                let (tip, base) = if start {
-                    (a + d * (size + 9.0), a + d * (size + 3.0))
-                } else {
-                    (a + d * (size + 7.0), a + d * (size + 1.0))
-                };
-                painter.add(epaint::PathShape::convex_polygon(
-                    vec![tip, base + n * 3.5, base - n * 3.5],
-                    secondary,
-                    EStroke::NONE,
-                ));
-            }
-        }
+        // The direction (#3038, #2578): the first node of every subpath is
+        // a triangle pointing the way the curve leaves it, and the last
+        // node of an open subpath one pointing the way it arrives, so
+        // after Break Curve each part shows its direction at both ends.
+        // Small arrow heads beside the end nodes showed it before.
+        let marks: Vec<(Point, egui::Vec2, bool)> = if prefs.show_direction {
+            nodes::direction_marks(path)
+                .into_iter()
+                .filter_map(|(at, dir, start)| {
+                    let a = view.to_screen(s.transform * at);
+                    let d = view.to_screen(s.transform * (at + dir)) - a;
+                    (d.length() > 1e-6).then(|| (at, d.normalized(), start))
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let mark_of = |at: Point, start: bool| {
+            marks
+                .iter()
+                .find(|(q, _, st)| *st == start && (*q - at).hypot() < 1e-9)
+                .map(|(_, d, _)| *d)
+        };
         for n in all {
             // A chosen segment shows as the segment, not as its end node.
             let selected = app.node_selection.contains(&(s.id, n.index))
@@ -3214,11 +3688,14 @@ fn draw_nodes(app: &App, painter: &Painter) {
                     draw_control_handle(painter, p, cp, main, prefs.control_head());
                 }
             }
-            let shape = match nodes::node_type_of_with(&n, &s.node_types) {
+            let kind = nodes::node_type_of_with(&n, &s.node_types);
+            let shape = match kind {
                 nodes::NodeType::Cusp => prefs.cusp,
                 nodes::NodeType::Smooth => prefs.smooth,
                 nodes::NodeType::Symmetrical => prefs.symmetrical,
             };
+            // The node's type in its colour too, when asked (#3000).
+            let outline = node_type_color(&prefs, kind).unwrap_or(main);
             let fill = if selected {
                 Some(main)
             } else if prefs.unselected_filled {
@@ -3226,12 +3703,16 @@ fn draw_nodes(app: &App, painter: &Painter) {
             } else {
                 None
             };
-            if n.is_start {
+            if let Some(d) = mark_of(n.pos, n.is_start) {
+                // A first or last node turned along the curve (#3038).
+                let across = if n.is_start { size + 3.0 } else { size + 2.0 };
+                direction_node_marker(painter, p, across, d, fill, outline);
+            } else if n.is_start {
                 // The first node of a subpath: a triangle a little larger
                 // than the other nodes.
-                start_node_marker(painter, p, size + 3.0, fill, main);
+                start_node_marker(painter, p, size + 3.0, fill, outline);
             } else {
-                node_marker(painter, p, size, shape, fill, main);
+                node_marker(painter, p, size, shape, fill, outline);
             }
         }
     }
@@ -3345,6 +3826,60 @@ fn pattern_line(painter: &Painter, a: Pos2, b: Pos2, color: Color32, pattern: &[
 /// Selected guidelines are red.
 const GUIDE_SELECTED: Color32 = Color32::from_rgb(0xFF, 0x00, 0x00);
 
+/// A guideline what is being dragged snapped to (#3073).
+const GUIDE_SNAPPED: Color32 = Color32::from_rgb(0x00, 0x78, 0xD7);
+
+/// A guideline what is being dragged lies on: a solid line two pixels
+/// wide across the drawing window.
+fn draw_snapped_guide(
+    app: &App,
+    painter: &Painter,
+    rect: ERect,
+    line: tracedraw_core::document::GuideLine,
+) {
+    use tracedraw_core::document::GuideLine;
+    let stroke = EStroke::new(2.0, GUIDE_SNAPPED);
+    match line {
+        GuideLine::Horizontal { y } => {
+            let sy = app.view.to_screen(Point::new(0.0, y)).y;
+            if sy >= rect.top() && sy <= rect.bottom() {
+                painter.line_segment(
+                    [Pos2::new(rect.left(), sy), Pos2::new(rect.right(), sy)],
+                    stroke,
+                );
+            }
+        }
+        GuideLine::Vertical { x } => {
+            let sx = app.view.to_screen(Point::new(x, 0.0)).x;
+            if sx >= rect.left() && sx <= rect.right() {
+                painter.line_segment(
+                    [Pos2::new(sx, rect.top()), Pos2::new(sx, rect.bottom())],
+                    stroke,
+                );
+            }
+        }
+        GuideLine::Angled { .. } => {}
+    }
+}
+
+/// The part of a slanted guideline inside `rect` (screen space). The
+/// line is drawn out both ways from the point of it nearest the window's
+/// middle, past the window's corners: drawn out a fixed length from the
+/// point the guideline was made at, it fell short of the window once the
+/// view was zoomed in far from that point, and the guideline vanished
+/// (#3337, #3342).
+fn angled_guide_on_screen(
+    view: &crate::view::View,
+    line: tracedraw_core::document::GuideLine,
+    rect: ERect,
+) -> Option<(Pos2, Pos2)> {
+    let (o, d) = line.point_and_direction();
+    let mid = view.to_page(rect.center());
+    let at = o + d * (mid - o).dot(d);
+    let reach = (rect.width().hypot(rect.height()) / view.zoom.max(1e-6)) as f64 + 1.0;
+    clip_segment(view.to_screen(at - d * reach), view.to_screen(at + d * reach), rect)
+}
+
 /// One guideline across the drawing window.
 fn draw_guide_line(
     app: &App,
@@ -3382,12 +3917,7 @@ fn draw_guide_line(
             }
         }
         GuideLine::Angled { .. } => {
-            // Extend far beyond the viewport in both directions.
-            let (o, d) = line.point_and_direction();
-            let far = 100_000.0 / view.zoom.max(0.01) as f64;
-            let s0 = view.to_screen(o - d * far);
-            let s1 = view.to_screen(o + d * far);
-            if let Some((c0, c1)) = clip_segment(s0, s1, rect) {
+            if let Some((c0, c1)) = angled_guide_on_screen(view, line, rect) {
                 pattern_line(painter, c0, c1, color, pattern);
             }
         }
@@ -3440,6 +3970,11 @@ pub fn draw_guides(app: &App, painter: &Painter, rect: ERect) {
             to_color32(app.guide_color(g))
         };
         draw_guide_line(app, painter, rect, g.line, color, g.style.pattern());
+    }
+    // The guidelines what is being dragged snapped to, highlighted
+    // (#3073).
+    for line in app.snapped_guides() {
+        draw_snapped_guide(app, painter, rect, line);
     }
     // The other pages' guidelines in the Multipage View, each within its
     // page (#1448).
@@ -3863,6 +4398,146 @@ fn draw_snap_glyph_halo(painter: &Painter, c: Pos2, mode: crate::snap_points::Sn
     draw_snap_glyph_width(painter, c, mode, Tokens::HANDLE, 1.3);
 }
 
+#[derive(Default)]
+pub(crate) struct MeshGridCache {
+    selection: Option<std::rc::Rc<Vec<tracedraw_core::document::Shape>>>,
+    zoom: f32,
+    grids: std::collections::HashMap<tracedraw_core::ShapeId, Vec<MeshGridEdge>>,
+}
+
+struct MeshGridEdge {
+    curve: kurbo::CubicBez,
+    points: Vec<Pos2>,
+}
+
+impl MeshGridCache {
+    fn update(&mut self, shapes: &std::rc::Rc<Vec<tracedraw_core::document::Shape>>, view: &View) {
+        let zoom_changed = self.zoom != view.zoom;
+        if !zoom_changed
+            && self
+                .selection
+                .as_ref()
+                .is_some_and(|previous| std::rc::Rc::ptr_eq(previous, shapes))
+        {
+            return;
+        }
+        self.grids.retain(|id, _| {
+            shapes
+                .iter()
+                .any(|s| s.id == *id && matches!(s.fill, tracedraw_core::Fill::Mesh(_)))
+        });
+        let view = View {
+            zoom: view.zoom,
+            origin: Pos2::ZERO,
+        };
+        for shape in shapes.iter() {
+            let tracedraw_core::Fill::Mesh(mesh) = &shape.fill else {
+                continue;
+            };
+            if mesh.nodes.is_empty() {
+                self.grids.remove(&shape.id);
+                continue;
+            }
+            let edges = self.grids.entry(shape.id).or_default();
+            let mut index = 0;
+            let mut update_edge = |r, c, across| {
+                let Some(curve) = mesh.edge(r, c, across).map(|e| shape.transform * e) else {
+                    return;
+                };
+                if let Some(edge) = edges.get_mut(index) {
+                    if zoom_changed || edge.curve != curve {
+                        edge.points = mesh_edge_points(curve, &view);
+                        edge.curve = curve;
+                    }
+                } else {
+                    edges.push(MeshGridEdge {
+                        curve,
+                        points: mesh_edge_points(curve, &view),
+                    });
+                }
+                index += 1;
+            };
+            for r in 0..=mesh.rows {
+                for c in 0..mesh.cols {
+                    update_edge(r, c, true);
+                }
+            }
+            for c in 0..=mesh.cols {
+                for r in 0..mesh.rows {
+                    update_edge(r, c, false);
+                }
+            }
+            edges.truncate(index);
+        }
+        self.zoom = view.zoom;
+        self.selection = Some(shapes.clone());
+    }
+
+    fn draw(&self, id: tracedraw_core::ShapeId, painter: &Painter, origin: Pos2, color: Color32) {
+        let Some(edges) = self.grids.get(&id) else {
+            return;
+        };
+        let offset = origin.to_vec2();
+        let stroke = EStroke::new(1.0, color);
+        for edge in edges {
+            if let [a, b] = edge.points.as_slice() {
+                painter.line_segment([*a + offset, *b + offset], stroke);
+            } else if !edge.points.is_empty() {
+                let points = edge.points.iter().map(|p| *p + offset).collect();
+                painter.add(egui::Shape::line(points, stroke));
+            }
+        }
+    }
+}
+
+/// A mesh edge flattened to a quarter of a screen point. The edge is
+/// already in page space so scaled objects get the same screen accuracy.
+fn mesh_edge_points(edge: kurbo::CubicBez, view: &View) -> Vec<Pos2> {
+    if !edge.is_finite()
+        || !view.zoom.is_finite()
+        || view.zoom <= 0.0
+        || [edge.p0, edge.p1, edge.p2, edge.p3]
+            .into_iter()
+            .map(|p| view.to_screen(p))
+            .any(|p| !p.x.is_finite() || !p.y.is_finite())
+    {
+        return Vec::new();
+    }
+    fn append(
+        edge: kurbo::CubicBez,
+        view: &View,
+        tolerance: f64,
+        depth: u8,
+        points: &mut Vec<Pos2>,
+    ) {
+        // A Bezier stays in its control hull, so these distances bound
+        // the curve's error from the chord. Straight edges need no split.
+        if depth == 0
+            || (seg_dist(edge.p0, edge.p3, edge.p1) <= tolerance
+                && seg_dist(edge.p0, edge.p3, edge.p2) <= tolerance)
+        {
+            points.push(view.to_screen(edge.p3));
+        } else {
+            use kurbo::ParamCurve;
+            let (left, right) = edge.subdivide();
+            append(left, view, tolerance, depth - 1, points);
+            append(right, view, tolerance, depth - 1, points);
+        }
+    }
+    let mut points = Vec::with_capacity(2);
+    points.push(view.to_screen(edge.p0));
+    // At most 4096 segments, including pathological coordinates from a
+    // file; the depth limit also bounds stack usage and work per edge.
+    append(
+        edge,
+        view,
+        0.25 / view.zoom.max(0.05) as f64,
+        12,
+        &mut points,
+    );
+    points
+}
+
 /// Effect nodes (perspective, mesh) of the selection with the Shape tool
 /// (and the mesh with the Mesh Fill tool): small blue squares joined by
 /// a frame.
@@ -3872,11 +4547,25 @@ pub fn draw_effect_nodes(app: &App, painter: &Painter) {
         crate::tools::Tool::Shape
             | crate::tools::Tool::MeshFill
             | crate::tools::Tool::InteractiveFill
+            | crate::tools::Tool::Envelope
     ) {
+        if let Ok(mut cache) = app.mesh_grid_cache.try_borrow_mut() {
+            *cache = MeshGridCache::default();
+        }
         return;
     }
-    for s in app.selected_rc().iter() {
-        let nodes = crate::interaction2::effect_nodes(s);
+    // The Envelope tool edits only a mesh envelope's grid.
+    let envelope_tool = app.tool == crate::tools::Tool::Envelope;
+    let shapes = app.selected_rc();
+    let Ok(mut mesh_grids) = app.mesh_grid_cache.try_borrow_mut() else {
+        return;
+    };
+    mesh_grids.update(&shapes, &app.view);
+    for s in shapes.iter() {
+        let mut nodes = crate::interaction2::effect_nodes(s);
+        if envelope_tool {
+            nodes.retain(|(i, _)| crate::interaction2::is_mesh_envelope_node(*i));
+        }
         if nodes.is_empty() {
             continue;
         }
@@ -3887,38 +4576,50 @@ pub fn draw_effect_nodes(app: &App, painter: &Painter) {
             .filter(|(i, _)| (100..200).contains(i))
             .map(|(_, p)| app.view.to_screen(*p))
             .collect();
-        if persp.len() == 4 {
+        if persp.len() == 4 && !envelope_tool {
             let mut pts = persp.clone();
             pts.push(persp[0]);
             painter.add(egui::Shape::line(pts, egui::Stroke::new(1.0, blue)));
         }
-        // Mesh grid lines: the curves between the nodes, as a few
-        // straight pieces each when they bend (plain segments stay cheap
-        // in an overlay redrawn every frame).
-        if let tracedraw_core::Fill::Mesh(m) = &s.fill {
-            use tracedraw_core::geometry::ParamCurve;
-            let curved = m.is_curved();
-            let line = |r: u32, c: u32, across: bool| {
-                let Some(edge) = m.edge(r, c, across) else {
-                    return;
-                };
-                let pieces = if curved { 8 } else { 1 };
-                let pts: Vec<egui::Pos2> = (0..=pieces)
-                    .map(|i| edge.eval(i as f64 / pieces as f64))
-                    .map(|p| app.view.to_screen(s.transform * p))
+        // The mesh envelope's grid lines, bent as the mesh bends them.
+        let mesh_env = s.effects.iter().enumerate().rev().find_map(|(at, e)| match e {
+            tracedraw_core::live::Effect::MeshEnvelope { cols, rows, points } => {
+                Some((at, *cols, *rows, points))
+            }
+            _ => None,
+        });
+        if let Some((at, cols, rows, points)) = mesh_env {
+            use tracedraw_core::geometry::Point;
+            let b = tracedraw_core::live::warp_box(s, at);
+            let grid = |c: f64, r: f64| {
+                Point::new(
+                    b.x0 + b.width() * c / cols.max(1) as f64,
+                    b.y0 + b.height() * r / rows.max(1) as f64,
+                )
+            };
+            let line = |a: Point, z: Point| {
+                let pts: Vec<egui::Pos2> = (0..=8)
+                    .map(|i| a.lerp(z, i as f64 / 8.0))
+                    .map(|q| tracedraw_core::envelope::mesh_point(points, cols, rows, b, q))
+                    .map(|q| app.view.to_screen(s.transform * q))
                     .collect();
                 painter.add(egui::Shape::line(pts, egui::Stroke::new(1.0, blue)));
             };
-            for r in 0..=m.rows {
-                for c in 0..m.cols {
-                    line(r, c, true);
+            for r in 0..=rows {
+                for c in 0..cols {
+                    line(grid(c as f64, r as f64), grid(c as f64 + 1.0, r as f64));
                 }
             }
-            for c in 0..=m.cols {
-                for r in 0..m.rows {
-                    line(r, c, false);
+            for c in 0..=cols {
+                for r in 0..rows {
+                    line(grid(c as f64, r as f64), grid(c as f64, r as f64 + 1.0));
                 }
             }
+        }
+        // Mesh grid lines follow the curves at this zoom; straight edges
+        // remain one segment, even when another edge in the mesh bends.
+        if !envelope_tool {
+            mesh_grids.draw(s.id, painter, app.view.origin, blue);
         }
         // The selected mesh node's handles: one on each grid line leaving
         // it, dragged to bend the line (discussion #2073).
@@ -3966,8 +4667,673 @@ pub fn draw_effect_nodes(app: &App, painter: &Painter) {
 }
 
 #[cfg(test)]
+mod node_look_tests {
+    use super::*;
+
+    /// Nodes take the colour of their type only when Options > Nodes and
+    /// Handles asks for it (#3000).
+    #[test]
+    fn nodes_are_coloured_by_type_when_asked() {
+        use tracedraw_core::nodes::NodeType;
+        let mut prefs = crate::settings::NodePrefs::default();
+        assert_eq!(node_type_color(&prefs, NodeType::Cusp), None);
+        prefs.color_by_type = true;
+        let colors: Vec<Option<Color32>> = [NodeType::Cusp, NodeType::Smooth, NodeType::Symmetrical]
+            .into_iter()
+            .map(|k| node_type_color(&prefs, k))
+            .collect();
+        let [r, g, b] = prefs.smooth_rgb;
+        assert_eq!(colors[1], Some(Color32::from_rgb(r, g, b)));
+        assert!(colors[0] != colors[1] && colors[1] != colors[2] && colors[0] != colors[2]);
+    }
+
+    /// The text spacing handles show an arrow head at each end, as the
+    /// spacing goes both ways (#2985).
+    #[test]
+    fn spacing_arrows_point_both_ways() {
+        let c = Pos2::new(100.0, 50.0);
+        for horizontal in [true, false] {
+            let heads: Vec<Pos2> = spacing_arrow_shapes(c, horizontal, Color32::BLACK)
+                .into_iter()
+                .filter_map(|s| match s {
+                    epaint::Shape::Path(p) if p.points.len() == 3 => Some(p.points[0]),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(heads.len(), 2);
+            let d0 = heads[0] - c;
+            let d1 = heads[1] - c;
+            assert!((d0 + d1).length() < 1e-3, "{heads:?}");
+            if horizontal {
+                assert!(d0.y.abs() < 1e-3 && d0.x.abs() > 5.0);
+            } else {
+                assert!(d0.x.abs() < 1e-3 && d0.y.abs() > 5.0);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The drag outline of an object a perspective (or an envelope)
+    /// reshapes shows the reshaped object, not the plain one beneath it
+    /// (#3569); without the warp it is the plain outline as before.
+    #[test]
+    fn the_drag_outline_of_a_warped_object_is_its_warped_shape() {
+        use kurbo::Shape as _;
+        use tracedraw_core::live::Effect;
+        use tracedraw_core::{Command, Point, Rect};
+        let mut app = App::headless();
+        let id = app
+            .new_shape(ShapeKind::Rect {
+                rect: Rect::new(0.0, 0.0, 100.0, 100.0),
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("rect");
+        let s = app.doc().find_shape(id).expect("rect").clone();
+        let t = Affine::scale(2.0);
+        let plain = transform_outline_paths(&app, &s, t);
+        assert_eq!(plain.len(), 1);
+        let b = plain[0].bounding_box();
+        assert!(
+            (b.x1 - 200.0).abs() < 1e-6 && (b.y1 - 200.0).abs() < 1e-6,
+            "{b:?}"
+        );
+        // A trapezoid: the bottom edge drawn in by 20 on each side.
+        app.run(Command::SetEffects {
+            shape: id,
+            effects: vec![Effect::Perspective {
+                corners: [
+                    Point::new(0.0, 0.0),
+                    Point::new(100.0, 0.0),
+                    Point::new(80.0, 100.0),
+                    Point::new(20.0, 100.0),
+                ],
+            }],
+        });
+        let s = app.doc().find_shape(id).expect("rect").clone();
+        let warped = transform_outline_paths(&app, &s, t);
+        assert_eq!(warped.len(), 1);
+        let b = warped[0].bounding_box();
+        assert!(
+            (b.x1 - 200.0).abs() < 1e-6,
+            "the top keeps its width: {b:?}"
+        );
+        let bottom: Vec<f64> = warped[0]
+            .elements()
+            .iter()
+            .filter_map(|e| e.end_point())
+            .filter(|p| (p.y - 200.0).abs() < 1e-6)
+            .map(|p| p.x)
+            .collect();
+        assert!(
+            bottom
+                .iter()
+                .all(|x| (40.0 - 1e-6..=160.0 + 1e-6).contains(x))
+                && !bottom.is_empty(),
+            "the bottom drawn in, scaled: {bottom:?}"
+        );
+    }
+
+    /// Show objects while transforming is off by default (#3569).
+    #[test]
+    fn objects_are_not_drawn_while_transforming_by_default() {
+        assert!(!crate::settings::Settings::default().live_transform_preview);
+    }
+
+    /// The direction shows on the end nodes themselves (#3038): each
+    /// first node and each last node of an open part has a direction
+    /// mark at its own place, and its triangle points that way, its tip
+    /// ahead of the node and its base behind.
+    #[test]
+    fn the_end_nodes_point_along_the_curve() {
+        use tracedraw_core::nodes;
+        let mut path = tracedraw_core::geometry::BezPath::new();
+        path.move_to((0.0, 0.0));
+        path.line_to((10.0, 0.0));
+        path.curve_to((15.0, 0.0), (20.0, 5.0), (20.0, 10.0));
+        path.move_to((40.0, 0.0));
+        path.line_to((40.0, 10.0));
+        path.line_to((50.0, 10.0));
+        path.close_path();
+        let marks = nodes::direction_marks(&path);
+        let all = nodes::nodes(&path);
+        let starts: Vec<_> = all.iter().filter(|n| n.is_start).collect();
+        assert_eq!(starts.len(), 2);
+        for n in &starts {
+            assert!(
+                marks.iter().any(|(q, _, st)| *st && (*q - n.pos).hypot() < 1e-9),
+                "a start mark on {:?}",
+                n.pos
+            );
+        }
+        // The open part's last node, arriving straight down (y grows).
+        let end = marks
+            .iter()
+            .find(|(_, _, st)| !st)
+            .expect("an end mark");
+        assert!((end.0 - tracedraw_core::geometry::Point::new(20.0, 10.0)).hypot() < 1e-9);
+        assert!(all.iter().any(|n| (n.pos - end.0).hypot() < 1e-9));
+        // The triangle: its tip ahead along the way, its base behind.
+        let p = egui::pos2(100.0, 100.0);
+        let d = egui::vec2(0.0, 1.0);
+        let [tip, b1, b2] = direction_triangle(p, 10.0, d);
+        assert!(tip.y > p.y + 4.0 && (tip.x - p.x).abs() < 1e-4, "{tip:?}");
+        assert!(b1.y < p.y && b2.y < p.y);
+        assert!((b1.x - b2.x).abs() > 9.0, "the base is across the way");
+    }
+
+    /// Non-finite screen geometry is skipped before subdivision.
+    #[test]
+    fn malformed_mesh_grid_edges_are_skipped() {
+        let view = View::default();
+        for edge in [
+            kurbo::CubicBez::new((0.0, 0.0), (1e200, 1e200), (0.0, 1.0), (1.0, 1.0)),
+            kurbo::CubicBez::new((0.0, 0.0), (f64::NAN, 1.0), (1.0, 1.0), (1.0, 0.0)),
+            kurbo::CubicBez::new((0.0, 0.0), (0.0, f64::INFINITY), (1.0, 1.0), (1.0, 0.0)),
+        ] {
+            assert!(mesh_edge_points(edge, &view).is_empty(), "{edge:?}");
+        }
+        let edge = kurbo::CubicBez::new((0.0, 0.0), (0.0, 1.0), (1.0, 1.0), (1.0, 0.0));
+        for zoom in [0.0, -1.0, f32::NAN, f32::INFINITY] {
+            assert!(mesh_edge_points(edge, &View { zoom, ..view }).is_empty());
+        }
+    }
+
+    #[test]
+    fn an_empty_mesh_does_not_enumerate_missing_edges() {
+        use tracedraw_core::{Fill, Mesh, Shape, ShapeId};
+        let bounds = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let mut mesh = Mesh::new(bounds, 1, 1, Color::WHITE);
+        mesh.nodes.clear();
+        mesh.rows = u32::MAX;
+        mesh.cols = u32::MAX;
+        let mut shape = Shape::new(
+            ShapeId(1),
+            ShapeKind::Rect {
+                rect: bounds,
+                radius: 0.0,
+                corners: None,
+            },
+        );
+        shape.fill = Fill::Mesh(mesh);
+        let mut cache = MeshGridCache::default();
+        cache.update(&std::rc::Rc::new(vec![shape]), &View::default());
+        assert!(cache.grids.is_empty());
+    }
+
+    /// Huge finite edges remain bounded, including an exactly quadratic
+    /// curve that does not need cubic-to-quadratic subdivision.
+    #[test]
+    fn extreme_mesh_grid_edges_have_bounded_subdivision() {
+        let view = View::default();
+        for edge in [
+            kurbo::CubicBez::new((0.0, 0.0), (0.0, 1e15), (1e15, 1e15), (3e15, 0.0)),
+            kurbo::QuadBez::new((0.0, 0.0), (1e15, 1e15), (2e15, 0.0)).raise(),
+        ] {
+            let points = mesh_edge_points(edge, &view);
+            assert!(
+                (2..=4097).contains(&points.len()),
+                "{} points",
+                points.len()
+            );
+            assert!(points.iter().all(|p| p.x.is_finite() && p.y.is_finite()));
+            assert_eq!(points.first(), Some(&view.to_screen(edge.p0)));
+            assert_eq!(points.last(), Some(&view.to_screen(edge.p3)));
+        }
+    }
+
+    fn mesh_curve_screen_error(edge: kurbo::CubicBez, view: &View, points: &[Pos2]) -> f64 {
+        use kurbo::ParamCurve;
+        (0..=4096)
+            .map(|i| {
+                let p = view.to_screen(edge.eval(i as f64 / 4096.0));
+                let p = Point::new(p.x as f64, p.y as f64);
+                points
+                    .windows(2)
+                    .map(|w| {
+                        seg_dist(
+                            Point::new(w[0].x as f64, w[0].y as f64),
+                            Point::new(w[1].x as f64, w[1].y as f64),
+                            p,
+                        )
+                    })
+                    .fold(f64::INFINITY, f64::min)
+            })
+            .fold(0.0, f64::max)
+    }
+
+    /// Mesh guides follow the actual curve within a quarter of a screen
+    /// point, including inflections and scaled, sheared and rotated objects.
+    #[test]
+    fn mesh_grid_curves_stay_smooth_at_every_zoom() {
+        let curves = [
+            kurbo::CubicBez::new((0.0, 0.0), (0.0, 100.0), (100.0, 100.0), (100.0, 0.0)),
+            kurbo::CubicBez::new((0.0, 0.0), (100.0, 80.0), (-80.0, 160.0), (20.0, 240.0)),
+        ];
+        let transforms = [
+            Affine::IDENTITY,
+            Affine::rotate(0.63) * Affine::skew(0.35, -0.2) * Affine::scale_non_uniform(2.7, 0.4),
+        ];
+        for curve in curves {
+            for transform in transforms {
+                let edge = transform * curve;
+                let mut previous = 0;
+                for zoom in [0.05, 3.0, 40.0, 400.0] {
+                    let view = View {
+                        zoom,
+                        origin: egui::pos2(80.0, 900.0),
+                    };
+                    let points = mesh_edge_points(edge, &view);
+                    assert_eq!(points.first(), Some(&view.to_screen(edge.p0)));
+                    assert_eq!(points.last(), Some(&view.to_screen(edge.p3)));
+                    let error = mesh_curve_screen_error(edge, &view, &points);
+                    assert!(error <= 0.27, "{zoom}: {error} screen points, {edge:?}");
+                    assert!(points.len() > previous, "zoom {zoom} adds curve detail");
+                    previous = points.len();
+                }
+            }
+        }
+    }
+
+    /// A slanted guideline crossing the window is drawn at any zoom, far
+    /// from the point it was made at too (#3337, #3342).
+    #[test]
+    fn a_slanted_guideline_shows_at_every_zoom() {
+        use tracedraw_core::document::GuideLine;
+        let line = GuideLine::Angled {
+            x: 0.0,
+            y: 0.0,
+            angle: 45.0,
+        };
+        let rect = ERect::from_min_size(Pos2::ZERO, egui::vec2(800.0, 600.0));
+        for zoom in [0.05f32, 1.0, 50.0, 2000.0, 20_000.0] {
+            for along in [0.0, 300.0, 5000.0] {
+                // The window's middle on the line, `along` mm from its point.
+                let mid = Point::new(along, along);
+                let view = crate::view::View {
+                    zoom,
+                    origin: Pos2::new(400.0 - mid.x as f32 * zoom, 300.0 + mid.y as f32 * zoom),
+                };
+                let seg = super::angled_guide_on_screen(&view, line, rect);
+                let (a, b) = seg.unwrap_or_else(|| panic!("zoom {zoom}, {along} mm: not drawn"));
+                assert!(a.distance(b) > 500.0, "zoom {zoom}, {along} mm: {a:?} {b:?}");
+            }
+        }
+    }
+
+    /// Exercise the actual overlay, not only its sampler: one bent edge
+    /// gets more detail while the other eleven edges stay single lines.
+    #[test]
+    fn mesh_tools_draw_smooth_curves_and_keep_straight_edges_cheap() {
+        use tracedraw_core::{Command, Fill, Mesh, MeshHandle};
+        let ctx = egui::Context::default();
+        let mut app = App::headless();
+        let bounds = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let id = app
+            .new_shape(ShapeKind::Rect {
+                rect: bounds,
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("rectangle");
+        let mut mesh = Mesh::new(bounds, 2, 2, Color::WHITE);
+        mesh.nodes[0].set_handle(MeshHandle::Right, Point::new(15.0, 70.0));
+        let edge = mesh.edge(0, 0, true).expect("bent edge");
+        app.run(Command::SetFill {
+            shapes: vec![id],
+            fill: Fill::Mesh(mesh),
+        });
+        let transform = Affine::rotate(0.3) * Affine::scale_non_uniform(2.0, 0.5);
+        app.run(Command::TransformShapes {
+            shapes: vec![id],
+            transform,
+        });
+        app.select(vec![id]);
+        app.selected_effect_node = None;
+        app.view = View {
+            zoom: 40.0,
+            origin: egui::pos2(200.0, 3000.0),
+        };
+        for tool in [Tool::MeshFill, Tool::Shape, Tool::InteractiveFill] {
+            app.tool = tool;
+            let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+                draw_effect_nodes(&app, ui.painter());
+            });
+            out.textures_delta.clear();
+            let paths: Vec<_> = out
+                .shapes
+                .iter()
+                .filter_map(|s| match &s.shape {
+                    egui::Shape::Path(p) => Some(p.points.clone()),
+                    egui::Shape::LineSegment { points, .. } => Some(points.to_vec()),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(paths.len(), 12, "{tool:?}: every grid edge");
+            assert!(paths[0].len() > 9, "the old eight chords are insufficient");
+            let placed = app.doc().find_shape(id).expect("rectangle").transform * edge;
+            assert!(mesh_curve_screen_error(placed, &app.view, &paths[0]) <= 0.27);
+            assert!(
+                paths[1..].iter().all(|p| p.len() == 2),
+                "{tool:?}: straight edges"
+            );
+        }
+    }
+
+    /// Reused guides still follow panning, zoom, handle edits and object
+    /// transforms. Every check reads the real overlay's painted paths.
+    #[test]
+    fn mesh_grid_overlay_updates_after_view_and_geometry_changes() {
+        use tracedraw_core::{Command, Fill, Mesh, MeshHandle};
+        let ctx = egui::Context::default();
+        let mut app = App::headless();
+        app.tool = Tool::MeshFill;
+        let bounds = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let id = app
+            .new_shape(ShapeKind::Rect {
+                rect: bounds,
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("rectangle");
+        let mut mesh = Mesh::new(bounds, 1, 1, Color::WHITE);
+        mesh.nodes[0].set_handle(MeshHandle::Right, Point::new(15.0, 90.0));
+        app.run(Command::SetFill {
+            shapes: vec![id],
+            fill: Fill::Mesh(mesh.clone()),
+        });
+        app.select(vec![id]);
+        app.selected_effect_node = None;
+        app.view = View {
+            zoom: 3.0,
+            origin: egui::pos2(200.0, 500.0),
+        };
+        let drawn = |app: &App| -> Vec<Vec<Pos2>> {
+            let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+                draw_effect_nodes(app, ui.painter());
+            });
+            out.textures_delta.clear();
+            out.shapes
+                .iter()
+                .filter_map(|s| match &s.shape {
+                    egui::Shape::Path(p) => Some(p.points.clone()),
+                    egui::Shape::LineSegment { points, .. } => Some(points.to_vec()),
+                    _ => None,
+                })
+                .collect()
+        };
+        let original = drawn(&app);
+        let cached_allocations = |app: &App| {
+            app.mesh_grid_cache.borrow().grids[&id]
+                .iter()
+                .map(|e| e.points.as_ptr())
+                .collect::<Vec<_>>()
+        };
+        let allocations = cached_allocations(&app);
+        assert_eq!(original, drawn(&app), "unchanged guides are reused");
+        assert_eq!(allocations, cached_allocations(&app));
+        let pan = egui::vec2(37.0, -29.0);
+        app.view.origin += pan;
+        let panned = drawn(&app);
+        assert_eq!(
+            allocations,
+            cached_allocations(&app),
+            "panning reuses samples"
+        );
+        for (before, after) in original.iter().zip(&panned) {
+            assert_eq!(before.len(), after.len(), "panning keeps curve detail");
+            for (a, b) in before.iter().zip(after) {
+                assert!((*b - (*a + pan)).length() < 0.001);
+            }
+        }
+        mesh.nodes[0].color = Color::BLACK;
+        app.run(Command::SetFill {
+            shapes: vec![id],
+            fill: Fill::Mesh(mesh.clone()),
+        });
+        assert_eq!(panned, drawn(&app), "colour does not change guide geometry");
+        assert_eq!(
+            allocations,
+            cached_allocations(&app),
+            "colour keeps samples"
+        );
+        app.view.zoom = 40.0;
+        let zoomed = drawn(&app);
+        assert!(zoomed[0].len() > panned[0].len(), "zoom refreshes detail");
+        let edge = mesh.edge(0, 0, true).expect("edge");
+        assert!(mesh_curve_screen_error(edge, &app.view, &zoomed[0]) <= 0.27);
+        let zoomed_allocations = cached_allocations(&app);
+        mesh.nodes[0].set_handle(MeshHandle::Right, Point::new(80.0, -50.0));
+        app.run(Command::SetFill {
+            shapes: vec![id],
+            fill: Fill::Mesh(mesh.clone()),
+        });
+        let edited = drawn(&app);
+        assert_ne!(edited[0], zoomed[0], "a handle edit refreshes its edge");
+        assert_eq!(edited[1..], zoomed[1..], "the other edges stay unchanged");
+        assert_eq!(
+            zoomed_allocations[1..],
+            cached_allocations(&app)[1..],
+            "a handle edit reuses the other edges' samples"
+        );
+        let edge = mesh.edge(0, 0, true).expect("edited edge");
+        assert!(mesh_curve_screen_error(edge, &app.view, &edited[0]) <= 0.27);
+        app.run(Command::TransformShapes {
+            shapes: vec![id],
+            transform: Affine::rotate(0.7) * Affine::scale_non_uniform(2.0, 0.5),
+        });
+        let transformed = drawn(&app);
+        assert_ne!(edited, transformed);
+        let placed = app.doc().find_shape(id).expect("rectangle").transform * edge;
+        assert!(mesh_curve_screen_error(placed, &app.view, &transformed[0]) <= 0.27);
+    }
+
+    /// Compare warmed cached drawing with the former fixed-chord overlay,
+    /// both at rest and with one handle edited per frame. No fill is timed.
+    #[test]
+    #[ignore]
+    fn frame_times_of_mesh_grid_overlay() {
+        use kurbo::ParamCurve;
+        use std::rc::Rc;
+        use tracedraw_core::{Fill, Mesh, MeshHandle};
+        let view = View {
+            zoom: 1.0,
+            origin: egui::pos2(20.0, 1020.0),
+        };
+        for scene in ["straight", "locally curved", "all curved"] {
+            let mut mesh = Mesh::new(Rect::new(0.0, 0.0, 1000.0, 1000.0), 50, 50, Color::WHITE);
+            for (i, node) in mesh.nodes.iter_mut().enumerate() {
+                if scene == "all curved" || (scene == "locally curved" && i == 1300) {
+                    node.set_handle(MeshHandle::Right, node.pos + kurbo::Vec2::new(7.0, 8.0));
+                    node.set_handle(MeshHandle::Down, node.pos + kurbo::Vec2::new(8.0, 7.0));
+                }
+            }
+            let mut app = App::headless();
+            let id = app
+                .new_shape(ShapeKind::Rect {
+                    rect: Rect::new(0.0, 0.0, 1000.0, 1000.0),
+                    radius: 0.0,
+                    corners: None,
+                })
+                .expect("rectangle");
+            let mut shape = app.doc().find_shape(id).expect("rectangle").clone();
+            shape.fill = Fill::Mesh(mesh.clone());
+            let initial = Rc::new(vec![shape]);
+            for changing_handle in [false, true] {
+                // Prepare the same document revisions for both renderers;
+                // fixture construction is outside the measured frames.
+                let frames: Vec<_> = (0..100)
+                    .map(|frame| {
+                        if !changing_handle {
+                            return initial.clone();
+                        }
+                        let mut shapes = initial.as_ref().clone();
+                        if let Fill::Mesh(m) = &mut shapes[0].fill {
+                            let at = m.nodes[1300].pos;
+                            m.nodes[1300].set_handle(
+                                MeshHandle::Right,
+                                at + kurbo::Vec2::new(7.0, 8.0 + frame as f64 * 0.05),
+                            );
+                        }
+                        Rc::new(shapes)
+                    })
+                    .collect();
+                for adaptive in [false, true] {
+                    let ctx = egui::Context::default();
+                    let mut cache = MeshGridCache::default();
+                    let mut frame = |shapes: &Rc<Vec<tracedraw_core::Shape>>| {
+                        let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+                            if adaptive {
+                                cache.update(shapes, &view);
+                                cache.draw(id, ui.painter(), view.origin, Color32::BLUE);
+                            } else {
+                                let s = &shapes[0];
+                                let Fill::Mesh(m) = &s.fill else {
+                                    return;
+                                };
+                                let pieces = if m.is_curved() { 8 } else { 1 };
+                                let line = |r, c, across| {
+                                    let edge = m.edge(r, c, across).expect("edge");
+                                    let points = (0..=pieces)
+                                        .map(|i| {
+                                            view.to_screen(
+                                                s.transform * edge.eval(i as f64 / pieces as f64),
+                                            )
+                                        })
+                                        .collect();
+                                    ui.painter().add(egui::Shape::line(
+                                        points,
+                                        egui::Stroke::new(1.0, Color32::BLUE),
+                                    ));
+                                };
+                                for r in 0..=m.rows {
+                                    for c in 0..m.cols {
+                                        line(r, c, true);
+                                    }
+                                }
+                                for c in 0..=m.cols {
+                                    for r in 0..m.rows {
+                                        line(r, c, false);
+                                    }
+                                }
+                            }
+                        });
+                        out.textures_delta.clear();
+                        std::hint::black_box(out);
+                    };
+                    frame(&initial);
+                    let start = std::time::Instant::now();
+                    for shapes in &frames {
+                        frame(shapes);
+                    }
+                    eprintln!(
+                        "mesh grid 50x50, {scene}, changing handle {changing_handle}, adaptive {adaptive}: {:.3} ms a frame",
+                        start.elapsed().as_secs_f64() * 1000.0 / frames.len() as f64
+                    );
+                }
+            }
+        }
+    }
+
+    /// Optional visual evidence from the real egui overlay. Set
+    /// MESH_OVERLAY_SHOT to a PNG path, then run this ignored test.
+    #[test]
+    #[ignore]
+    fn mesh_grid_smoothing_comparison() {
+        use kurbo::ParamCurve;
+        use tracedraw_core::{Command, Fill, Mesh, MeshHandle};
+        let Some(path) = std::env::var_os("MESH_OVERLAY_SHOT") else {
+            return;
+        };
+        let mut app = App::headless();
+        app.tool = Tool::MeshFill;
+        let bounds = Rect::new(0.0, 0.0, 700.0, 700.0);
+        let id = app
+            .new_shape(ShapeKind::Rect {
+                rect: bounds,
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("rectangle");
+        let mut mesh = Mesh::new(bounds, 4, 4, Color::WHITE);
+        mesh.nodes[7].set_handle(MeshHandle::Down, Point::new(660.0, 205.0));
+        mesh.nodes[12].set_handle(MeshHandle::Up, Point::new(660.0, 350.0));
+        mesh.nodes[12].set_handle(MeshHandle::Down, Point::new(510.0, 385.0));
+        mesh.nodes[17].set_handle(MeshHandle::Up, Point::new(510.0, 515.0));
+        app.run(Command::SetFill {
+            shapes: vec![id],
+            fill: Fill::Mesh(mesh.clone()),
+        });
+        app.select(vec![id]);
+        app.selected_effect_node = None;
+        app.view = View {
+            zoom: 1.0,
+            origin: egui::pos2(850.0, 780.0),
+        };
+        let image = crate::help_shots::rasterise(1600, 830, 1.0, |painter| {
+            painter.rect_filled(
+                ERect::from_min_max(Pos2::ZERO, egui::pos2(1600.0, 830.0)),
+                0.0,
+                Color32::WHITE,
+            );
+            let blue = Color32::from_rgb(40, 110, 220);
+            let old_view = View {
+                zoom: 1.0,
+                origin: egui::pos2(50.0, 780.0),
+            };
+            for (view, label) in [
+                (old_view, "Fixed 8 segments"),
+                (app.view, "Adaptive curves"),
+            ] {
+                painter.text(
+                    egui::pos2(view.origin.x, 28.0),
+                    egui::Align2::LEFT_CENTER,
+                    label,
+                    egui::FontId::proportional(22.0),
+                    Color32::BLACK,
+                );
+                painter.rect_filled(
+                    view.rect_to_screen(bounds),
+                    18.0,
+                    Color32::from_rgb(255, 242, 0),
+                );
+            }
+            let old_line = |r, c, across| {
+                let edge = mesh.edge(r, c, across).expect("grid edge");
+                let points = (0..=8)
+                    .map(|i| old_view.to_screen(edge.eval(i as f64 / 8.0)))
+                    .collect();
+                painter.add(egui::Shape::line(points, egui::Stroke::new(1.0, blue)));
+            };
+            for r in 0..=mesh.rows {
+                for c in 0..mesh.cols {
+                    old_line(r, c, true);
+                }
+            }
+            for c in 0..=mesh.cols {
+                for r in 0..mesh.rows {
+                    old_line(r, c, false);
+                }
+            }
+            for node in &mesh.nodes {
+                let rect =
+                    ERect::from_center_size(old_view.to_screen(node.pos), egui::vec2(7.0, 7.0));
+                painter.rect_filled(rect, 0.0, Color32::WHITE);
+                painter.rect_stroke(
+                    rect,
+                    0.0,
+                    egui::Stroke::new(1.0, blue),
+                    egui::StrokeKind::Outside,
+                );
+            }
+            draw_effect_nodes(&app, painter);
+        });
+        image.save(std::path::Path::new(&path));
+    }
 
     /// The ring round a chosen control handle sits on the handle's head,
     /// half a head back from its tip towards the node, not on the tip
@@ -4147,6 +5513,100 @@ mod tests {
         let old: crate::settings::ViewPrefs =
             serde_json::from_str(r#"{"page_border": false}"#).expect("old");
         assert!(!old.page_border && old.page_shadow);
+    }
+
+    /// #3078: the page's shadow and border take the colour, offset,
+    /// softness and width Options set; unset, they look as they always
+    /// did; and the look is kept with the settings.
+    #[test]
+    fn the_page_shadow_and_border_look_as_options_set() {
+        let ctx = crate::theme::ui_context();
+        let mut app = App::headless();
+        app.show_welcome = false;
+        // The page's shadow and border as drawn: the flat shadow's
+        // rectangle, a soft shadow (a mesh), and the border's stroke.
+        let drawn = |app: &mut App| {
+            let mut found = (None, false, None);
+            for _ in 0..2 {
+                let input = egui::RawInput {
+                    screen_rect: Some(ERect::from_min_size(Pos2::ZERO, egui::vec2(1600.0, 1000.0))),
+                    ..Default::default()
+                };
+                let mut out = ctx.run_ui(input, |ui| crate::ui::root(app, ui));
+                out.textures_delta.clear();
+                let r = app.view.rect_to_screen(app.page_rect());
+                let paper = ERect::from_min_max(r.min.round(), r.max.round());
+                let shadow_at = page_shadow_rect(app, paper);
+                found = (None, false, None);
+                fn walk(
+                    s: &egui::Shape,
+                    paper: ERect,
+                    shadow_at: ERect,
+                    found: &mut (Option<Color32>, bool, Option<EStroke>),
+                ) {
+                    match s {
+                        egui::Shape::Vec(v) => {
+                            v.iter().for_each(|s| walk(s, paper, shadow_at, found))
+                        }
+                        egui::Shape::Rect(r) => {
+                            if r.rect == shadow_at && r.fill != Color32::TRANSPARENT {
+                                if r.blur_width > 0.0 {
+                                    found.1 = true;
+                                } else {
+                                    found.0 = Some(r.fill);
+                                }
+                            }
+                            if r.rect == paper && r.stroke.width > 0.0 {
+                                found.2 = Some(r.stroke);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                out.shapes
+                    .iter()
+                    .for_each(|c| walk(&c.shape, paper, shadow_at, &mut found));
+            }
+            found
+        };
+        let (flat, _, border) = drawn(&mut app);
+        assert_eq!(flat, Some(Tokens::page_shadow()), "the theme's shadow");
+        assert_eq!(border, Some(EStroke::new(1.0, Tokens::page_border())));
+        app.settings.page_look = crate::settings::PageLook {
+            shadow_color: Some([10, 20, 30, 128]),
+            shadow_offset: [12.0, 9.0],
+            shadow_softness: 0.0,
+            border_color: Some([200, 0, 0, 255]),
+            border_width: 3.0,
+        };
+        let (flat, _, border) = drawn(&mut app);
+        assert_eq!(flat, Some(Color32::from_rgba_unmultiplied(10, 20, 30, 128)));
+        assert_eq!(
+            border,
+            Some(EStroke::new(3.0, Color32::from_rgb(200, 0, 0))),
+            "the border's colour and width"
+        );
+        // Soft: a blurred shadow, no longer a hard rectangle.
+        app.settings.page_look.shadow_softness = 16.0;
+        let (flat, soft, _) = drawn(&mut app);
+        assert!(flat.is_none() && soft, "a soft shadow");
+        // Kept with the settings; values out of range come back usable.
+        let json = serde_json::to_string(&app.settings).expect("json");
+        let back: crate::settings::Settings = serde_json::from_str(&json).expect("back");
+        assert_eq!(back.page_look, app.settings.page_look);
+        let wild = crate::settings::PageLook {
+            shadow_offset: [f32::NAN, 1000.0],
+            shadow_softness: -4.0,
+            border_width: 0.0,
+            ..Default::default()
+        }
+        .sanitized();
+        assert_eq!(
+            wild.shadow_offset,
+            [6.0, crate::settings::PageLook::MAX_OFFSET]
+        );
+        assert_eq!(wild.shadow_softness, 0.0);
+        assert_eq!(wild.border_width, 0.5);
     }
 
     /// The parts of the window outside the pages: bands around one page,

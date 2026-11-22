@@ -11,8 +11,9 @@
 | Drag the centre mark (the "x") | moves the selection, also where the mark lies on nothing (an outline-only ring) |
 | Space | from another tool, picks the Pick tool; on the Pick tool, goes back to the tool used before it (the Pick tool's key, whatever it is bound to in Options, works the same way); ignored during a drag (it drops a copy there) and while text is edited. A tool key held down counts once: the presses the keyboard repeats while it is held pick nothing (#1502, `pick_drag_tests::holding_space_drops_one_copy_and_picks_once`) |
 | Drag object | move with the pointer (snapped); Ctrl (Cmd on macOS) or Shift keeps the move horizontal or vertical, whichever is longer (Shift since #2480; not with Alt, as Alt+Shift copies the outline on the drop); Space drops a copy where the selection is and the move goes on (also while scaling, turning or slanting: the copy takes the transform reached), one copy a press, however long Space is held; let go over the document palette to add the objects' colours to it instead of moving them |
-| Corner handle | scale proportionally from the opposite corner, by where the pointer falls along the box's diagonal: `s = (|sx| w² + |sy| h²) / (w² + h²)` with `sx`, `sy` the two sides' own ratios (each keeps its sign, for mirroring), so the corner follows the pointer and a wide, low box such as a line of text does not grow at the short side's pace (#383); the handle follows the pointer from the frame the drag starts, not in a jump of the few pixels before a press becomes a drag; Shift from the centre; Ctrl in whole steps of 100 % (crossing the other side gives the mirror image at the same size); Alt scales freely |
+| Corner handle | scale proportionally from the opposite corner, by where the pointer falls along the box's diagonal: `s = (|sx| w² + |sy| h²) / (w² + h²)` with `sx`, `sy` the two sides' own ratios (each keeps its sign, for mirroring), so the corner follows the pointer and a wide, low box such as a line of text does not grow at the short side's pace (#383); the handle follows the pointer from the frame the drag starts, not in a jump of the few pixels before a press becomes a drag; Shift from the centre; Ctrl in whole steps of 100 % (crossing the other side gives the mirror image at the same size); Alt scales freely; Ctrl+Alt changes the width and the height by the same distance, where the pointer falls along the diagonal, so the selection gains or loses an even border (with Shift on every side, about the centre; #3330, `pick_drag_tests::handle_modifiers_shape_the_scale`) |
 | Side handle | stretch one axis from the opposite side (across it: mirrored); Shift from the centre; Ctrl in steps of 100 % |
+| Handles of a thin selection | a straight vertical or horizontal line, or anything as thin on screen: the box the handles stand on is widened about its middle until the three handles of a side are 3 points apart, so they never lie on top of each other; the drag still moves the edge by the pointer's distance (#3523, `pick_drag_tests::the_handles_of_a_straight_line_do_not_overlap`) |
 | Snapping while scaling | with snapping on, the dragged corner or side handle snaps to other objects' points and edges, guidelines, the grid and the page (never to the selection's own points), and the snap mark shows where |
 | Rotate handle (rotate mode, corners) | rotate about the centre of rotation; Ctrl in steps of the constrain angle (15 degrees); without Ctrl the pointer snaps to other objects' points only, never to edges or lines (#933, see `snapping.md`) |
 | A node of the selection (rotate mode; also a segment's midpoint or an ellipse's quadrant, the points the pointer marks) | dragged, turns the selection about the centre of rotation, the node going round its circle towards the pointer (the turning arrows show over it); near another object's point the turn aims at it, near an edge or a guideline (Snap to Guidelines on, #3056) the node lands where its circle crosses it, exactly on it; Ctrl in steps of the constrain angle; elsewhere on the selection a drag moves it as outside rotate mode (#933, `pick_drag_tests::a_node_dragged_in_rotate_mode_turns_the_selection_onto_a_line`) |
@@ -116,8 +117,7 @@ move its letters further apart or closer, 5 % of a space's width a
 press (the Text docker's Character spacing), for a text fitted to a
 path too
 (`text_nodes::tests::the_spacing_keys_step_the_character_spacing_of_selected_texts`,
-#193). While a text is edited they space single letters, as in
-CorelDRAW: with the caret, only the gap at the caret (the letter before
+#193). While a text is edited they space single letters: with the caret, only the gap at the caret (the letter before
 it gets 2 % of the size more or less range kerning a press); with
 characters selected, or chosen with the Shape tool, only those (#2171,
 `text_nodes::tests::the_spacing_keys_space_one_letter_at_the_caret_or_the_chosen_ones`).
@@ -143,6 +143,7 @@ selected group finds the other groups (#2203).
 | Outline | the outline is equal (width, colour, dashes, caps, arrows...), or both have none |
 | Text Formatting (Font and Size) | both are text and share a font family (any case) and size (to 0.01 pt) in some of their characters |
 | Object Type | the same shape kind (rectangle, ellipse, polygon, curve, text, group, bitmap, clip frame, table, symbol), artistic and paragraph text apart |
+| Close Look | within the Tolerance (a field at the bottom of the submenu, in the Edit menu and the right-click menu, 0 to 100 %, 10 at first, `settings.similar_tolerance`): solid fills whose red, green and blue each differ by at most the tolerance of 255 (any other fill equal), outlines both none or with colours that close and widths within the tolerance of the wider, and opacity within the tolerance; also under Repeat on Similar (`select_similar::tests::close_look_picks_what_looks_alike_within_the_tolerance`) |
 
 Nothing selected, or no object alike: the selection stays. The status
 bar tells how many objects are selected.
@@ -177,7 +178,16 @@ where they are and their outline shows where they would go: a blue line
 on a white halo, which reads as two light lines on a dark fill. The
 outline is the one the release makes: a rectangle's corners that keep
 their size stay round while it is stretched
-(`Shape::page_path_after`). The handles return on release.
+(`Shape::page_path_after`), and an object an envelope, a perspective or
+a distortion reshapes shows its reshaped outline, not the plain object
+beneath it (#3569,
+`canvas::tests::the_drag_outline_of_a_warped_object_is_its_warped_shape`).
+The handles return on release.
+
+With Options > Display > Show objects while transforming (off by
+default, #3569) the objects themselves are also drawn where they would
+go while the drag lasts, fills, effects and blends included, and drawn
+where they were no longer; slower on large drawings.
 
 A move grabbed on a mark (see below) carries that point: a node,
 midpoint, centre or the point of an edge lands on other objects' points
@@ -208,6 +218,10 @@ moved or turned as much again by each next Duplicate (#559, #1494,
 `app::tests::duplicate_repeats_what_was_done_to_the_copy`,
 `app::tests::smart_duplicate_repeats_a_turn_and_scale_until_deselected`,
 `guides::tests::duplicating_guidelines_repeats_their_move_and_turn`).
+Copies made in place with + start the same: moved, turned or scaled
+while selected, each next Duplicate repeats that step from them; left as
+they are, the next Duplicate uses the offset (#3520,
+`app::tests::a_copy_in_place_turned_repeats_its_turn`).
 A deselect by accident is taken back by Undo: right after the copies
 are deselected, with no change of the drawing and no other selection
 made since, Edit > Undo selects the copies again and the next Duplicate
@@ -284,7 +298,7 @@ object under the pointer, the topmost object there is selected first
 (#1684, `pick_drag_tests::a_right_click_on_a_covered_selected_object_keeps_the_selection`).
 
 Keys held as the right button is let go over another object skip the
-menu, as in CorelDRAW: Shift gives that object the outline of the first
+menu: Shift gives that object the outline of the first
 selected object (Copy Outline Here), Alt its fill (Copy Fill Here) and
 Ctrl (Cmd on macOS) its fill, outline and transparency (Copy All
 Properties). While the keys are held the object that would take them is

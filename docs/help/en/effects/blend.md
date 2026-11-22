@@ -1,7 +1,7 @@
 # Blends
 
 A blend draws a series of intermediate steps between two objects, changing
-shape, size and color from one to the other. Use it for smooth shading,
+shape, size, color and transparency from one to the other. Use it for smooth shading,
 repeated patterns or a shape that turns into another.
 
 ## To blend two objects {#create}
@@ -63,6 +63,15 @@ acceleration above and the color acceleration below.
 - Drag an end square to move its object, so the blend changes direction. Drop
   it on another object to make that object the new start or end, with the
   blend's settings.
+- Drag the round handle in the middle of the line (a blend without a path) to
+  bend the line into a curve: the steps follow it, and Spacing and Rotate all
+  objects work along it as along a path. Drop the handle back on the straight
+  line, or click **Straighten** in the panel, to make it straight again.
+
+When both ends are groups (a sun of many colored strokes, say), tick **Blend
+object by object** in the panel: each object of one group blends into the
+matching object of the other in its own colors, instead of each group
+blending as one shape.
 
 The object acceleration moves the steps toward one end also when the blend
 follows no path. A bitmap effect on the start object keeps the blend drawn.
@@ -70,11 +79,18 @@ follows no path. A bitmap effect on the start object keeps the blend drawn.
 ## Blending along a path {#path}
 
 1. Select the blend.
-2. Click **New path** in the [[docker.blend]] panel and click a curve.
+2. Click [[docker.new_path]] in the [[docker.blend]] panel or on the Blend
+   tool's property bar, and click a curve.
 
 The steps follow the curve. **Rotate all objects** turns each step along the
 curve, and [[docker.blend_full_path]] places the first and last steps at the
 ends of the curve.
+
+The blend stays a blend: its steps, spacing, acceleration, rotation and
+colours still change it. To put the start and end objects anywhere along the
+curve, set [[docker.blend_path_start]] and [[docker.blend_path_end]], in % of
+the curve's length: each object moves there and the steps run between them.
+[[docker.detach_path]] takes the blend off the curve, a straight blend again.
 
 ## Removing or splitting a blend {#clear}
 

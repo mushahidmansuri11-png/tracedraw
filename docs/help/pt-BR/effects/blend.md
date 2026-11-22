@@ -3,7 +3,7 @@
 > *Tradução automática: esta página pode estar atrasada em relação à versão em inglês.*
 
 Uma mistura desenha uma série de passos intermediários entre dois objetos,
-mudando forma, tamanho e cor de um para o outro. Use-a para sombreamentos
+mudando forma, tamanho, cor e transparência de um para o outro. Use-a para sombreamentos
 suaves, padrões repetidos ou uma forma que se transforma em outra.
 
 ## Para misturar dois objetos {#create}
@@ -71,11 +71,18 @@ desenhada.
 ## Misturar ao longo de um caminho {#path}
 
 1. Selecione a mistura.
-2. Clique em **Novo caminho** no painel [[docker.blend]] e clique em uma curva.
+2. Clique em [[docker.new_path]] no painel [[docker.blend]] ou na barra de
+   propriedades da ferramenta Mistura, e clique em uma curva.
 
 Os passos seguem a curva. **Girar todos os objetos** gira cada passo ao longo da
 curva, e [[docker.blend_full_path]] coloca o primeiro e o último passo nas
 pontas da curva.
+
+A mistura continua sendo mistura: passos, espaçamento, aceleração, rotação e
+cores ainda a alteram. Para pôr os objetos inicial e final em qualquer ponto da
+curva, ajuste [[docker.blend_path_start]] e [[docker.blend_path_end]], em % do
+comprimento da curva: cada objeto vai para lá e os passos correm entre eles.
+[[docker.detach_path]] tira a mistura da curva, que volta a ser reta.
 
 ## Remover ou separar uma mistura {#clear}
 

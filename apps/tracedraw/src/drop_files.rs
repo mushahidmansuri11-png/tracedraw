@@ -380,7 +380,9 @@ impl FileDrag {
     /// they counted again, and a file dropped, then deleted, came back
     /// with every later drop until TraceDraw was restarted (#2940).
     pub fn fresh<'a>(&self, hovered: &'a [PathBuf]) -> &'a [PathBuf] {
-        hovered.strip_prefix(self.stale.as_slice()).unwrap_or(hovered)
+        hovered
+            .strip_prefix(self.stale.as_slice())
+            .unwrap_or(hovered)
     }
 
     /// The drop frame shows: a drag goes on with a button held.

@@ -122,6 +122,12 @@ fn set_color(app: &mut App, c: Color) {
     }
 }
 
+/// A colour sampled by the Color Eyedropper becomes the docker's new
+/// colour as well.
+pub fn take_sampled_color(app: &mut App, c: Color) {
+    set_color(app, c);
+}
+
 /// A 28 x 26 picture button, shaded while `on`.
 fn view_button(ui: &mut Ui, view: View, tip: &str, on: bool) -> Response {
     let (rect, resp) = ui.allocate_exact_size(Vec2::new(28.0, 26.0), Sense::click());
@@ -965,39 +971,14 @@ fn top_row(app: &mut App, ui: &mut Ui) {
     });
 }
 
-/// The hex row: the new colour's code, typed values applied when the
-/// field is left, and the gamut warning.
+/// The hex row: the new colour's code in the buffered field the colour
+/// picker uses, so a code can be typed, erased, copied and pasted, and
+/// the gamut warning.
 fn hex_row(ui: &mut Ui, c: &mut Color) -> bool {
     let mut changed = false;
     ui.horizontal(|ui| {
         ui.label(tr("docker.hex"));
-        // What is typed lives in the UI memory while the field has the
-        // keys: a text rebuilt from the colour every frame wiped each
-        // key press, so no code could be typed.
-        let id = egui::Id::new("color_docker_hex_text");
-        let typed: Option<String> = ui.data(|d| d.get_temp(id));
-        let mut hex = typed.unwrap_or_else(|| c.to_hex());
-        let resp = ui
-            .add(egui::TextEdit::singleline(&mut hex).desired_width(64.0))
-            .rich_tip(crate::ui::tips::keyed("docker.hex_color"));
-        if resp.has_focus() || resp.changed() {
-            ui.data_mut(|d| d.insert_temp(id, hex.clone()));
-        }
-        if resp.lost_focus() {
-            ui.data_mut(|d| d.remove::<String>(id));
-            if let Some(nc) = Color::from_hex(&hex) {
-                if nc.to_hex() != c.to_hex() {
-                    // A code is RGB; a colour edited in CMYK stays CMYK.
-                    let model = crate::ui::color_picker::edit_model(*c);
-                    *c = if model == "RGB" {
-                        nc
-                    } else {
-                        nc.convert_to(model)
-                    };
-                    changed = true;
-                }
-            }
-        }
+        changed = crate::ui::color_picker::hex_field(ui, egui::Id::new("col_docker_hex"), c);
         if !c.in_cmyk_gamut(6.0) {
             gamut_warning(ui).rich_tip(tr("docker.gamut_warning"));
         }

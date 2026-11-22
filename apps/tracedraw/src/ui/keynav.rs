@@ -589,6 +589,11 @@ fn alt_alone(ctx: &Context, st: &mut State) -> bool {
                 }
                 st.alt_down = m.alt;
             }
+            // Alt itself arrives as a key press too (after the change of
+            // the modifiers on Windows): it is not another key.
+            Event::Key {
+                key, pressed: true, ..
+            } if crate::shortcuts::is_modifier(*key) => {}
             Event::Key { pressed: true, .. }
             | Event::PointerButton { pressed: true, .. }
             | Event::MouseWheel { .. }
@@ -643,11 +648,13 @@ fn bar_keys(ctx: &Context, st: &mut State, titles: &Titles, at: usize) {
             }
             open(st, i);
         } else if ctx.input(|i| {
-            i.events
-                .iter()
-                .any(|e| matches!(e, Event::Key { pressed: true, .. }))
+            i.events.iter().any(|e| {
+                matches!(e, Event::Key { key, pressed: true, .. }
+                    if !crate::shortcuts::is_modifier(*key))
+            })
         }) {
-            // Any other key (a shortcut) leaves the bar and does its work.
+            // Any other key (a shortcut) leaves the bar and does its work;
+            // Shift, Ctrl or Alt alone do not.
             st.bar = None;
         }
     }
@@ -1084,14 +1091,14 @@ pub struct ComboBox {
 impl ComboBox {
     pub fn from_label(label: impl Into<egui::WidgetText>) -> Self {
         Self {
-            inner: egui::ComboBox::from_label(label),
+            inner: egui::ComboBox::from_label(label).popup_style(list_style()),
             shown: String::new(),
         }
     }
 
     pub fn from_id_salt(id_salt: impl egui::AsIdSalt) -> Self {
         Self {
-            inner: egui::ComboBox::from_id_salt(id_salt),
+            inner: egui::ComboBox::from_id_salt(id_salt).popup_style(list_style()),
             shown: String::new(),
         }
     }
@@ -1137,6 +1144,29 @@ impl ComboBox {
         });
         combo_keys(ui.ctx(), &ir.response, shown);
         ir
+    }
+}
+
+/// The style of a combo box's list (#3491): the rows' resting frame has
+/// no edge, so a row's name stands where it stands lit or chosen. egui
+/// leaves a frameless row's padding short by the edge's width, so with
+/// an edge of 1 point every name moved a point as the pointer went over
+/// it. The chosen row keeps its fill and the lit one its accent edge.
+pub fn list_style() -> egui::style::StyleModifier {
+    egui::style::StyleModifier::new(|s: &mut egui::Style| {
+        s.visuals.widgets.inactive.bg_stroke.width = 0.0;
+    })
+}
+
+/// How tall a combo box's list may be before it scrolls, in points, for
+/// a window `screen` points tall (#3492): seven tenths of it, at least
+/// egui's 200, so a list that fits the window shows whole, with no
+/// scroll bar.
+pub fn list_height(screen: f32) -> f32 {
+    if screen.is_finite() {
+        (screen * 0.7).max(200.0).round()
+    } else {
+        200.0
     }
 }
 
@@ -1387,6 +1417,32 @@ mod tests {
             crate::ui::dialogs::Dialog::NewDocument(_)
         ));
         assert!(!egui::Popup::is_any_open(&ctx));
+    }
+
+    /// Alt arrives as a key press of its own too, after the change of the
+    /// modifiers (Windows): pressed and let go alone it still lights the
+    /// menu bar, and Shift alone does not let the bar go (#3198).
+    #[test]
+    fn alt_as_a_key_press_still_lights_the_menu_bar() {
+        let ctx = crate::theme::ui_context();
+        let mut app = app_with_shapes();
+        keys(&ctx, &mut app, Vec::new());
+        window(
+            &ctx,
+            &mut app,
+            vec![press(Key::AltLeft, Modifiers::ALT)],
+            Modifiers::ALT,
+        );
+        window(&ctx, &mut app, Vec::new(), Modifiers::NONE);
+        assert_eq!(bar_focus(&ctx), Some(0));
+        window(
+            &ctx,
+            &mut app,
+            vec![press(Key::ShiftLeft, Modifiers::SHIFT)],
+            Modifiers::SHIFT,
+        );
+        window(&ctx, &mut app, Vec::new(), Modifiers::NONE);
+        assert_eq!(bar_focus(&ctx), Some(0), "Shift alone keeps the bar lit");
     }
 
     /// On a window too narrow for the whole menu bar, Alt and the access
@@ -1733,6 +1789,104 @@ mod tests {
         let focus = ctx.memory(|m| m.focused()).expect("a row lit");
         assert_eq!(in_view(focus), Some(true), "and back to the first");
         key(&ctx, &mut app, Key::Escape);
+    }
+
+    /// A combo box's list (#3491, #3492): a row's name does not move as
+    /// the pointer goes over it or off it, and a list of 16 rows in a
+    /// window 600 points tall shows whole, no row scrolled out of it.
+    #[test]
+    fn a_combo_list_keeps_its_names_still_and_shows_whole() {
+        let ctx = crate::theme::ui_context();
+        ctx.set_visuals(crate::theme::visuals());
+        ctx.all_styles_mut(|s| s.spacing.combo_height = list_height(600.0));
+        let names: Vec<String> = (1..=16).map(|i| format!("Row {i}")).collect();
+        let mut value = 2usize;
+        let run = |value: &mut usize, events: Vec<Event>, time: f64| {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(800.0, 600.0),
+                )),
+                events,
+                time: Some(time),
+                ..Default::default()
+            };
+            let mut out = ctx.run_ui(input, |ui| {
+                frame(ui.ctx(), false);
+                egui::Area::new(Id::new("rows_bar"))
+                    .fixed_pos(egui::pos2(50.0, 20.0))
+                    .show(ui.ctx(), |ui| {
+                        ComboBox::from_id_salt("rows")
+                            .selected_text(names[*value].clone())
+                            .show_ui(ui, |ui| {
+                                for (i, n) in names.iter().enumerate() {
+                                    ui.selectable_value(value, i, n);
+                                }
+                            });
+                    });
+                end_frame(ui.ctx());
+            });
+            out.textures_delta.clear();
+            // Where each name is painted.
+            let mut at = std::collections::HashMap::new();
+            for c in &out.shapes {
+                if let egui::epaint::Shape::Text(t) = &c.shape {
+                    at.insert(
+                        t.galley.text().to_string(),
+                        t.pos + t.galley.rect.min.to_vec2(),
+                    );
+                }
+            }
+            at
+        };
+        let mut t = 0.0;
+        let mut step = |value: &mut usize, events: Vec<Event>| {
+            t += 0.1;
+            run(value, events, t)
+        };
+        step(&mut value, Vec::new());
+        let combo = {
+            let pass = ctx.cumulative_pass_nr();
+            ctx.data_mut(|d| {
+                d.get_temp_mut_or_default::<Noted<Combo>>(combos_id())
+                    .seen(pass)
+                    .next()
+                    .cloned()
+            })
+            .expect("combo noted")
+        };
+        egui::Popup::open_id(&ctx, combo.popup);
+        let mut rest = step(&mut value, Vec::new());
+        for _ in 0..3 {
+            rest = step(&mut value, Vec::new());
+        }
+        assert!(egui::Popup::is_id_open(&ctx, combo.popup));
+        // Every row whole inside the list.
+        let rows = rows_of(&ctx, combo.popup);
+        assert_eq!(rows.len(), 16, "{rows:?}");
+        let area = ctx.memory(|m| m.area_rect(combo.popup)).expect("list");
+        for (_, r) in &rows {
+            assert!(
+                area.top() <= r.top() + 1.0 && r.bottom() - 1.0 <= area.bottom(),
+                "{r:?} {area:?}"
+            );
+        }
+        // The pointer over a row, then over the chosen one: no name moves.
+        let row5 = rows[5].1.center();
+        let mut lit = rest.clone();
+        for _ in 0..3 {
+            lit = step(&mut value, vec![Event::PointerMoved(row5)]);
+        }
+        for n in ["Row 6", "Row 3", "Row 10"] {
+            let (a, b) = (rest.get(n).copied(), lit.get(n).copied());
+            assert!(a.is_some() && a == b, "{n}: {a:?} then {b:?}");
+        }
+        let row2 = rows[2].1.center();
+        for _ in 0..3 {
+            lit = step(&mut value, vec![Event::PointerMoved(row2)]);
+        }
+        assert_eq!(rest.get("Row 3"), lit.get("Row 3"));
+        assert_eq!(rest.get("Row 6"), lit.get("Row 6"));
     }
 
     const FRUIT: [&str; 6] = ["Apple", "Banana", "Blueberry", "Cherry", "Date", "Elder"];

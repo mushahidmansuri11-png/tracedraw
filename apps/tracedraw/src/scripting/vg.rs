@@ -705,7 +705,7 @@ impl HostInner {
                     out.push(copy.id);
                     self.run(Command::AddShape { layer, shape: copy })?;
                 }
-                // What is pasted is selected, as in CorelDRAW.
+                // What is pasted is selected.
                 self.selection = out.clone();
                 json!({"ids": out.iter().map(|i| i.raw()).collect::<Vec<_>>()})
             }
@@ -993,7 +993,7 @@ impl HostInner {
                     } else {
                         96.0
                     };
-                    let pm = tracedraw_render::render_page_image(doc, page, dpi)
+                    let pm = tracedraw_render::render_page_export_image(doc, page, dpi)
                         .ok_or("render failed")?;
                     let img =
                         image::RgbaImage::from_raw(pm.width(), pm.height(), pm.data().to_vec())
@@ -1485,6 +1485,7 @@ impl HostInner {
                     offset,
                     outside: direction == 2,
                     to_center: direction == 0,
+                    both: false,
                     fill_to,
                     outline_to: None,
                     fill_end_to: None,

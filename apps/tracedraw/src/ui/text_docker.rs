@@ -477,8 +477,10 @@ pub(crate) fn edit_spans(app: &mut App, f: impl Fn(&mut TextSpan) + Clone) {
         })
         .collect();
     if !cmds.is_empty() {
-        if let Err(e) = app.engine.run_batch("Text", &cmds) {
-            app.status = e.to_string();
+        match app.engine.run_batch("Text", &cmds) {
+            // A macro being recorded makes the change again (#3518).
+            Ok(_) => app.note_recorded(&cmds),
+            Err(e) => app.status = e.to_string(),
         }
     }
 }
@@ -1891,6 +1893,11 @@ fn frame(app: &mut App, ui: &mut Ui, first: Option<&tracedraw_core::Shape>) {
             pc = true;
         }
     });
+    // Type block: each line its own size, filling the frame's width.
+    pc |= ui
+        .checkbox(&mut p.type_block, tr("docker.type_block"))
+        .rich_tip(crate::ui::tips::keyed("docker.type_block"))
+        .changed();
     egui::Grid::new("text_frame")
         .num_columns(2)
         .spacing([6.0, 4.0])

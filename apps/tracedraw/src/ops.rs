@@ -277,10 +277,12 @@ impl App {
     pub(crate) fn duplicate_in_place(&mut self) {
         let saved = self.duplicate_offset;
         self.duplicate_offset = Vec2::ZERO;
-        // Copies in place are not a Duplicate the next one repeats (#559).
+        // Copies in place start a Duplicate of their own (#559): left as
+        // they are, the next Duplicate uses the offset; moved, turned or
+        // scaled, it repeats that step from them, as after Ctrl+D (#3520).
         self.last_duplicate.clear();
         self.duplicate();
-        self.last_duplicate.clear();
+        self.last_duplicate_in_place = true;
         self.duplicate_offset = saved;
     }
 
@@ -387,9 +389,16 @@ impl App {
         }
         // Make everything a curve first so Combine has paths to merge.
         self.convert_to_curves();
-        let keep = shapes.last().copied();
-        self.run(Command::Combine { shapes });
-        self.selection = keep.into_iter().collect();
+        self.run(Command::Combine {
+            shapes: shapes.clone(),
+        });
+        // The result keeps the id of the part on top, which is not the
+        // last one picked when they were picked from the top down: select
+        // the one that is left. The selection named a part combined away,
+        // so nothing was selected after Combine.
+        let mut kept = shapes.clone();
+        self.doc().retain_existing(&mut kept);
+        self.selection = kept;
     }
 
     /// [`Self::combine`] on objects of one group: made curves, then one
@@ -876,7 +885,8 @@ impl App {
             }
         }
         // Remember where it came from: Image > Update from Link re-reads it.
-        if !dropped {
+        // Options > Global > File Formats can embed it only (#3089).
+        if !dropped && self.settings.formats.import_link_pictures {
             self.run(Command::SetObjectData {
                 shape: id,
                 data: vec![("bitmap.link".into(), path.display().to_string())],
@@ -886,8 +896,8 @@ impl App {
     }
 
     /// Double-clicking the Rectangle tool: a rectangle exactly the size of
-    /// the page (a page frame), behind every object of the layer, as
-    /// CorelDRAW puts it (#2640: it came in front and hid the drawing),
+    /// the page (a page frame), behind every object of the layer
+    /// (#2640: it came in front and hid the drawing),
     /// selected; one undo step.
     pub fn add_page_frame(&mut self) {
         let size = self.page_size();
@@ -1164,6 +1174,77 @@ fn group_leaves(s: &Shape) -> Vec<Shape> {
     out
 }
 
+/// What Simplify leaves of an object.
+enum Simplified {
+    /// Nothing changed (an open curve, or a group of them).
+    Same,
+    /// Nothing is left.
+    Gone,
+    Kind(ShapeKind),
+}
+
+/// What Simplify leaves of `s` (under `parent`, the identity for an
+/// object of the layer): each of its objects, a group's in
+/// [`group_leaves`] order, takes the next outline of `cuts` (page space;
+/// `None` for an open curve, which stays as it is). Objects of a group
+/// left with nothing go out of it.
+fn simplified(
+    s: &Shape,
+    parent: tracedraw_core::geometry::Affine,
+    cuts: &mut impl Iterator<Item = Option<tracedraw_core::BezPath>>,
+) -> Simplified {
+    let t = parent * s.transform;
+    if let ShapeKind::Group { children } = &s.kind {
+        let mut kept = Vec::new();
+        let mut changed = false;
+        for c in children {
+            match simplified(c, t, cuts) {
+                Simplified::Same => kept.push(c.clone()),
+                Simplified::Gone => changed = true,
+                Simplified::Kind(kind) => {
+                    let mut c = c.clone();
+                    c.kind = kind;
+                    kept.push(c);
+                    changed = true;
+                }
+            }
+        }
+        return if kept.is_empty() {
+            Simplified::Gone
+        } else if changed {
+            Simplified::Kind(ShapeKind::Group { children: kept })
+        } else {
+            Simplified::Same
+        };
+    }
+    let Some(p) = cuts.next().flatten() else {
+        return Simplified::Same;
+    };
+    if p.elements().is_empty() {
+        return Simplified::Gone;
+    }
+    let local = t.inverse() * p;
+    Simplified::Kind(match &s.kind {
+        // A clip frame's frame takes the outline left; what it holds
+        // stays inside (#1748).
+        ShapeKind::ClipFrame { frame, contents } => {
+            let mut frame = (**frame).clone();
+            frame.kind = ShapeKind::Path {
+                path: frame.transform.inverse() * local,
+                closed: true,
+            };
+            ShapeKind::ClipFrame {
+                frame: Box::new(frame),
+                contents: contents.clone(),
+            }
+        }
+        _ => ShapeKind::Path {
+            path: local,
+            closed: true,
+        },
+    })
+}
+
 /// The area an object covers on the page, as an outline read with the
 /// even-odd rule, for the shaping operations: text and curves set to the
 /// nonzero rule (#1919) without holes where their contours overlap, and
@@ -1291,7 +1372,7 @@ impl App {
     }
 
     /// The one selected object is a group of two or more objects that an
-    /// operation needing two acts on, as in CorelDRAW: Weld, Trim,
+    /// operation needing two acts on: Weld, Trim,
     /// Intersect and the others from the menus or the property bar take
     /// the group's objects, as if they were selected with a marquee (the
     /// bottom one the target), instead of waiting for a target (#2306).
@@ -1524,31 +1605,50 @@ impl App {
                     .skip(1)
                     .fold(paths[0].clone(), |acc, p| overlay(&acc, p, Op::Intersect)),
                 Shaping::Simplify => {
-                    // Each object loses what is covered by objects above it.
-                    let mut cmds = Vec::new();
-                    for (i, s) in ordered.iter().enumerate() {
-                        let mut p = s.page_path();
-                        for above in &paths[i + 1..] {
-                            p = overlay(&p, above, Op::Trim);
+                    // Each object loses what is covered by objects above
+                    // it, read by the area it fills (a curve filled with
+                    // the nonzero rule, and text, have no holes where
+                    // their contours overlap). The objects of a group are
+                    // cut one by one and stay a group with their own
+                    // fills: the group became one curve with no fill and a
+                    // hole where its objects overlapped.
+                    let mut leaves: Vec<Shape> = Vec::new();
+                    for s in &ordered {
+                        let l = group_leaves(s);
+                        if l.is_empty() {
+                            leaves.push(s.clone());
+                        } else {
+                            leaves.extend(l);
                         }
-                        let p = simplify(&p);
-                        let local = s.transform.inverse() * p;
-                        let kind = match &s.kind {
-                            // A clip frame's frame takes the outline left;
-                            // what it holds stays inside (#1748).
-                            ShapeKind::ClipFrame { frame, contents } => {
-                                let mut frame = (**frame).clone();
-                                frame.kind = ShapeKind::Path {
-                                    path: frame.transform.inverse() * local,
-                                    closed: true,
-                                };
-                                ShapeKind::ClipFrame {
-                                    frame: Box::new(frame),
-                                    contents: contents.clone(),
-                                }
+                    }
+                    // An open curve covers nothing: it neither cuts nor is
+                    // cut.
+                    let areas: Vec<Option<tracedraw_core::BezPath>> = leaves
+                        .iter()
+                        .map(|l| (!open(l)).then(|| shaping_area(l)))
+                        .collect();
+                    let mut cuts = areas.iter().enumerate().map(|(i, a)| {
+                        a.as_ref().map(|a| {
+                            let mut p = a.clone();
+                            for above in areas[i + 1..].iter().flatten() {
+                                p = overlay(&p, above, Op::Trim);
                             }
-                            _ => ShapeKind::Path {
-                                path: local,
+                            simplify(&p)
+                        })
+                    });
+                    let mut cmds = Vec::new();
+                    for s in &ordered {
+                        let kind = match simplified(
+                            s,
+                            tracedraw_core::geometry::Affine::IDENTITY,
+                            &mut cuts,
+                        ) {
+                            Simplified::Same => continue,
+                            Simplified::Kind(kind) => kind,
+                            // An object covered all over keeps its place,
+                            // with nothing left of its outline.
+                            Simplified::Gone => ShapeKind::Path {
+                                path: tracedraw_core::BezPath::new(),
                                 closed: true,
                             },
                         };
@@ -1622,7 +1722,13 @@ impl App {
         };
         let id = self.engine.new_shape_id();
         let leaves = group_leaves(&attrs);
-        let pictures = picture_contents(&attrs);
+        // Create Boundary only draws an outline round the selection: a
+        // picture as target gave the picture cropped to it (#3253).
+        let pictures = if op == Shaping::Boundary {
+            None
+        } else {
+            picture_contents(&attrs)
+        };
         // A clip frame keeps what it holds: the result is a clip frame
         // whose frame takes the result's shape with the frame's own fill
         // and outline; a Weld also gathers what every clip frame welded
@@ -1811,7 +1917,7 @@ impl App {
             shape
         };
         // Create Boundary draws an outline around the selection, with no
-        // fill, as in CorelDRAW: it took the target's fill, so the new
+        // fill: it took the target's fill, so the new
         // object covered what it was drawn around (#2640). The outline is
         // the target's, or a hairline when the target has none.
         let unfilled = |mut s: Shape| {
@@ -3249,6 +3355,30 @@ mod curves_and_target_tests {
         let (path, closed) = result(&app);
         assert_eq!(moves(&path), 2);
         assert!(!closed, "combined open curves stay open");
+    }
+
+    /// Combine of objects picked from the top down (Shift+click on the
+    /// top one first): the result is selected. The selection named the
+    /// last one picked, which Combine took away, so nothing was selected.
+    #[test]
+    fn combine_selects_the_result_whatever_the_picking_order() {
+        let mut app = App::headless();
+        let rect = |app: &mut App, x: f64| {
+            app.new_shape(ShapeKind::Rect {
+                rect: Rect::new(x, 10.0, x + 20.0, 30.0),
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("rect")
+        };
+        let bottom = rect(&mut app, 10.0);
+        let middle = rect(&mut app, 40.0);
+        let top = rect(&mut app, 70.0);
+        app.select(vec![top, middle, bottom]);
+        app.combine();
+        assert_eq!(app.selection, vec![top], "the result, on top");
+        assert!(app.doc().find_shape(top).is_some());
+        assert_eq!(app.selected_shapes().len(), 1);
     }
 
     /// #1324, discussion #2415: Convert to Curves on a group (menu, right

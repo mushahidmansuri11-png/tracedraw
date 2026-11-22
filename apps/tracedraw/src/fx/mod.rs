@@ -12,8 +12,14 @@ pub mod camera;
 pub mod color;
 pub mod creative;
 pub mod distort;
+pub mod glitch;
+pub mod light;
 pub mod noise;
+pub mod paint;
 pub mod preview;
+pub mod print;
+pub mod sketch;
+pub mod strokes;
 pub mod texture;
 pub mod util;
 
@@ -200,6 +206,8 @@ pub fn catalog() -> impl Iterator<Item = &'static EffectSpec> {
         .chain(creative::EFFECTS.iter())
         .chain(texture::CUSTOM.iter())
         .chain(distort::EFFECTS.iter())
+        .chain(glitch::EFFECTS.iter())
+        .chain(light::EFFECTS.iter())
         .chain(noise::NOISE.iter())
         .chain(noise::SHARPEN.iter())
         .chain(texture::TEXTURE.iter())
@@ -220,6 +228,8 @@ pub fn groups() -> Vec<(&'static str, &'static [EffectSpec])> {
         ("menu.effects.creative", creative::EFFECTS),
         ("menu.effects.custom", texture::CUSTOM),
         ("menu.effects.distort", distort::EFFECTS),
+        ("menu.effects.glitch", glitch::EFFECTS),
+        ("menu.effects.light", light::EFFECTS),
         ("menu.effects.noise", noise::NOISE),
         ("menu.effects.sharpen", noise::SHARPEN),
         ("menu.effects.texture", texture::TEXTURE),

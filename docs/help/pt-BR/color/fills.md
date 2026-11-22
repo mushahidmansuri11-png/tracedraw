@@ -38,8 +38,13 @@ preenchimento do painel [[docker.properties]]:
 
 - O tipo: [[fill.linear]] (ao longo de uma linha), [[fill.radial]] (do centro
   para fora), [[fill.conical]] (em volta do centro), [[fill.square]] (em
-  quadrados crescentes) ou [[fill.shaped]] (seguindo o contorno do objeto, da
-  borda para dentro).
+  quadrados crescentes), [[fill.shaped]] (seguindo o contorno do objeto, da
+  borda para dentro) ou **Pontos de cor** (cada cor num ponto próprio em
+  qualquer lugar do objeto, misturando-se com as outras ao redor). Com a
+  ferramenta Preenchimento interativo ou Forma os pontos de cor aparecem no
+  objeto: arraste um para movê-lo, clique num e depois numa cor da paleta
+  para trocar a cor, clique duas vezes dentro do objeto para adicionar um e
+  pressione Delete para remover o escolhido (dois sempre ficam).
 - [[docker.gradient_presets]]: gradientes prontos para começar.
 - As **paradas**: as cores e onde ficam no gradiente, de 2 a 64. Selecione uma
   parada para mudar a cor ou a posição; [[docker.add_stop]] e
@@ -67,7 +72,9 @@ seleção (ou dos objetos novos, sem nada selecionado).
   [[edit_fill.fill_picker]] com os gradientes prontos. À direita: o tipo, como
   ele se repete e a faixa de cores com seus nós. Clique num nó para escolhê-lo
   e arraste para movê-lo; clique duas vezes na faixa para acrescentar um nó e
-  num nó para removê-lo. A cor, a transparência, a posição e o
+  num nó para removê-lo. <kbd>Alt</kbd> e um arrasto num nó o copiam e movem a
+  cópia: dois nós da mesma cor fazem uma faixa sólida, e dois nós de cores
+  diferentes lado a lado fazem uma borda dura. A cor, a transparência, a posição e o
   [[edit_fill.midpoint]] do nó escolhido ficam sob a faixa, com
   [[edit_fill.reverse]]. [[edit_fill.transform]] tem a rotação, o centro (para
   gradientes radiais, cônicos e quadrados), a margem da borda, o espelho e a
@@ -96,7 +103,9 @@ próprio objeto.
 3. Clique duas vezes na linha entre os nós para acrescentar um nó de cor ali;
    clique duas vezes num nó de cor para removê-lo. Arraste um nó de cor ao
    longo da linha, ou a barrinha entre dois nós para mover o ponto onde as
-   cores deles se encontram no meio.
+   cores deles se encontram no meio. Segure <kbd>Alt</kbd> ao começar a
+   arrastar um nó para copiá-lo e arrastar a cópia, para faixas de cor sólida
+   com bordas duras.
 4. Clique num nó para escolhê-lo: abre-se embaixo dele uma pequena barra com
    a cor do nó (clique na amostra para o seletor de cores) e a transparência.
    Uma cor da paleta clicada com um nó escolhido vai para esse nó, e a barra
@@ -124,6 +133,21 @@ objetos em volta ficam como estão.
 O novo objeto vai para o topo da camada ativa e fica selecionado. Um clique em
 um contorno, ou em uma área que nada cerca, não cria nada.
 
+Com **Até a borda do contorno** ligado na barra de propriedades, os contornos
+contam com a largura com que são desenhados: a área para nas bordas internas
+deles, e linhas que só se tocam pela largura ainda a fecham.
+
+Dentro de uma [simetria](../objects/symmetry.md), um clique numa cópia preenche
+a mesma área em todas as cópias: o novo objeto passa a fazer parte da simetria.
+
+Com **Ao vivo** ligado, um clique dentro de um grupo pinta a área que as linhas
+dele fecham como um preenchimento ao vivo do grupo (o grupo selecionado, ou
+então o grupo mais acima sob o clique) em vez de criar um objeto novo. Quando
+você move ou remodela as linhas do grupo, os preenchimentos as acompanham.
+Clique de novo numa área pintada para dar a ela a cor de preenchimento da
+barra, ou com o Preenchimento em Nenhum para retirá-la. Cada clique é um passo
+de desfazer.
+
 ## Preenchimentos de malha {#mesh-fill}
 
 Um preenchimento de malha é uma grade de nós sobre um objeto, cada nó com cor e
@@ -144,6 +168,12 @@ suavidade, a **transparência** do nó selecionado e **Limpar malha**, que remov
 o preenchimento de malha. Mudar as linhas e colunas de uma malha mantém as
 cores.
 
+Para um fundo colorido rápido, escolha um conjunto na lista **Cores**
+(Aurora, Pôr do sol, Oceano, Doce, Floresta, Neon ou a paleta do documento)
+e clique em **Embaralhar**: cada objeto selecionado ganha uma malha aleatória
+com essas cores, com os nós deslocados da grade. Clique de novo para outra
+mistura, ou desfaça para voltar.
+
 ## Preenchimentos de padrão e textura {#pattern-texture}
 
 - Um preenchimento [[docker.fill_pattern]] repete um ladrilho: duas cores, um
@@ -151,6 +181,10 @@ cores.
 - Um preenchimento [[docker.fill_texture]] é uma textura gerada, de aparência
   natural: [[texture.clouds]], [[texture.marble]], [[texture.noise]] ou
   [[texture.wood]], com cores e escala.
+- [[texture.holographic]] e [[texture.holo_glitter]] dão um visual fixo de foil holográfico: cores do arco-íris
+  correndo entre manchas escuras e claras (cores A e B), o glitter com
+  grãos brilhantes. Não muda com o ângulo de visão; PDF e SVG levam como
+  imagem.
 
 ## Vários preenchimentos em um objeto {#several-fills}
 
@@ -159,6 +193,16 @@ pinta outro preenchimento sobre o do objeto, começando como uma cópia para
 você mudar. Os preenchimentos extras aparecem como "Preenchimento 2",
 "Preenchimento 3" e assim por diante, cada um com seu editor e um botão para
 removê-lo. A seção de contorno pode acrescentar contornos extras da mesma forma.
+
+As setas ao lado de cada preenchimento ou contorno extra pintam-no uma posição
+antes ou depois; o segundo troca de lugar com o primeiro, então qualquer um
+pode ir para baixo ou para cima.
+
+Sob cada preenchimento extra, Crescer, Mover e Desfocar dão a ele uma
+aparência própria: a área crescida (ou encolhida, abaixo de zero), movida e
+desfocada, enquanto o objeto e os outros preenchimentos ficam como estão. Um
+preenchimento menor de outra cor, movido e um pouco desfocado, faz um brilho
+suave, por exemplo.
 
 Os preenchimentos também podem ser pintados em contornos; veja
 [Definir contornos](../lines-shapes/outlines.md#outline-pen).

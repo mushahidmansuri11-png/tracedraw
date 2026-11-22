@@ -139,9 +139,20 @@ the dialog keeps what was read until OK or Cancel.
 - Text: `BT`/`ET` blocks with Tf, Td, TD, Tm, T*, TL, Tc, Tw, Tz, Ts, Tr,
   Tj, TJ, ' and ". Consecutive strings on the same baseline merge into
   one artistic text object; a gap over 0.18 em (or a TJ adjustment under
-  -180) inserts a space. Font family comes from BaseFont without the
-  subset prefix (`Arial-BoldMT` becomes Arial, bold), bold and italic
-  from the name, the descriptor flags and StemV. Characters decode
+  -180) inserts a space. A TJ adjustment of more than an em back (over
+  1000) or more than three ems on (under -3000) ends the text: the next
+  string is a text of its own at its place, as drawing programs write the
+  labels of a column in one array (#3508,
+  `pdf_import::tests::labels_set_apart_in_one_array_keep_their_places`).
+  Font family comes from BaseFont without the
+  subset prefix (`Arial-BoldMT` becomes Arial, bold); a part after the
+  dash that holds a number stays, so `Raj-01` keeps its
+  whole name in the missing fonts list (#3554,
+  `pdf_import::tests::a_numbered_font_keeps_its_number`). Only the parts
+  that name a style go: a word of the family's own name stays, its dash
+  read as a space, so `Lohit-Devanagari` is Lohit Devanagari, not Lohit,
+  while `Khand-Bold` is Khand, bold (#3651). Bold and italic
+  come from the name, the descriptor flags and StemV. Characters decode
   through ToUnicode CMaps (bfchar, bfrange), then the font's Encoding
   (WinAnsi, MacRoman, Standard, Differences with glyph names), then
   Latin-1. Advances use Widths, W/DW for CID fonts, and Helvetica metrics
@@ -159,7 +170,10 @@ the dialog keeps what was read until OK or Cancel.
   simple CFF fonts (`pdf_glyphs.rs`). Each glyph sits at
   `Trm * translate(advance) * scale(Tfs * Th, Tfs)` with the font's units
   per em (CFF: its FontMatrix); the fill colour and opacity are the
-  text's, clipping as for text. Text whose font is not embedded (or a
+  text's, clipping as for text. The curve fills by the nonzero rule, as
+  the font does, so letters that touch or overlap, and a letter whose own
+  contours cross, stay filled there instead of showing a hole (#3525).
+  Text whose font is not embedded (or a
   Type 3 font) stays text, and the app turns it into curves with the
   installed font that stands in (`remaining_text_to_curves`).
 - Paragraph text (#2323, `ImportOptions::text_as_paragraphs`, the Join
@@ -172,7 +186,11 @@ the dialog keeps what was read until OK or Cancel.
   same font, size, turn and opacity, each 0.8 to 2.5 em under the last
   at the same spacing, and lined up on the left (the first line may be
   indented, and so may the first line of each paragraph after it),
-  centred or on the right. A line with room left for the next line's
+  centred or on the right. A line that starts with a piece in another
+  font than its own (a list item's bullet in a symbol font) starts an
+  item of its own and is not run on into the line above (#3551,
+  `pdf_paragraphs::tests::a_bulleted_line_is_not_run_on`). A line with
+  room left for the next line's
   first word (letters of 0.65 em) ends its paragraph (a line break);
   the others run on with a space (none after a hyphen). Lines lined up
   on the left whose full lines all end within 0.3 mm of one another are
@@ -217,8 +235,25 @@ the dialog keeps what was read until OK or Cancel.
 Soft masks on groups (`SMask` in ExtGState), blend modes, transfer
 functions, optional content visibility, JPX and CCITT images (grey box
 and skipped respectively), PostScript calculator functions (linear
-approximation); as text, embedded font programs (text uses the installed
-font of the same name, so widths can differ; as curves they are read).
+approximation); as text, embedded font programs of fonts that are
+installed (text uses the installed font of the same name, so widths can
+differ; as curves they are read).
+
+## Embedded fonts for text that stays text
+
+When a PDF opens with its text as text and a font it names is not
+installed, the font program the file embeds (`FontFile2`, or `FontFile3`
+of subtype `OpenType`, with a Unicode `cmap`: one without would draw empty
+boxes) is installed for the session (`ImportedPdf::embedded_fonts`,
+`embedded_fonts::use_embedded_fonts`, `FontSystem::add_fonts`, and
+`set_substitute` when the program names itself differently), so the text
+keeps its own font and widths instead of a stand-in's. A font that is
+installed is left to draw its text. The drawing keeps the PDF's font
+names and so do saved files: on a computer without the font the text is
+drawn by a stand-in again, until the PDF is opened there. An embedded font is a
+subset as a rule: a letter the file does not use comes from the stand-in.
+Bare CFF programs (`Type1C`, `CIDFontType0C`) are read for curves only.
+Tests: `embedded_fonts::tests::a_missing_family_takes_its_embedded_font`.
 
 ## Protected files
 
@@ -313,6 +348,17 @@ their own crypt filter and signature contents are left alone.
   `pictures_are_reduced_only_when_asked_on_the_desktop`.
 - Garbage and truncated input return an error, never a panic.
 
+- Hebrew and Arabic read in Text mode come back in the order they are
+  typed. A PDF draws such text as it shows, its glyphs left to right on
+  the page, and the text kept that order, so "שלום" came in as "םולש",
+  from TraceDraw's own PDF exports too. A line that holds letters written
+  right to left goes through the Unicode bidirectional algorithm: its
+  Hebrew and Arabic words turn around, the Latin words and numbers among
+  them read as before, and a letter keeps the points or vowel marks after
+  it. Text that an `ActualText` gives is in typed order already and stays
+  as it is (`pdf_import::tests::hebrew_and_arabic_from_a_pdf_come_back_in_typed_order`).
+  A line of right-to-left text that starts with a Latin word on the page
+  is taken as left-to-right text, as other PDF readers take it.
 - Devanagari text (Hindi, Marathi, Nepali, ...) read in Text mode comes
   back in the order it is typed: a PDF draws the short i sign (ि) before
   the consonant cluster it belongs to and the reph (र्) after its
@@ -350,6 +396,21 @@ their own crypt filter and signature contents are left alone.
   An empty `ActualText` or one of soft hyphens leaves the glyphs (a
   hyphen drawn at a line end) their own characters
   (`pdf_import::tests::hindi_drawn_apart_or_with_actual_text_comes_in_as_typed_words`).
+  An `ActualText` that starts with a tab or space, over a space glyph and
+  then a letter the tab stop moved on, keeps its letter: the space stays
+  in the first text and the rest goes to the letter's text, so पृष्ठ after
+  a tab no longer came in as िृष्ठ. A short i sign right after a letter
+  an `ActualText` gave is typed after that letter and stays there: a word
+  processor's Hindi PDF that gives some letters by `ActualText` and the
+  rest in typed order showed निदेशालय, विभाग and अनिल as नदिेशालय, वभिाग
+  and अनलि (#3177,
+  `pdf_import::tests::hindi_typed_after_an_actual_text_letter_keeps_its_i_signs`).
+  A text that begins with tabs or spaces (a list item's tab after its
+  bullet, drawn as a space glyph, then the letters moved on with `Td`)
+  comes in without them and starts where its first letter was drawn:
+  the tab was kept, so in another font the letters slid back over the
+  bullet, as डॉ. did in a Hindi list (#3718,
+  `pdf_import::tests::leading_tab_or_space_is_left_out_and_text_starts_at_its_first_letter`).
 - Hindi written by Export as PDF with its font comes back as the typed
   words, shaped to the glyphs of the original: all 59 words of the
   Devanagari corpus (35 came back wrong before, with letters doubled,

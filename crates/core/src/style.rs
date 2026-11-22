@@ -16,16 +16,21 @@ pub enum FountainKind {
     /// Follows the object's outline: 0 on its edge, 1 at the point
     /// deepest inside it.
     Shaped,
+    /// Colour points placed anywhere in the object (see
+    /// [`Fountain::points`]): each spot takes the colours of the points
+    /// near it, the nearest the most.
+    Points,
 }
 
 impl FountainKind {
     /// Every kind, in the order the fill editor lists them.
-    pub const ALL: [FountainKind; 5] = [
+    pub const ALL: [FountainKind; 6] = [
         FountainKind::Linear,
         FountainKind::Radial,
         FountainKind::Conical,
         FountainKind::Square,
         FountainKind::Shaped,
+        FountainKind::Points,
     ];
 }
 
@@ -195,6 +200,15 @@ pub struct Fountain {
     /// keep the nearest equivalent for formats that know only those).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub handles: Option<FountainHandles>,
+    /// Dithered: a faint even noise over the colours, so a long blend
+    /// between close colours shows no steps.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub dither: bool,
+    /// Colour points (the Points kind): where each stop's colour sits,
+    /// box-relative as [`FountainHandles`] are. Stops without one are
+    /// placed round the middle (see [`Fountain::point_places`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub points: Vec<Point>,
 }
 
 /// The nodes of a fountain fill placed freely (see [`Fountain::handles`]),
@@ -280,6 +294,8 @@ impl Fountain {
             smooth: false,
             acceleration: 0,
             handles: None,
+            dither: false,
+            points: Vec::new(),
         }
     }
 
@@ -368,6 +384,50 @@ impl Fountain {
         sample_stop(blended, self.band_param(self.stop_param(t)))
     }
 
+    /// Where each stop's colour point is (box-relative): its own place,
+    /// or, for a stop without one, a place round the middle.
+    pub fn point_places(&self) -> Vec<Point> {
+        let n = self.stops.len().max(1) as f64;
+        (0..self.stops.len())
+            .map(|i| {
+                self.points.get(i).copied().unwrap_or_else(|| {
+                    let a = std::f64::consts::TAU * i as f64 / n + std::f64::consts::FRAC_PI_4;
+                    Point::new(0.6 * a.cos(), 0.6 * a.sin())
+                })
+            })
+            .collect()
+    }
+
+    /// The colour and opacity of a Points fill at the page point `p` for
+    /// the object's box `b`: every point's colour weighed by one over its
+    /// squared distance, so the nearest point counts the most; on a point,
+    /// its own colour.
+    pub fn points_sample(&self, places: &[Point], b: Rect, p: Point) -> (Color, f32) {
+        let scale = b.width().hypot(b.height()).max(1e-9);
+        let (mut rgb, mut op, mut sum) = ([0.0f64; 3], 0.0f64, 0.0f64);
+        for (stop, r) in self.stops.iter().zip(places) {
+            let d = Self::rel_to_page(b, *r).distance(p) / scale;
+            if d < 1e-6 {
+                return (stop.color, stop.opacity);
+            }
+            let w = 1.0 / (d * d);
+            let c = stop.color.to_rgb8();
+            for k in 0..3 {
+                rgb[k] += w * f64::from(c[k]);
+            }
+            op += w * f64::from(stop.opacity);
+            sum += w;
+        }
+        if sum <= 0.0 {
+            return (Color::BLACK, 1.0);
+        }
+        let ch = |v: f64| (v / sum).round().clamp(0.0, 255.0) as u8;
+        (
+            Color::rgb8(ch(rgb[0]), ch(rgb[1]), ch(rgb[2])),
+            (op / sum).clamp(0.0, 1.0) as f32,
+        )
+    }
+
     /// A box-relative point (see [`FountainHandles`]) on the page, for the
     /// object's bounding box `b`.
     pub fn rel_to_page(b: Rect, r: Point) -> Point {
@@ -396,7 +456,7 @@ impl Fountain {
     /// nodes when they are placed freely, else `None` (the angle and the
     /// offset place the fill). A frame that is flat counts as none.
     pub fn frame(&self, b: Rect) -> Option<Affine> {
-        if self.kind == FountainKind::Shaped {
+        if matches!(self.kind, FountainKind::Shaped | FountainKind::Points) {
             return None;
         }
         let h = self.handles?;
@@ -428,7 +488,7 @@ impl Fountain {
                 }
             }
             FountainKind::Square => u.abs().max(v.abs()),
-            FountainKind::Shaped => return None,
+            FountainKind::Shaped | FountainKind::Points => return None,
         })
     }
 
@@ -441,7 +501,7 @@ impl Fountain {
         let c = b.center();
         let rel = |p: Point| Self::page_to_rel(b, p);
         match self.kind {
-            FountainKind::Linear | FountainKind::Shaped => {
+            FountainKind::Linear | FountainKind::Shaped | FountainKind::Points => {
                 let half = (b.width() * ca.abs() + b.height() * sa.abs()) / 2.0;
                 let d = Vec2::new(ca, sa) * half;
                 let s = c - d;
@@ -867,6 +927,7 @@ impl Fountain {
         Fountain {
             kind: match self.kind {
                 FountainKind::Shaped => FountainKind::Square,
+                FountainKind::Points => FountainKind::Radial,
                 k => k,
             },
             stops,
@@ -882,6 +943,8 @@ impl Fountain {
             smooth: false,
             acceleration: 0,
             handles: None,
+            dither: self.dither,
+            points: Vec::new(),
         }
     }
 }
@@ -919,9 +982,19 @@ pub fn sample_stop(stops: &[Stop], t: f64) -> Stop {
         (Some(a), Some(b)) => {
             let span = (b.pos - a.pos).max(1e-9);
             let k = ((t - a.pos) / span).clamp(0.0, 1.0) as f32;
+            // At a stop its own colour, as chosen (a CMYK or spot colour
+            // stays one), not the mix's RGB: a PDF's shading took its
+            // colours from here and turned them to RGB and back.
+            let color = if k >= 1.0 {
+                b.color
+            } else if k <= 0.0 {
+                a.color
+            } else {
+                lerp_color(a.color, b.color, k)
+            };
             Stop {
                 pos: t,
-                color: lerp_color(a.color, b.color, k),
+                color,
                 mid: 0.5,
                 opacity: a.opacity + (b.opacity - a.opacity) * k,
             }
@@ -1056,6 +1129,12 @@ pub struct PatternPlacement {
     /// Whether `shift_percent` moves the rows or the columns.
     #[serde(default, skip_serializing_if = "is_default_shift")]
     pub shift: TileShift,
+    /// How much each row (or column, the same way as `shift`) lies over
+    /// the one before it, percent of a tile 0..90: tiles closer than
+    /// their size, as hexagons interlock (a 50% shift with 25% overlap).
+    /// The later row is drawn over the earlier.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub overlap_percent: f64,
     /// The size of one tile on the page, mm; `None` keeps the kind's own
     /// size (`Pattern::natural_tile`). The tile's content is stretched to
     /// fit.
@@ -1094,12 +1173,14 @@ impl PatternPlacement {
             &mut self.rotation,
             &mut self.skew,
             &mut self.shift_percent,
+            &mut self.overlap_percent,
         ] {
             if !v.is_finite() {
                 *v = 0.0;
             }
         }
         self.shift_percent = self.shift_percent.clamp(0.0, 100.0);
+        self.overlap_percent = self.overlap_percent.clamp(0.0, 90.0);
         // A skew of 90 degrees would flatten the tiles to a line.
         self.skew = self.skew.clamp(-89.0, 89.0);
         if let Some(s) = self.size {
@@ -1113,7 +1194,16 @@ impl PatternPlacement {
     /// Whether the block that repeats holds more than one tile: mirrored
     /// tiles or a row or column shift. Without, one tile is the block.
     pub fn needs_cell(&self) -> bool {
-        self.mirror_horizontal || self.mirror_vertical || self.shift_percent != 0.0
+        self.mirror_horizontal
+            || self.mirror_vertical
+            || self.shift_percent != 0.0
+            || self.overlap_percent != 0.0
+    }
+
+    /// The step from one row (column) of tiles to the next, as a share of
+    /// the tile: 1 without overlap.
+    fn step(&self) -> f64 {
+        1.0 - self.overlap_percent.clamp(0.0, 90.0) / 100.0
     }
 
     /// Tiles across and down in the block that repeats (2 where mirrored).
@@ -1132,8 +1222,12 @@ impl PatternPlacement {
     pub fn cell(&self, tile: Size) -> Affine {
         let (cols, rows) = self.cell_tiles();
         let (w, h) = (tile.width, tile.height);
-        let (cw, ch) = (w * f64::from(cols), h * f64::from(rows));
+        let k = self.step();
         let s = self.shift_percent / 100.0;
+        let (cw, ch) = match self.shift {
+            TileShift::Row => (w * f64::from(cols), k * h * f64::from(rows)),
+            TileShift::Column => (k * w * f64::from(cols), h * f64::from(rows)),
+        };
         match self.shift {
             TileShift::Row => Affine::new([cw, 0.0, s * w * f64::from(rows), ch, 0.0, 0.0]),
             TileShift::Column => Affine::new([cw, s * h * f64::from(cols), 0.0, ch, 0.0, 0.0]),
@@ -1149,30 +1243,70 @@ impl PatternPlacement {
         let (cols, rows) = self.cell_tiles();
         let (w, h) = (tile.width, tile.height);
         let s = self.shift_percent / 100.0;
+        let k = self.step();
         let shifted = s != 0.0;
+        // Overlapping rows (columns) reach into the block from rows
+        // (columns) before and after it.
+        let reach = if k < 1.0 { (1.0 / k).ceil() as i32 } else { 0 };
         let mut out = Vec::new();
-        let (i0, i1, j0, j1) = match (self.shift, shifted) {
-            (_, false) => (0, cols as i32 - 1, 0, rows as i32 - 1),
-            (TileShift::Row, true) => (-1, cols as i32 + 1, 0, rows as i32 - 1),
-            (TileShift::Column, true) => (0, cols as i32 - 1, -1, rows as i32 + 1),
-        };
-        for j in j0..=j1 {
-            for i in i0..=i1 {
-                let (dx, dy) = match self.shift {
-                    TileShift::Row => (f64::from(i) * w + f64::from(j) * s * w, f64::from(j) * h),
-                    TileShift::Column => {
-                        (f64::from(i) * w, f64::from(j) * h + f64::from(i) * s * h)
-                    }
-                };
-                let mut m = Affine::translate((dx, dy));
-                if self.mirror_horizontal && i.rem_euclid(2) == 1 {
-                    m *= Affine::new([-1.0, 0.0, 0.0, 1.0, w, 0.0]);
-                }
-                if self.mirror_vertical && j.rem_euclid(2) == 1 {
-                    m *= Affine::new([1.0, 0.0, 0.0, -1.0, 0.0, h]);
-                }
-                out.push(m);
+        let (i0, i1, j0, j1) = match self.shift {
+            TileShift::Row => {
+                let side = i32::from(shifted) * (1 + reach);
+                (
+                    -side,
+                    cols as i32 - 1 + side + i32::from(shifted),
+                    -reach,
+                    rows as i32 - 1 + reach,
+                )
             }
+            TileShift::Column => {
+                let side = i32::from(shifted) * (1 + reach);
+                (
+                    -reach,
+                    cols as i32 - 1 + reach,
+                    -side,
+                    rows as i32 - 1 + side + i32::from(shifted),
+                )
+            }
+        };
+        // Bottom rows (left columns) first, so that a later one lies over
+        // an earlier one where they overlap.
+        let mut order: Vec<(i32, i32)> = Vec::new();
+        match self.shift {
+            TileShift::Column if k < 1.0 => {
+                for i in i0..=i1 {
+                    for j in j0..=j1 {
+                        order.push((i, j));
+                    }
+                }
+            }
+            _ => {
+                for j in j0..=j1 {
+                    for i in i0..=i1 {
+                        order.push((i, j));
+                    }
+                }
+            }
+        }
+        for (i, j) in order {
+            let (dx, dy) = match self.shift {
+                TileShift::Row => (
+                    f64::from(i) * w + f64::from(j) * s * w,
+                    f64::from(j) * k * h,
+                ),
+                TileShift::Column => (
+                    f64::from(i) * k * w,
+                    f64::from(j) * h + f64::from(i) * s * h,
+                ),
+            };
+            let mut m = Affine::translate((dx, dy));
+            if self.mirror_horizontal && i.rem_euclid(2) == 1 {
+                m *= Affine::new([-1.0, 0.0, 0.0, 1.0, w, 0.0]);
+            }
+            if self.mirror_vertical && j.rem_euclid(2) == 1 {
+                m *= Affine::new([1.0, 0.0, 0.0, -1.0, 0.0, h]);
+            }
+            out.push(m);
         }
         out
     }
@@ -1184,18 +1318,21 @@ impl PatternPlacement {
     pub fn tile_uv(&self, p: Point, tile: Size) -> (f64, f64) {
         let (w, h) = (tile.width.max(1e-12), tile.height.max(1e-12));
         let s = self.shift_percent / 100.0;
+        // With overlap the later row (column) lies on top: the point is in
+        // the last one that starts at or before it.
+        let k = self.step();
         let (i, j, u, v) = match self.shift {
             TileShift::Row => {
-                let j = (p.y / h).floor();
+                let j = (p.y / (k * h)).floor();
                 let x = p.x - j * s * w;
                 let i = (x / w).floor();
-                (i, j, x / w - i, p.y / h - j)
+                (i, j, x / w - i, (p.y - j * k * h) / h)
             }
             TileShift::Column => {
-                let i = (p.x / w).floor();
+                let i = (p.x / (k * w)).floor();
                 let y = p.y - i * s * h;
                 let j = (y / h).floor();
-                (i, j, p.x / w - i, y / h - j)
+                (i, j, (p.x - i * k * w) / w, y / h - j)
             }
         };
         let odd = |k: f64| (k as i64).rem_euclid(2) == 1;
@@ -1428,21 +1565,41 @@ pub enum TextureKind {
     Marble,
     Noise,
     Wood,
+    /// A fixed holographic (iridescent) foil look: rainbow bands that
+    /// flow through dark and light patches like a film of oil on metal,
+    /// from colour A (the dark patches) to colour B (the light ones).
+    /// It does not change with the viewing angle: the picture is the
+    /// same on screen, in print and in every export.
+    Holographic,
+    /// [`TextureKind::Holographic`] with fine sparkling grains of
+    /// spectral colour over it (holographic glitter).
+    HoloGlitter,
 }
 
 impl TextureKind {
-    pub const ALL: [TextureKind; 4] = [
+    pub const ALL: [TextureKind; 6] = [
         TextureKind::Clouds,
         TextureKind::Marble,
         TextureKind::Noise,
         TextureKind::Wood,
+        TextureKind::Holographic,
+        TextureKind::HoloGlitter,
     ];
+
+    /// The holographic kinds, which are coloured from the spectrum and
+    /// not only mixed from the two colours.
+    pub fn is_holographic(self) -> bool {
+        matches!(self, TextureKind::Holographic | TextureKind::HoloGlitter)
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             TextureKind::Clouds => "Clouds",
             TextureKind::Marble => "Marble",
             TextureKind::Noise => "Noise",
             TextureKind::Wood => "Wood",
+            TextureKind::Holographic => "Holographic",
+            TextureKind::HoloGlitter => "Holo glitter",
         }
     }
 }
@@ -2769,6 +2926,10 @@ pub struct Stroke {
     /// and line ends fall in the middle of a dash.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub align_dashes: bool,
+    /// A gradient of the outline's own fill runs along the line, from its
+    /// start to its end, instead of across the drawing.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fill_along: bool,
 }
 
 /// Where an outline lies relative to the path of a closed object.
@@ -2975,6 +3136,29 @@ fn one() -> f64 {
 
 impl Stroke {
     pub const HAIRLINE: f64 = 0.0762;
+    /// Round dots two outline widths apart, centre to centre (#3404):
+    /// dashes of no length, which round caps draw as dots.
+    pub const ROUND_DOTS: [f64; 2] = [0.0, 2.0];
+
+    /// Whether a dash pattern has dashes of no length: dots, which only
+    /// round (or square) caps draw.
+    pub fn dash_has_dots(dash: &[f64]) -> bool {
+        let odd = dash.len() % 2 == 1;
+        dash.iter()
+            .enumerate()
+            .any(|(i, d)| *d <= 0.0 && (i % 2 == 0 || odd))
+    }
+
+    /// Take the dash pattern `dash`; dots get round caps, or they would
+    /// not show (#3404). True when the caps changed.
+    pub fn set_dash(&mut self, dash: &[f64]) -> bool {
+        self.dash = dash.to_vec();
+        if Self::dash_has_dots(dash) && self.cap == LineCap::Butt {
+            self.cap = LineCap::Round;
+            return true;
+        }
+        false
+    }
     /// Mitre limit of new outlines, degrees: a corner sharper than a
     /// right angle's half is bevelled, so a thick outline on lettering
     /// does not grow long spikes at its narrow turns (#894).
@@ -3058,6 +3242,7 @@ impl Default for Stroke {
             position: OutlinePosition::Center,
             miter_limit: Self::DEFAULT_MITER_LIMIT,
             align_dashes: false,
+            fill_along: false,
         }
     }
 }
@@ -3082,6 +3267,29 @@ impl Stroke {
 
 #[cfg(test)]
 mod tests {
+    /// #3404: a pattern with dashes of no length is dots, and taking it
+    /// gives flat caps round ones; other caps and patterns are kept.
+    #[test]
+    fn dots_take_round_caps() {
+        assert!(Stroke::dash_has_dots(&Stroke::ROUND_DOTS));
+        assert!(Stroke::dash_has_dots(&[3.0, 2.0, 0.0, 2.0]));
+        // An odd pattern repeats, its gaps turning dashes.
+        assert!(Stroke::dash_has_dots(&[2.0, 0.0, 1.0]));
+        assert!(!Stroke::dash_has_dots(&[4.0, 0.0]));
+        assert!(!Stroke::dash_has_dots(&[]));
+        let mut st = Stroke::new(Color::BLACK, 1.0);
+        assert!(!st.set_dash(&[4.0, 2.0]));
+        assert_eq!(st.cap, LineCap::Butt);
+        assert!(st.set_dash(&Stroke::ROUND_DOTS));
+        assert_eq!(
+            (st.dash.as_slice(), st.cap),
+            (&[0.0, 2.0][..], LineCap::Round)
+        );
+        st.cap = LineCap::Square;
+        assert!(!st.set_dash(&Stroke::ROUND_DOTS));
+        assert_eq!(st.cap, LineCap::Square);
+    }
+
     use super::*;
 
     /// A run of width nodes, each wider than the last, widens in one
@@ -4100,6 +4308,48 @@ mod tests {
         );
     }
 
+    /// Hexagons: rows half a tile along and a quarter of a tile over the
+    /// row before, the later row drawn over the earlier.
+    #[test]
+    fn overlapping_rows_interlock_like_hexagons() {
+        let p = PatternPlacement {
+            shift_percent: 50.0,
+            overlap_percent: 25.0,
+            ..PatternPlacement::default()
+        };
+        let tile = Size::new(10.0, 12.0);
+        assert!(p.needs_cell());
+        // The block is one row step high: three quarters of a tile.
+        assert_eq!(p.cell(tile).as_coeffs(), [10.0, 0.0, 5.0, 9.0, 0.0, 0.0]);
+        // Rows before and after reach into the block, and come in order.
+        let copies = p.tile_copies(tile);
+        let ys: Vec<f64> = copies.iter().map(|c| (*c * Point::ORIGIN).y).collect();
+        assert!(ys.contains(&-9.0) && ys.contains(&9.0), "{ys:?}");
+        assert!(ys.windows(2).all(|w| w[0] <= w[1]), "{ys:?}");
+        // A point at y = 10 is in the second row (it starts at y = 9), on
+        // top of the first row's last quarter.
+        let (u, v) = p.tile_uv(Point::new(6.0, 10.0), tile);
+        assert!(
+            (u - 0.1).abs() < 1e-9 && (v - 1.0 / 12.0).abs() < 1e-9,
+            "{u} {v}"
+        );
+        // Columns the same way.
+        let c = PatternPlacement {
+            shift: TileShift::Column,
+            ..p
+        };
+        assert_eq!(c.cell(tile).as_coeffs(), [7.5, 6.0, 0.0, 12.0, 0.0, 0.0]);
+        let (u, _) = c.tile_uv(Point::new(8.0, 7.0), tile);
+        assert!((u - 0.05).abs() < 1e-9, "{u}");
+        // Out of range comes back in range.
+        let wild = PatternPlacement {
+            overlap_percent: 400.0,
+            ..p
+        }
+        .sanitized();
+        assert_eq!(wild.overlap_percent, 90.0);
+    }
+
     #[test]
     fn a_row_offset_shifts_every_row_by_that_part_of_a_tile() {
         let p = PatternPlacement {
@@ -4251,15 +4501,102 @@ pub fn head_size_for_width(width: f64) -> (f64, f64) {
     ((w * HEAD_SIZE_PER_WIDTH).max(1.0), w)
 }
 
+/// How far back from its tip along the line a preset head is solid
+/// enough to hide the line's end, in the head's own frame (`size` the
+/// preset head size, `w` the width of its thin parts): the line is cut
+/// there so neither its end nor its cap shows past or beside the head
+/// (#2981). An arrow hides it up to its notch, round, square and diamond
+/// heads up to their middle, a bar up to its middle, an open arrow up to
+/// the inside of its point. Custom heads keep the whole line.
+fn head_cover(kind: &Arrowhead, size: f64, w: f64) -> f64 {
+    let t = w.max(0.2);
+    match kind {
+        Arrowhead::None | Arrowhead::Custom { .. } => 0.0,
+        Arrowhead::Arrow => size * 0.7,
+        Arrowhead::OpenArrow => t * 1.4,
+        Arrowhead::Circle | Arrowhead::Square => size * 0.35,
+        Arrowhead::Bar => t * 0.5,
+        Arrowhead::Diamond => size * 0.5,
+    }
+}
+
+/// The subpaths of `path`, each starting with its MoveTo.
+fn subpaths(path: &crate::geometry::BezPath) -> Vec<crate::geometry::BezPath> {
+    use crate::geometry::{BezPath, PathEl};
+    let mut out: Vec<BezPath> = Vec::new();
+    for el in path.elements() {
+        if matches!(el, PathEl::MoveTo(_)) || out.is_empty() {
+            out.push(BezPath::new());
+        }
+        if let Some(last) = out.last_mut() {
+            last.push(*el);
+        }
+    }
+    out.retain(|p| p.elements().len() > 1);
+    out
+}
+
+/// Arc length accuracy for cutting lines under heads, millimetres.
+const HEAD_ARCLEN_ACC: f64 = 1e-4;
+
+/// `sub`'s segments with `len` of its length cut from its start (or, with
+/// `from_end`, its end); `None` when it is not that long.
+fn cut_segments(segs: &[kurbo::PathSeg], len: f64, from_end: bool) -> Option<Vec<kurbo::PathSeg>> {
+    use kurbo::{ParamCurve, ParamCurveArclen};
+    let mut rest = len;
+    let order: Vec<usize> = if from_end {
+        (0..segs.len()).rev().collect()
+    } else {
+        (0..segs.len()).collect()
+    };
+    for (k, &i) in order.iter().enumerate() {
+        let seg = segs[i];
+        let l = seg.arclen(HEAD_ARCLEN_ACC);
+        if l > rest {
+            let piece = if from_end {
+                let t = seg.inv_arclen(l - rest, HEAD_ARCLEN_ACC);
+                seg.subsegment(0.0..t)
+            } else {
+                let t = seg.inv_arclen(rest, HEAD_ARCLEN_ACC);
+                seg.subsegment(t..1.0)
+            };
+            let mut kept: Vec<kurbo::PathSeg> = order[k + 1..].iter().map(|&j| segs[j]).collect();
+            kept.insert(0, piece);
+            if from_end {
+                kept.reverse();
+            }
+            return Some(kept);
+        }
+        rest -= l;
+    }
+    None
+}
+
+/// The point `len` back along `sub` from its start (or its end): where a
+/// head `len` long reaches back to, so the head is turned to lie on the
+/// curve, not along its tangent at the very end (#2981).
+fn point_back(sub: &crate::geometry::BezPath, len: f64, from_end: bool) -> Option<Point> {
+    use kurbo::ParamCurve;
+    let segs: Vec<kurbo::PathSeg> = sub.segments().collect();
+    let cut = cut_segments(&segs, len, from_end)?;
+    Some(if from_end {
+        cut.last()?.end()
+    } else {
+        cut.first()?.start()
+    })
+}
+
 /// Arrowhead outlines (page space) for an open path's ends, sized by the
 /// outline width (hairlines use 0.25 mm) and each end's placement (size,
 /// offset, mirror, rotation; the end takes the start's head and
 /// placement with Share attributes on). Filled with the outline colour.
+/// A head points from where its length reaches back to on the curve
+/// towards the end point, so on a curve it sits on the line (#2981).
 pub fn arrowhead_paths(
     path: &crate::geometry::BezPath,
     stroke: &Stroke,
 ) -> Vec<crate::geometry::BezPath> {
-    use crate::geometry::{BezPath, PathEl, Vec2};
+    use crate::geometry::{BezPath, PathEl, Shape as _, Vec2};
     let (size, w) = head_size_for_width(stroke.width);
     let mut pts: Vec<Point> = Vec::new();
     let mut closed = false;
@@ -4276,39 +4613,281 @@ pub fn arrowhead_paths(
     if closed || pts.len() < 2 {
         return Vec::new();
     }
+    let subs = subpaths(path);
     // A head in its own frame, placed at `tip` with the line's outward
-    // direction `dir`: x along the direction, y along its left normal.
-    let head =
-        |tip: Point, dir: Vec2, kind: &Arrowhead, at: &ArrowheadPlacement| -> Option<BezPath> {
-            let dir = dir.normalize();
-            if !dir.x.is_finite() {
-                return None;
-            }
-            let n = Vec2::new(-dir.y, dir.x);
-            let outline = head_outline(kind, size, w)?;
-            Some(at.place(tip, dir, n) * outline)
+    // direction: x along it, y along its left normal. The direction runs
+    // from the point the head's length reaches back to on the line, or
+    // along the line's last piece when the line is shorter than that.
+    let head = |tip: Point,
+                last: Vec2,
+                sub: Option<&BezPath>,
+                from_end: bool,
+                kind: &Arrowhead,
+                at: &ArrowheadPlacement|
+     -> Option<BezPath> {
+        let outline = head_outline(kind, size, w)?;
+        let reach = (-outline.bounding_box().x0).max(0.0) * at.scale();
+        let back = sub
+            .filter(|_| reach > 1e-6 && !at.mirror_h)
+            .and_then(|s| point_back(s, reach, from_end));
+        let dir = match back {
+            Some(b) if (tip - b).hypot() > 1e-9 => (tip - b).normalize(),
+            _ => last.normalize(),
         };
+        if !dir.x.is_finite() {
+            return None;
+        }
+        let n = Vec2::new(-dir.y, dir.x);
+        Some(at.place(tip, dir, n) * outline)
+    };
     let mut out = Vec::new();
     let n = pts.len();
     if let Some(p) = head(
         pts[0],
         pts[0] - pts[1.min(n - 1)],
+        subs.first(),
+        false,
         &stroke.start_arrow,
         &stroke.start_head,
     ) {
         out.push(p);
     }
     let (end_kind, end_at) = stroke.end_head_drawn();
-    if let Some(p) = head(pts[n - 1], pts[n - 1] - pts[n - 2], end_kind, end_at) {
+    if let Some(p) = head(
+        pts[n - 1],
+        pts[n - 1] - pts[n - 2],
+        subs.last(),
+        true,
+        end_kind,
+        end_at,
+    ) {
         out.push(p);
     }
     out
+}
+
+/// The path an open line with arrowheads is stroked along: cut back at
+/// each end with a head as far as the head hides it, so the line's end
+/// and its cap (round or square caps reach half a width past the end)
+/// do not show past the tip or beside the head (#2981). `None` when
+/// nothing is cut: no head, a closed path, a custom head, or a line no
+/// longer than its heads.
+pub fn arrowhead_stroke_path(
+    path: &crate::geometry::BezPath,
+    stroke: &Stroke,
+) -> Option<crate::geometry::BezPath> {
+    use crate::geometry::{BezPath, PathEl};
+    if path
+        .elements()
+        .iter()
+        .any(|e| matches!(e, PathEl::ClosePath))
+    {
+        return None;
+    }
+    let (size, w) = head_size_for_width(stroke.width);
+    let cut = |kind: &Arrowhead, at: &ArrowheadPlacement| -> f64 {
+        if at.mirror_h {
+            return 0.0;
+        }
+        (head_cover(kind, size, w) * at.scale() - at.offset_mm()).max(0.0)
+    };
+    let (end_kind, end_at) = stroke.end_head_drawn();
+    let (a, b) = (
+        cut(&stroke.start_arrow, &stroke.start_head),
+        cut(end_kind, end_at),
+    );
+    if a <= 1e-9 && b <= 1e-9 {
+        return None;
+    }
+    let mut subs = subpaths(path);
+    if subs.is_empty() {
+        return None;
+    }
+    let segs = |p: &BezPath| -> Vec<kurbo::PathSeg> { p.segments().collect() };
+    let rebuild = |segs: &[kurbo::PathSeg]| -> Option<BezPath> {
+        use kurbo::ParamCurve;
+        let mut p = BezPath::new();
+        p.move_to(segs.first()?.start());
+        for s in segs {
+            p.push(s.as_path_el());
+        }
+        Some(p)
+    };
+    let last = subs.len() - 1;
+    if subs.len() == 1 {
+        let all = segs(&subs[0]);
+        let total: f64 = {
+            use kurbo::ParamCurveArclen;
+            all.iter().map(|s| s.arclen(HEAD_ARCLEN_ACC)).sum()
+        };
+        if total <= a + b + 1e-6 {
+            return None;
+        }
+        let mut kept = all;
+        if a > 1e-9 {
+            kept = cut_segments(&kept, a, false)?;
+        }
+        if b > 1e-9 {
+            kept = cut_segments(&kept, b, true)?;
+        }
+        subs[0] = rebuild(&kept)?;
+    } else {
+        if a > 1e-9 {
+            if let Some(kept) = cut_segments(&segs(&subs[0]), a, false) {
+                subs[0] = rebuild(&kept)?;
+            }
+        }
+        if b > 1e-9 {
+            if let Some(kept) = cut_segments(&segs(&subs[last]), b, true) {
+                subs[last] = rebuild(&kept)?;
+            }
+        }
+    }
+    let mut out = BezPath::new();
+    for sp in subs {
+        for el in sp.elements() {
+            out.push(*el);
+        }
+    }
+    Some(out)
 }
 
 #[cfg(test)]
 mod arrowhead_tests {
     use super::*;
     use crate::geometry::{BezPath, Shape as _};
+
+    /// #2981: the line is cut back under each head as far as the head
+    /// hides it, so neither its end nor its cap shows at the tip: an
+    /// arrow up to its notch, a circle up to its middle. Custom heads,
+    /// heads turned back along the line, closed paths and lines no longer
+    /// than their heads keep the whole line.
+    #[test]
+    fn the_line_ends_under_its_arrowheads() {
+        use crate::geometry::ParamCurveArclen as _;
+        let mut line = BezPath::new();
+        line.move_to((0.0, 0.0));
+        line.line_to((50.0, 0.0));
+        let (size, _) = head_size_for_width(1.0);
+        let stroke = Stroke {
+            start_arrow: Arrowhead::Circle,
+            end_arrow: Arrowhead::Arrow,
+            cap: LineCap::Round,
+            ..Stroke::new(Color::BLACK, 1.0)
+        };
+        let cut = arrowhead_stroke_path(&line, &stroke).expect("cut under the heads");
+        let b = cut.bounding_box();
+        assert!((b.x0 - size * 0.35).abs() < 1e-3, "{b:?}");
+        assert!((b.x1 - (50.0 - size * 0.7)).abs() < 1e-3, "{b:?}");
+        // Half again as large, and moved 1 mm out past the end.
+        let bigger = Stroke {
+            end_head: ArrowheadPlacement {
+                size: 150.0,
+                offset: 1.0,
+                ..Default::default()
+            },
+            ..stroke.clone()
+        };
+        let b = arrowhead_stroke_path(&line, &bigger)
+            .unwrap()
+            .bounding_box();
+        assert!(
+            (b.x1 - (50.0 - size * 0.7 * 1.5 + 1.0)).abs() < 1e-3,
+            "{b:?}"
+        );
+        // A curve keeps its curves and loses the right length.
+        let mut arc = BezPath::new();
+        arc.move_to((0.0, 0.0));
+        arc.curve_to((10.0, 20.0), (30.0, 20.0), (40.0, 0.0));
+        let whole: f64 = arc.segments().map(|s| s.arclen(1e-6)).sum();
+        let cut = arrowhead_stroke_path(&arc, &stroke).unwrap();
+        let left: f64 = cut.segments().map(|s| s.arclen(1e-6)).sum();
+        assert!(
+            (whole - left - size * (0.35 + 0.7)).abs() < 1e-2,
+            "{whole} {left}"
+        );
+        assert!(matches!(
+            cut.elements()[1],
+            crate::geometry::PathEl::CurveTo(..)
+        ));
+        for kept in [
+            Stroke {
+                start_arrow: Arrowhead::None,
+                end_arrow: Arrowhead::from_shape_path(&triangle(), "Tri"),
+                ..stroke.clone()
+            },
+            Stroke {
+                start_arrow: Arrowhead::None,
+                end_head: ArrowheadPlacement {
+                    mirror_h: true,
+                    ..Default::default()
+                },
+                ..stroke.clone()
+            },
+            Stroke {
+                start_arrow: Arrowhead::None,
+                end_arrow: Arrowhead::None,
+                ..stroke.clone()
+            },
+        ] {
+            assert!(arrowhead_stroke_path(&line, &kept).is_none(), "{kept:?}");
+        }
+        let mut short = BezPath::new();
+        short.move_to((0.0, 0.0));
+        short.line_to((size, 0.0));
+        assert!(arrowhead_stroke_path(&short, &stroke).is_none());
+        assert!(arrowhead_stroke_path(&triangle(), &stroke).is_none());
+    }
+
+    /// #2981: on a curve a head points from where its length reaches back
+    /// to on the curve, so its back sits on the line; along the tangent
+    /// at the very end it stood off a tight curve.
+    #[test]
+    fn a_head_on_a_curve_sits_on_the_curve() {
+        use crate::geometry::{Circle, Shape as _};
+        // A quarter circle of radius 8 mm, ending going up.
+        let arc = Circle::new((0.0, 0.0), 8.0).to_path(1e-4);
+        let mut quarter = BezPath::new();
+        let mut started = false;
+        for seg in arc.segments() {
+            use kurbo::ParamCurve as _;
+            let (a, b) = (seg.start(), seg.end());
+            if a.y >= -1e-9 && b.y >= -1e-9 && a.x >= -1e-9 && b.x >= -1e-9 {
+                if !started {
+                    quarter.move_to(a);
+                    started = true;
+                }
+                quarter.push(seg.as_path_el());
+            }
+        }
+        let stroke = Stroke {
+            end_arrow: Arrowhead::Arrow,
+            ..Stroke::new(Color::BLACK, 1.0)
+        };
+        let heads = arrowhead_paths(&quarter, &stroke);
+        assert_eq!(heads.len(), 1);
+        // The middle of the arrow's two back corners lies on the circle.
+        let pts: Vec<Point> = heads[0]
+            .elements()
+            .iter()
+            .filter_map(|e| match e {
+                crate::geometry::PathEl::MoveTo(p) | crate::geometry::PathEl::LineTo(p) => Some(*p),
+                _ => None,
+            })
+            .collect();
+        let back = pts[1].midpoint(pts[3]);
+        let r = back.to_vec2().hypot();
+        // (A chord as long as the head, not its arc: a hundredth of a
+        // millimetre out; along the tangent it was most of a millimetre.)
+        assert!((r - 8.0).abs() < 0.05, "{back:?} at {r}");
+        // The tip stays at the curve's end.
+        let end = quarter
+            .elements()
+            .last()
+            .and_then(|e| e.end_point())
+            .unwrap();
+        assert!((pts[0] - end).hypot() < 1e-6);
+    }
 
     /// A triangle pointing right: tip at (30, 15), base from (10, 5) to (10, 25).
     fn triangle() -> BezPath {

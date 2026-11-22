@@ -65,7 +65,8 @@ From the left, after the ruler's width:
 1. The document navigator: insert page before, first page, previous
    page, "n of m", next page, last page, insert page after. The insert
    buttons add a page of the current size next to the current page and
-   make it current. After them, in the space before the page tabs, the
+   make it current, in one undo step (it was two: the page added at the
+   end, then moved). After them, in the space before the page tabs, the
    Multipage View button (four small pages) turns that view on and off
    like View > Multipage View; it is lit while the view is on (#1019,
    `pick_drag_tests::the_page_bar_turns_the_multipage_view_on_and_off`).
@@ -232,12 +233,22 @@ window shows.
   it, each laid over the last picture as soon as it is done
   (`Raster::incoming`, a see-through texture the picture's size). After
   a zoom on a large drawing the window sharpens from the middle out
-  while the rest is still drawn, as CorelDRAW fills its window in,
+  while the rest is still drawn,
   instead of showing the scaled, blurry picture until the whole new one
   is ready (discussion #2389). The bands of a render that gave up are
   not shown; the pages beside the current one come whole.
   (`band_tests::a_picture_comes_a_band_at_a_time_from_the_middle` in the
-  render crate.)
+  render crate.) Under the bands that have come, the last picture is
+  left out: both pictures are see-through where the page is, so a
+  see-through object (a bitmap with transparency, a fill with opacity)
+  showed twice as dark there, with a seam where the bands ended, and
+  flickered while kerning or dragging re-rendered it every frame
+  (#3639, `raster::tests::the_bands_so_far_cover_their_rows_on_screen`).
+  Bands come only over a picture of the same drawing (the
+  view moved): the picture of a change (each step of a shadow or object
+  being dragged) comes whole, since bands over the picture from before
+  it showed both at once, cut along the bands' edges (#3562,
+  `raster::tests::a_change_comes_whole_and_a_moved_view_in_bands`).
 - Only what can show is drawn: an object (or, inside a group, each of
   its objects) whose bounds, grown by what its outline may reach, lie
   wholly off the canvas is skipped, while objects with effects or a

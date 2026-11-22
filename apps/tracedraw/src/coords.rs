@@ -429,6 +429,7 @@ impl CoordsState {
                         ),
                         complex: None,
                         twist: 0.0,
+                        bend: 0.0,
                     },
                     CoordKind::ComplexStar => {
                         let n = self.points.clamp(COMPLEX_STAR_MIN_POINTS, 500);
@@ -441,6 +442,7 @@ impl CoordsState {
                                     .clamp(1, complex_star_max_sharpness(n)),
                             ),
                             twist: 0.0,
+                            bend: 0.0,
                         }
                     }
                     _ => ShapeKind::Polygon {
@@ -449,6 +451,7 @@ impl CoordsState {
                         sharpness: 0.0,
                         complex: None,
                         twist: 0.0,
+                        bend: 0.0,
                     },
                 };
                 Some((kind, t))
@@ -887,7 +890,12 @@ impl App {
             .find_shape(old.id)
             .cloned()
             .unwrap_or(old.clone());
-        let keep = |e: &Effect| !matches!(e, Effect::Envelope { .. } | Effect::Perspective { .. });
+        let keep = |e: &Effect| {
+            !matches!(
+                e,
+                Effect::Envelope { .. } | Effect::Perspective { .. } | Effect::MeshEnvelope { .. }
+            )
+        };
         cmds.push(Command::SetEffectStack {
             shape: old.id,
             effects: raw.effects.iter().filter(|e| keep(e)).cloned().collect(),
@@ -1124,6 +1132,7 @@ mod tests {
                 sharpness: 0.0,
                 complex: Some(3),
                 twist: 0.0,
+                bend: 0.0,
             },
         );
         assert!(c.load(&star));

@@ -670,6 +670,10 @@ pub fn show(app: &mut App, ui: &mut Ui) {
                         ui.checkbox(&mut pv.options, tr("print.show_options"))
                             .rich_tip(tr("print.show_options_tip"));
                     });
+                    // Kept for the next Print Preview (#3603).
+                    app.settings.print_preview_rulers = pv.rulers;
+                    app.settings.print_preview_strip = pv.strip;
+                    app.settings.print_preview_options = pv.options;
                     // The printer with its Properties and status, and the
                     // copies: in the bar, so the left panel keeps its room
                     // for the options (#792, #953).
@@ -1798,6 +1802,18 @@ pub fn pages_to_print(sheets: usize, st: &PrintState, inks: &[bool]) -> usize {
     sheets * per_sheet * st.copies.max(1) as usize
 }
 
+/// The frame round a sheet thumbnail: the sheet shown in accent. Drawn
+/// inside the thumbnail, so the strip's edge does not cut off the first
+/// sheet's frame (#3242).
+fn thumb_frame(shown: bool) -> (egui::Stroke, egui::StrokeKind) {
+    let stroke = if shown {
+        egui::Stroke::new(2.0, Tokens::ACCENT)
+    } else {
+        egui::Stroke::new(1.0, Tokens::text_dim())
+    };
+    (stroke, egui::StrokeKind::Inside)
+}
+
 /// The strip of sheet thumbnails and the status line under it.
 fn strip_panel(app: &App, ui: &mut Ui, pv: &mut PrintPreview) {
     let sizes: Vec<tracedraw_core::geometry::Size> =
@@ -1872,16 +1888,8 @@ fn strip_panel(app: &App, ui: &mut Ui, pv: &mut PrintPreview) {
                                 );
                             }
                             let shown = i == pv.sheet;
-                            p.rect_stroke(
-                                pic,
-                                0.0,
-                                if shown {
-                                    egui::Stroke::new(2.0, Tokens::ACCENT)
-                                } else {
-                                    egui::Stroke::new(1.0, Tokens::text_dim())
-                                },
-                                egui::StrokeKind::Outside,
-                            );
+                            let (stroke, kind) = thumb_frame(shown);
+                            p.rect_stroke(pic, 0.0, stroke, kind);
                             p.text(
                                 egui::pos2(pic.center().x, pic.bottom() + 2.0),
                                 egui::Align2::CENTER_TOP,
@@ -3066,7 +3074,7 @@ mod tests {
         let size = crate::splash::DEFAULT_SIZE;
         for code in [
             "en", "es", "pt-BR", "fr", "de", "it", "nl", "pl", "cs", "ru", "tr", "id", "ar", "hi",
-            "bn", "ja", "zh-CN", "zh-TW", "lo",
+            "bn", "ja", "zh-CN", "zh-TW", "lo", "vi",
         ] {
             crate::i18n::with_thread_language(code, || {
                 let ctx = crate::theme::ui_context();
@@ -3563,6 +3571,48 @@ mod tests {
         out.textures_delta.clear();
     }
 
+    /// What the View button shows is kept for the next Print Preview
+    /// (#3603): the strip and the rulers turned off stay off when it is
+    /// opened again, and come back once turned on.
+    #[test]
+    fn the_view_choices_are_kept_for_the_next_preview() {
+        let ctx = crate::theme::ui_context();
+        let mut app = App::headless();
+        let frame = |app: &mut App| {
+            let mut out = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1400.0, 900.0),
+                    )),
+                    ..Default::default()
+                },
+                |ui| show(app, ui),
+            );
+            out.textures_delta.clear();
+        };
+        app.print_preview(Some(PrintState::default()));
+        let pv = app.print_preview.as_ref().expect("open");
+        assert!(pv.rulers && pv.strip && pv.options, "all shown at first");
+        if let Some(pv) = app.print_preview.as_mut() {
+            pv.strip = false;
+            pv.rulers = false;
+        }
+        frame(&mut app);
+        app.print_preview = None;
+        app.print_preview(Some(PrintState::default()));
+        let pv = app.print_preview.as_ref().expect("open again");
+        assert!(!pv.strip && !pv.rulers && pv.options);
+        if let Some(pv) = app.print_preview.as_mut() {
+            pv.strip = true;
+        }
+        frame(&mut app);
+        app.print_preview = None;
+        app.print_preview(Some(PrintState::default()));
+        let pv = app.print_preview.as_ref().expect("and again");
+        assert!(pv.strip && !pv.rulers);
+    }
+
     /// A zoom keeps the sheet point under the pointer where it is, and a
     /// box zooms so that it fills the view, its middle in the middle.
     #[test]
@@ -3705,6 +3755,19 @@ mod tests {
         let pv = app.print_preview.as_ref().unwrap();
         assert!(pv.pan.x < -20.0 && pv.pan.y < -10.0, "{:?}", pv.pan);
         assert_eq!(pv.st.art_offset, (0.0, 0.0));
+    }
+
+    /// The frames of the thumbnails lie inside them: the strip clips
+    /// what lies outside its edge, which cut off the left side of the
+    /// first sheet's accent frame (#3242).
+    #[test]
+    fn thumbnail_frames_stay_inside_the_thumbnail() {
+        for shown in [true, false] {
+            let (stroke, kind) = thumb_frame(shown);
+            assert_eq!(kind, egui::StrokeKind::Inside);
+            assert!(stroke.width > 0.0);
+        }
+        assert!(thumb_frame(true).0.width > thumb_frame(false).0.width);
     }
 
     /// The strip shows every sheet; a click on one shows it. The status

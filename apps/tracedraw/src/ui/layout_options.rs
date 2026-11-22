@@ -100,10 +100,17 @@ pub enum NamedPreset {
     ThreeColumnNewsletter,
     BasicGrid,
     UpperLeftGrid,
+    /// The mathematical layout grids (`layout_grids` below).
+    RuleOfThirds,
+    GoldenRatio,
+    GoldenSubdivision,
+    CentreDiagonals,
+    VanDeGraaf,
+    Isometric,
 }
 
 impl NamedPreset {
-    pub const ALL: [NamedPreset; 7] = [
+    pub const ALL: [NamedPreset; 13] = [
         NamedPreset::OneInchMargins,
         NamedPreset::BleedArea,
         NamedPreset::PageBorders,
@@ -111,6 +118,12 @@ impl NamedPreset {
         NamedPreset::ThreeColumnNewsletter,
         NamedPreset::BasicGrid,
         NamedPreset::UpperLeftGrid,
+        NamedPreset::RuleOfThirds,
+        NamedPreset::GoldenRatio,
+        NamedPreset::GoldenSubdivision,
+        NamedPreset::CentreDiagonals,
+        NamedPreset::VanDeGraaf,
+        NamedPreset::Isometric,
     ];
 
     fn key(self) -> &'static str {
@@ -122,6 +135,12 @@ impl NamedPreset {
             NamedPreset::ThreeColumnNewsletter => "guides.preset_three_columns",
             NamedPreset::BasicGrid => "guides.preset_basic_grid",
             NamedPreset::UpperLeftGrid => "guides.preset_upper_left_grid",
+            NamedPreset::RuleOfThirds => "guides.preset_rule_of_thirds",
+            NamedPreset::GoldenRatio => "guides.preset_golden_ratio",
+            NamedPreset::GoldenSubdivision => "guides.preset_golden_subdivision",
+            NamedPreset::CentreDiagonals => "guides.preset_centre_diagonals",
+            NamedPreset::VanDeGraaf => "guides.preset_van_de_graaf",
+            NamedPreset::Isometric => "guides.preset_isometric",
         }
     }
 
@@ -174,7 +193,146 @@ impl NamedPreset {
                 rows: 4,
                 columns: 4,
             }],
+            // The mathematical grids are drawn by `layout_grids`.
+            NamedPreset::RuleOfThirds
+            | NamedPreset::GoldenRatio
+            | NamedPreset::GoldenSubdivision
+            | NamedPreset::CentreDiagonals
+            | NamedPreset::VanDeGraaf
+            | NamedPreset::Isometric => Vec::new(),
         }
+    }
+}
+
+/// One over the golden ratio, 0.618...
+const INV_PHI: f64 = 0.618_033_988_749_894_9;
+
+/// Vertical and horizontal guidelines at these fractions of the page.
+fn at_fractions(size: tracedraw_core::geometry::Size, fractions: &[f64]) -> Vec<GuideLine> {
+    let mut out = Vec::new();
+    for f in fractions {
+        out.push(GuideLine::Vertical { x: size.width * f });
+        out.push(GuideLine::Horizontal { y: size.height * f });
+    }
+    out
+}
+
+/// The two diagonals of a page, as angled guidelines.
+fn page_diagonals(size: tracedraw_core::geometry::Size) -> Vec<GuideLine> {
+    let a = size.height.atan2(size.width).to_degrees();
+    vec![
+        GuideLine::Angled {
+            x: 0.0,
+            y: 0.0,
+            angle: a,
+        },
+        GuideLine::Angled {
+            x: 0.0,
+            y: size.height,
+            angle: -a,
+        },
+    ]
+}
+
+/// The page cut again and again by the golden ratio: each step cuts off,
+/// from the longer side of what is left, the part 0.618 of it long, from
+/// the left, the top, the right and the bottom in turn, as a golden spiral
+/// is drawn; seven cuts, none under 5 mm.
+fn golden_subdivision(size: tracedraw_core::geometry::Size) -> Vec<GuideLine> {
+    let (mut x0, mut y0, mut w, mut h) = (0.0, 0.0, size.width, size.height);
+    let mut out = Vec::new();
+    for step in 0..7 {
+        let long_side = if w >= h { w } else { h };
+        let cut = long_side * INV_PHI;
+        if w.min(h) < 5.0 || long_side - cut < 5.0 {
+            break;
+        }
+        if w >= h {
+            // Cut the width: from the left on even turns, else the right.
+            if step % 4 == 0 {
+                x0 += cut;
+                out.push(GuideLine::Vertical { x: x0 });
+            } else {
+                out.push(GuideLine::Vertical { x: x0 + w - cut });
+            }
+            w -= cut;
+        } else {
+            // Cut the height: from the top on odd turns, else the bottom.
+            if step % 4 == 1 {
+                out.push(GuideLine::Horizontal { y: y0 + h - cut });
+            } else {
+                y0 += cut;
+                out.push(GuideLine::Horizontal { y: y0 });
+            }
+            h -= cut;
+        }
+    }
+    out
+}
+
+/// Isometric guidelines: verticals and lines at 30 and 150 degrees, `step`
+/// apart (measured square to the lines), across the page.
+fn isometric(size: tracedraw_core::geometry::Size, step: f64) -> Vec<GuideLine> {
+    let tan = 30f64.to_radians().tan();
+    let along = step / 30f64.to_radians().cos();
+    let mut out = Vec::new();
+    let mut x = 0.0;
+    while x <= size.width + 1e-9 && out.len() < 200 {
+        out.push(GuideLine::Vertical { x });
+        x += step;
+    }
+    // Lines at 30 degrees through (0, c): they cross the page when c is
+    // in [-w tan, h]; at 150 degrees when c is in [0, h + w tan].
+    let mut c = -size.width * tan;
+    while c <= size.height + 1e-9 && out.len() < 200 {
+        out.push(GuideLine::Angled {
+            x: 0.0,
+            y: c,
+            angle: 30.0,
+        });
+        c += along;
+    }
+    let mut c = 0.0;
+    while c <= size.height + size.width * tan + 1e-9 && out.len() < 200 {
+        out.push(GuideLine::Angled {
+            x: 0.0,
+            y: c,
+            angle: 150.0,
+        });
+        c += along;
+    }
+    out
+}
+
+/// The guidelines of the mathematical layout grids for a page of `size`:
+/// the rule of thirds, the golden ratio (0.382 and 0.618 of each side),
+/// the golden subdivision, the centre lines with the page's diagonals,
+/// the Van de Graaf canon (margins of 1/9 of the width and the height on
+/// the inner and top sides and 2/9 on the outer and bottom, with the
+/// page's diagonals) and an isometric grid 20 mm apart.
+pub fn layout_grids(preset: NamedPreset, size: tracedraw_core::geometry::Size) -> Vec<GuideLine> {
+    match preset {
+        NamedPreset::RuleOfThirds => at_fractions(size, &[1.0 / 3.0, 2.0 / 3.0]),
+        NamedPreset::GoldenRatio => at_fractions(size, &[1.0 - INV_PHI, INV_PHI]),
+        NamedPreset::GoldenSubdivision => golden_subdivision(size),
+        NamedPreset::CentreDiagonals => {
+            let mut out = at_fractions(size, &[0.5]);
+            out.extend(page_diagonals(size));
+            out
+        }
+        NamedPreset::VanDeGraaf => {
+            let (w, h) = (size.width, size.height);
+            let mut out = vec![
+                GuideLine::Vertical { x: w / 9.0 },
+                GuideLine::Vertical { x: w - 2.0 * w / 9.0 },
+                GuideLine::Horizontal { y: h - h / 9.0 },
+                GuideLine::Horizontal { y: 2.0 * h / 9.0 },
+            ];
+            out.extend(page_diagonals(size));
+            out
+        }
+        NamedPreset::Isometric => isometric(size, 20.0),
+        _ => Vec::new(),
     }
 }
 
@@ -228,6 +386,12 @@ pub fn preset_lines(
             })
             .collect()
         }
+        NamedPreset::RuleOfThirds
+        | NamedPreset::GoldenRatio
+        | NamedPreset::GoldenSubdivision
+        | NamedPreset::CentreDiagonals
+        | NamedPreset::VanDeGraaf
+        | NamedPreset::Isometric => layout_grids(preset, size),
         other => other
             .presets(size, bleed)
             .into_iter()
@@ -291,13 +455,26 @@ fn row_label(ui: &mut Ui, key: &str) {
 /// position, an offset, a spacing); returns the new value in mm when it
 /// changed.
 fn distance_field(ui: &mut Ui, tip: &str, units: Units, mm: f64, speed: f64) -> Option<f64> {
-    unit_field(ui, tip, units, units.world_mm(), mm, speed)
+    unit_field(ui, tip, units, units.world_mm(), mm, speed, false)
+}
+
+/// A distance field that takes the focus when `focus` is set, its value
+/// selected (the Guidelines panel, #2883).
+fn distance_field_focused(
+    ui: &mut Ui,
+    tip: &str,
+    units: Units,
+    mm: f64,
+    speed: f64,
+    focus: bool,
+) -> Option<f64> {
+    unit_field(ui, tip, units, units.world_mm(), mm, speed, focus)
 }
 
 /// A distance field in the ruler unit as printed (page margins, columns,
 /// the baseline grid), not through the drawing scale.
 fn paper_field(ui: &mut Ui, tip: &str, units: Units, mm: f64, speed: f64) -> Option<f64> {
-    unit_field(ui, tip, units, units.mm(), mm, speed)
+    unit_field(ui, tip, units, units.mm(), mm, speed, false)
 }
 
 fn unit_field(
@@ -307,6 +484,7 @@ fn unit_field(
     unit_mm: f64,
     mm: f64,
     speed: f64,
+    focus: bool,
 ) -> Option<f64> {
     let unit_mm = if unit_mm.is_finite() && unit_mm > 0.0 {
         unit_mm
@@ -320,7 +498,8 @@ fn unit_field(
             crate::ui::field::NumField::new(&mut v)
                 .speed(speed)
                 .max_decimals(4)
-                .suffix(format!(" {}", units.short())),
+                .suffix(format!(" {}", units.short()))
+                .focus(focus),
         )
         .rich_tip(crate::ui::tips::pair(tip, &format!("{tip}_tip")));
     r.changed().then_some(v * unit_mm)
@@ -1091,6 +1270,12 @@ fn guide_list(app: &mut App, ui: &mut Ui, kind: Option<GuideKind>, height: f32) 
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
+                let shown: Vec<usize> = guides
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, g)| kind.is_none_or(|k| k == GuideKind::of(&g.line)))
+                    .map(|(i, _)| i)
+                    .collect();
                 for (i, g) in guides.iter().enumerate() {
                     if kind.is_some_and(|k| k != GuideKind::of(&g.line)) {
                         continue;
@@ -1105,8 +1290,16 @@ fn guide_list(app: &mut App, ui: &mut Ui, kind: Option<GuideKind>, height: f32) 
                     }
                     let r = ui.selectable_label(selected, text);
                     if r.clicked() {
-                        let ctrl = ui.input(|i| i.modifiers.command);
-                        if ctrl {
+                        let (ctrl, shift) =
+                            ui.input(|i| (i.modifiers.command, i.modifiers.shift));
+                        // Shift+click: every guideline listed from the one
+                        // clicked last to this one (#2883).
+                        let range = shift
+                            .then(|| shift_range(&shown, &app.selected_guides, i, ctrl))
+                            .flatten();
+                        if let Some(sel) = range {
+                            app.selected_guides = sel;
+                        } else if ctrl {
                             if selected {
                                 app.selected_guides.retain(|j| *j != i);
                             } else {
@@ -1123,6 +1316,26 @@ fn guide_list(app: &mut App, ui: &mut Ui, kind: Option<GuideKind>, height: f32) 
                 }
             });
     });
+}
+
+/// The guidelines a Shift+click on `clicked` selects in a list showing
+/// `shown` (#2883): those listed from the anchor (the one selected last)
+/// to it, added to `selected` with Ctrl; the anchor stays last, for the
+/// next Shift+click. `None` without an anchor in the list.
+fn shift_range(shown: &[usize], selected: &[usize], clicked: usize, ctrl: bool) -> Option<Vec<usize>> {
+    let a = selected.last().and_then(|a| shown.iter().position(|j| j == a))?;
+    let h = shown.iter().position(|j| *j == clicked)?;
+    let (lo, hi) = (a.min(h), a.max(h));
+    let anchor = shown[a];
+    let mut sel: Vec<usize> = if ctrl { selected.to_vec() } else { Vec::new() };
+    for j in &shown[lo..=hi] {
+        if !sel.contains(j) {
+            sel.push(*j);
+        }
+    }
+    sel.retain(|j| *j != anchor);
+    sel.push(anchor);
+    Some(sel)
 }
 
 /// Window > Panels > Guidelines: show and snap toggles, the guideline type, position fields,
@@ -1155,6 +1368,11 @@ pub fn guidelines_docker(app: &mut App, ui: &mut Ui) {
             .rich_tip(crate::ui::tips::pair("guides.type", "guides.type_desc"));
     });
     let units = app.units;
+    // After a double click on a guideline its position field takes the
+    // focus, the value selected, ready to be typed over (#2883): y for a
+    // horizontal guideline, x for the others.
+    let focus = std::mem::take(&mut app.guide_focus_field);
+    let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
     egui::Grid::new("guide_form")
         .num_columns(2)
         .spacing([6.0, 4.0])
@@ -1164,7 +1382,7 @@ pub fn guidelines_docker(app: &mut App, ui: &mut Ui) {
                 let x = crate::ui::tips::tip_over(
                     ui,
                     crate::ui::tips::pair("toolbar.object_x", "guides.x_desc"),
-                    |ui| distance_field(ui, "guides.x", units, form.x, 0.1),
+                    |ui| distance_field_focused(ui, "guides.x", units, form.x, 0.1, focus),
                 );
                 if let Some(v) = x {
                     form.x = v;
@@ -1177,7 +1395,10 @@ pub fn guidelines_docker(app: &mut App, ui: &mut Ui) {
                 let y = crate::ui::tips::tip_over(
                     ui,
                     crate::ui::tips::pair("toolbar.object_y", "guides.y_desc"),
-                    |ui| distance_field(ui, "guides.y", units, form.y, 0.1),
+                    |ui| {
+                        let focus = focus && form.kind == GuideKind::Horizontal;
+                        distance_field_focused(ui, "guides.y", units, form.y, 0.1, focus)
+                    },
                 );
                 if let Some(v) = y {
                     form.y = v;
@@ -1204,9 +1425,23 @@ pub fn guidelines_docker(app: &mut App, ui: &mut Ui) {
             }
         });
     app.guide_form = form;
+    // Alt+A adds and Alt+M modifies from the keyboard, the hands kept off
+    // the mouse (#2883).
+    let (alt_add, alt_modify) = ui.input_mut(|i| {
+        (
+            i.consume_key(egui::Modifiers::ALT, egui::Key::A),
+            i.consume_key(egui::Modifiers::ALT, egui::Key::M),
+        )
+    });
+    let mut add = alt_add;
     if moved {
         let line = form.line(app);
-        app.move_guide_from_form(line);
+        // Enter in a field with no guideline selected adds one there.
+        if app.selected_guides.is_empty() {
+            add |= enter;
+        } else {
+            app.move_guide_from_form(line);
+        }
     }
     ui.horizontal(|ui| {
         if ui
@@ -1214,6 +1449,9 @@ pub fn guidelines_docker(app: &mut App, ui: &mut Ui) {
             .rich_tip(crate::ui::tips::pair("guides.add", "guides.add_desc"))
             .clicked()
         {
+            add = true;
+        }
+        if add {
             let line = form.line(app);
             app.add_guide_from_form(line);
         }
@@ -1226,6 +1464,7 @@ pub fn guidelines_docker(app: &mut App, ui: &mut Ui) {
             .rich_tip(crate::ui::tips::pair("guides.modify", "guides.modify_desc"))
             .rich_disabled_tip(crate::ui::tips::pair("guides.modify", "guides.modify_desc"))
             .clicked()
+            || (alt_modify && single.is_some())
         {
             if let Some(i) = single {
                 if let Some(g) = app.page_guides().get(i).copied() {
@@ -1376,6 +1615,62 @@ mod tests {
         back.load(&app, &GuideLine::Vertical { x: 13.0 });
         assert_eq!(back.kind, GuideKind::Vertical);
         assert!((back.x - 3.0).abs() < 1e-9);
+    }
+
+    /// Shift+click in the guideline list (#2883).
+    #[test]
+    fn shift_click_selects_the_guidelines_listed_between() {
+        // The list shows guidelines 1, 3, 4, 6 (the others of another type).
+        let shown = [1, 3, 4, 6];
+        assert_eq!(shift_range(&shown, &[3], 6, false), Some(vec![4, 6, 3]));
+        assert_eq!(shift_range(&shown, &[6], 1, false), Some(vec![1, 3, 4, 6]));
+        // Ctrl keeps the others selected.
+        assert_eq!(shift_range(&shown, &[0, 4], 6, true), Some(vec![0, 6, 4]));
+        // No anchor in the list: nothing to range from.
+        assert_eq!(shift_range(&shown, &[], 4, false), None);
+        assert_eq!(shift_range(&shown, &[2], 4, false), None);
+    }
+
+    /// The mathematical grids: thirds and golden lines at their
+    /// fractions, the diagonals at the page's angle, the Van de Graaf
+    /// margins, the golden subdivision's cuts inside the page and the
+    /// isometric lines at 30 and 150 degrees.
+    #[test]
+    fn the_mathematical_layout_grids_make_their_lines() {
+        let size = Size::new(210.0, 297.0);
+        let thirds = preset_lines(NamedPreset::RuleOfThirds, size, 0.0);
+        assert_eq!(thirds.len(), 4);
+        assert!(thirds.contains(&GuideLine::Vertical { x: 70.0 }));
+        assert!(thirds.contains(&GuideLine::Horizontal { y: 198.0 }));
+        let gold = preset_lines(NamedPreset::GoldenRatio, size, 0.0);
+        assert_eq!(gold.len(), 4);
+        assert!(gold.iter().any(|l| matches!(l, GuideLine::Vertical { x } if (x - 210.0 * 0.381_966).abs() < 0.01)));
+        assert!(gold.iter().any(|l| matches!(l, GuideLine::Horizontal { y } if (y - 297.0 * 0.618_034).abs() < 0.01)));
+        let centre = preset_lines(NamedPreset::CentreDiagonals, size, 0.0);
+        assert_eq!(centre.len(), 4);
+        let a = (297.0f64).atan2(210.0).to_degrees();
+        assert!(centre.contains(&GuideLine::Angled { x: 0.0, y: 0.0, angle: a }));
+        assert!(centre.contains(&GuideLine::Angled { x: 0.0, y: 297.0, angle: -a }));
+        let vdg = preset_lines(NamedPreset::VanDeGraaf, size, 0.0);
+        assert!(vdg.contains(&GuideLine::Vertical { x: 210.0 / 9.0 }));
+        assert!(vdg.contains(&GuideLine::Horizontal { y: 2.0 * 297.0 / 9.0 }));
+        let sub = preset_lines(NamedPreset::GoldenSubdivision, size, 0.0);
+        assert!(sub.len() >= 4);
+        assert!(sub.iter().all(|l| match l {
+            GuideLine::Vertical { x } => *x > 0.0 && *x < 210.0,
+            GuideLine::Horizontal { y } => *y > 0.0 && *y < 297.0,
+            GuideLine::Angled { .. } => false,
+        }));
+        let iso = preset_lines(NamedPreset::Isometric, size, 0.0);
+        assert!(iso.len() > 20 && iso.len() <= 200);
+        assert!(iso.iter().all(|l| match l {
+            GuideLine::Vertical { .. } => true,
+            GuideLine::Angled { angle, .. } => *angle == 30.0 || *angle == 150.0,
+            GuideLine::Horizontal { .. } => false,
+        }));
+        // A page too small for a cut makes none and no line is NaN.
+        let tiny = preset_lines(NamedPreset::GoldenSubdivision, Size::new(4.0, 4.0), 0.0);
+        assert!(tiny.is_empty());
     }
 
     #[test]

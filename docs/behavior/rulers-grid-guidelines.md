@@ -53,6 +53,12 @@ Show rulers, and a button that puts the origin back at the page corner.
 Document Setup > Rulers > Drawing scale makes a distance on the page
 stand for a distance in the world (`drawing_scale.rs`):
 
+The typical scales are also a list beside Units on the page bar (the
+Pick tool with nothing selected) and on the Dimension tools' bar; Custom
+there opens Document Setup > Rulers. The page bar had none, though the
+scale is the whole drawing's (#3450,
+`ui::propbar::tests::the_page_bar_shows_the_drawing_scale`).
+
 - Typical scales: 1:1 (default), 1:2, 1:5, 1:10, 1:20, 1:25, 1:50, 1:75,
   1:100, 1:200, 1:250, 1:500, 1:1000, 1:2000, 1:2500, 1:5000, 1:10000,
   2:1, 5:1, 10:1, and 1/16, 1/8, 1/4, 1/2 and 3/4 in = 1 ft, 1 in = 1 ft,
@@ -161,11 +167,15 @@ stand for a distance in the world (`drawing_scale.rs`):
   step "Move Guidelines"; a right click during the drag leaves copies
   where it ends and the guidelines where they were ("Copy Guidelines",
   the copies selected); dropped outside the window they all go (#376).
-- A guideline across an unselected picture takes the press: the pointer
-  shows the arrows across it and a drag moves the guideline, not the
-  picture (pictures often fill the page behind the guidelines). Other
-  unselected objects, and a selected picture, still take the press
+- A guideline across an unselected object (a picture, a shape, a group)
+  takes the press and the click: the pointer shows the arrows across it,
+  a drag moves the guideline and a click selects it, not the object
+  (pictures often fill the page behind the guidelines). Over a selected
+  object the press and the click stay the selection's
   (#2640, `pick_drag_tests::a_guideline_over_a_picture_is_dragged_and_the_picture_stays`).
+  The click went to the object, so the guideline could be dragged there
+  but not selected (#3424,
+  `guides::tests::a_click_on_a_guideline_over_an_object_selects_the_guideline`).
 - Edit > Duplicate (Ctrl+D) with guidelines and no objects selected
   copies them, moved by the duplicate offset (unlocked), the copies
   selected; the Guidelines docker's Duplicate does the same, and its
@@ -229,7 +239,10 @@ stand for a distance in the world (`drawing_scale.rs`):
   (opens the Guidelines panel with the guideline's values). A double
   click on a guideline (where no object is) does the same: the panel
   opens with that guideline selected alone and its values in the
-  fields (`App::open_guide_properties`).
+  fields (`App::open_guide_properties`). The second click of the
+  double click was taken as a click on the guideline and went no
+  further, so the guideline was only selected (#3008,
+  `pick_drag_tests::a_double_click_on_a_guideline_opens_the_guidelines_panel`).
 - Property bar: with guidelines selected and no object, the bar shows
   the one selected guideline's type and its x, y and angle (counted
   from the ruler origin, as the panel shows them); a value typed there
@@ -254,6 +267,18 @@ guideline as soon as it is entered (Enter or leaving the field), with no
 need for Modify, which stays for a change of type and for Add's values
 (`guides::tests::typed_values_move_the_selected_guideline_and_the_panel_follows_it`).
 
+From the keyboard (#2883): after a double click on a guideline (or its
+Properties) the position field (y for a horizontal guideline, x for the
+others) has the focus with its value selected, so a number typed and
+Enter move it; Tab goes on to the next field. Enter in a field with no
+guideline selected adds one there. Alt+A is Add and Alt+M Modify while
+the panel shows. In the list Shift+click selects the guidelines listed
+from the one selected last to the one clicked (with Ctrl, added to the
+others), and the selected guidelines are the ones highlighted on the
+drawing, whose colour and style the panel sets all at once
+(`pick_drag_tests::the_guidelines_panel_works_from_the_keyboard`,
+`ui::layout_options::tests::shift_click_selects_the_guidelines_listed_between`).
+
 ### Document Setup > Guidelines
 
 Show guidelines, Snap to guidelines, the default guideline colour, the
@@ -263,6 +288,21 @@ default preset guideline colour, and presets added in the preset colour:
   three column newsletter (one inch margins and three columns 1/4 inch
   apart), basic grid (one inch squares), upper left grid (4 x 4 over the
   upper left quarter).
+- Mathematical layout grids (`ui::layout_options::layout_grids`), each a
+  preset that adds its guidelines to the page, none twice:
+  - Rule of thirds: lines at 1/3 and 2/3 of the width and of the height.
+  - Golden ratio: lines at 0.382 and 0.618 of each side.
+  - Golden subdivision: seven cuts, each taking 0.618 of the longer side
+    of what is left, from the left, the top, the right and the bottom in
+    turn as a golden spiral is drawn, none under 5 mm.
+  - Centre and diagonals: the middle lines and the page's two diagonals
+    (angled guidelines at the page's angle).
+  - Van de Graaf canon: margins of 1/9 of the width and the height on the
+    inner (left) and top sides and 2/9 on the outer (right) and bottom
+    sides, with the page's diagonals.
+  - Isometric grid: verticals and lines at 30 and 150 degrees, 20 mm
+    apart (at most 200 lines).
+  Test: `ui::layout_options::tests::the_mathematical_layout_grids_make_their_lines`.
 - User defined: margins (top, bottom, left, right), columns (number,
   distance between, set between the margins when those are on), grid
   (rows, columns).

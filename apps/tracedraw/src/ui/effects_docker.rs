@@ -22,6 +22,7 @@ pub fn effect_key(e: &Effect) -> &'static str {
         Effect::Distort(_) => "effect.distort",
         Effect::Envelope { .. } => "effect.envelope",
         Effect::Perspective { .. } => "effect.perspective",
+        Effect::MeshEnvelope { .. } => "effect.mesh_envelope",
         Effect::Extrude { .. } => "effect.extrude",
         Effect::Bevel { .. } => "effect.bevel",
         Effect::BlockShadow { .. } => "effect.block_shadow",
@@ -32,10 +33,27 @@ pub fn effect_key(e: &Effect) -> &'static str {
         Effect::ColorOverlay { .. } => "effect.color_overlay",
         Effect::GradientOverlay { .. } => "effect.gradient_overlay",
         Effect::GaussianBlur { .. } => "effect.gaussian_blur",
+        Effect::Halftone { .. } => "effect.halftone",
         Effect::FillOpacity { .. } => "effect.fill_opacity",
+        Effect::BlendIf { .. } => "effect.blend_if",
+        Effect::Displace { .. } => "effect.displace",
         Effect::Symmetry { .. } => "effect.symmetry",
+        Effect::Transform { .. } => "effect.transform",
+        Effect::Grid { .. } => "effect.grid",
+        Effect::Spray { .. } => "media.sprayer",
+        Effect::Tiles { .. } => "media.tiles",
+        Effect::LivePaint { .. } => "effect.live_paint",
         Effect::Lens(_) => "effect.lens",
         Effect::Transparency { .. } => "effect.transparency",
+        Effect::OffsetPath { merge: true, .. } => "effect.merge_shapes",
+        Effect::OffsetPath { .. } => "effect.offset_path",
+        Effect::Combine { .. } => "effect.combine",
+        Effect::Roughen { .. } => "effect.roughen",
+        Effect::JitterNodes { .. } => "effect.jitter_nodes",
+        Effect::Scribble { .. } => "effect.scribble",
+        Effect::ShapeFrame { .. } => "effect.shape_frame",
+        Effect::TrimMarks { .. } => "effect.trim_marks",
+        Effect::Feather { .. } => "effect.feather",
     }
 }
 
@@ -107,6 +125,7 @@ fn presets(app: &mut App, ui: &mut Ui) {
         }
         ui.data_mut(|d| d.insert_temp(id, name));
     });
+    builtin_looks(app, ui);
     let n = app.settings.style_presets.len();
     if n == 0 {
         ui.label(egui::RichText::new(tr("effects.presets_hint")).color(Tokens::text_dim()));
@@ -119,26 +138,7 @@ fn presets(app: &mut App, ui: &mut Ui) {
         let name = app.settings.style_presets[i].name.clone();
         let pic = app.style_preset_picture(ui.ctx(), i, px);
         ui.horizontal(|ui| {
-            let (r, resp) =
-                ui.allocate_exact_size(egui::vec2(PICTURE, PICTURE), egui::Sense::click());
-            crate::ui::before_after::checkerboard(ui.painter(), r);
-            if let Some(t) = &pic {
-                let size = t.size_vec2() / ui.ctx().pixels_per_point();
-                let fit = (PICTURE / size.x.max(size.y).max(1.0)).min(1.0);
-                let place = egui::Rect::from_center_size(r.center(), size * fit);
-                ui.painter().image(
-                    t.id(),
-                    place,
-                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                    egui::Color32::WHITE,
-                );
-            }
-            ui.painter().rect_stroke(
-                r,
-                2.0,
-                egui::Stroke::new(1.0, Tokens::control_border()),
-                egui::StrokeKind::Inside,
-            );
+            let resp = preset_picture(ui, pic);
             if resp
                 .rich_tip(crate::ui::tips::pair(
                     "effects.preset_apply",
@@ -180,6 +180,53 @@ fn presets(app: &mut App, ui: &mut Ui) {
     }
     if let Some(i) = remove {
         app.delete_style_preset(i);
+    }
+}
+
+/// A preset's picture in a square, clickable.
+fn preset_picture(ui: &mut Ui, pic: Option<egui::TextureHandle>) -> egui::Response {
+    let (r, resp) = ui.allocate_exact_size(egui::vec2(PICTURE, PICTURE), egui::Sense::click());
+    crate::ui::before_after::checkerboard(ui.painter(), r);
+    if let Some(t) = &pic {
+        let size = t.size_vec2() / ui.ctx().pixels_per_point();
+        let fit = (PICTURE / size.x.max(size.y).max(1.0)).min(1.0);
+        let place = egui::Rect::from_center_size(r.center(), size * fit);
+        ui.painter().image(
+            t.id(),
+            place,
+            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+            egui::Color32::WHITE,
+        );
+    }
+    ui.painter().rect_stroke(
+        r,
+        2.0,
+        egui::Stroke::new(1.0, Tokens::control_border()),
+        egui::StrokeKind::Inside,
+    );
+    resp
+}
+
+/// The built-in looks (metals and glass), a picture each in a wrapping
+/// row: a click gives the selection the look.
+fn builtin_looks(app: &mut App, ui: &mut Ui) {
+    let has = !app.selection.is_empty();
+    ui.label(egui::RichText::new(tr("effects.looks_builtin")).color(Tokens::text_dim()));
+    let px = (PICTURE * ui.ctx().pixels_per_point()).round() as u32;
+    let looks = crate::builtin_looks::looks();
+    let mut apply = None;
+    ui.horizontal_wrapped(|ui| {
+        for (i, p) in looks.iter().enumerate() {
+            let pic = app.preset_picture(ui.ctx(), p, px);
+            let resp = preset_picture(ui, pic);
+            let tip = format!("{}\n{}", p.name, tr("effects.looks_builtin_desc"));
+            if resp.rich_tip(tip).clicked() && has {
+                apply = Some(i);
+            }
+        }
+    });
+    if let Some(i) = apply {
+        app.apply_preset(&looks[i]);
     }
 }
 

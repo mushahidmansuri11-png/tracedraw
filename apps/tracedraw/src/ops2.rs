@@ -350,7 +350,7 @@ impl App {
     /// all of them. A page whose rectangle is empty or not a number keeps
     /// its size; when every one is, nothing happens and the status says
     /// so.
-    fn fit_pages_to(
+    pub(crate) fn fit_pages_to(
         &mut self,
         fits: &[(tracedraw_core::PageId, tracedraw_core::geometry::Rect)],
         label: &'static str,
@@ -655,6 +655,49 @@ impl App {
 
     // ----- effects on the stack ------------------------------------------------------
 
+    /// Effects > Merge Shapes: the selected objects grouped (or the one
+    /// selected group) and given a live Offset Path that joins them into
+    /// one outline with rounded necks where they come near each other
+    /// (metaballs), in the paint of the bottom object. Moving an object
+    /// of the group later changes the merge; the smoothing is set in the
+    /// Effects panel, which opens.
+    pub fn merge_shapes(&mut self) {
+        let sel = self.selected_shapes();
+        let one_group = sel.len() == 1 && matches!(sel[0].kind, ShapeKind::Group { .. });
+        if sel.len() >= 2 {
+            self.group_selection();
+        } else if !one_group {
+            return;
+        }
+        // Smoothing from the size of the parts: a quarter of the smallest.
+        let smallest = self
+            .selected_shapes()
+            .first()
+            .and_then(|g| match &g.kind {
+                ShapeKind::Group { children } => children
+                    .iter()
+                    .map(|c| {
+                        let b = c.bounds();
+                        b.width().min(b.height())
+                    })
+                    .filter(|v| v.is_finite() && *v > 0.0)
+                    .min_by(f64::total_cmp),
+                _ => None,
+            })
+            .unwrap_or(20.0);
+        let smooth = (smallest * 0.25).clamp(0.5, 100.0);
+        self.push_effect(
+            Effect::OffsetPath {
+                distance: 0.0,
+                smooth,
+                join: tracedraw_core::shaping::Join::Round,
+                merge: true,
+            },
+            true,
+        );
+        self.open_docker(crate::app::DockerTab::Effects);
+    }
+
     /// Add or replace a live effect on the selected objects.
     pub fn push_effect(&mut self, effect: Effect, replace_same_kind: bool) {
         let shapes = self.selected_shapes();
@@ -719,6 +762,7 @@ impl App {
                     opacity,
                     blur,
                     merge,
+                    spread,
                 } => Some((
                     *offset,
                     crate::app::InnerShadowStyle {
@@ -726,6 +770,7 @@ impl App {
                         opacity: *opacity,
                         blur: *blur,
                         merge: *merge,
+                        spread: *spread,
                     },
                 )),
                 _ => None,
@@ -802,6 +847,11 @@ impl App {
     /// Measured from the size made 100% with
     /// [`set_scale_as_100`](Self::set_scale_as_100) when it was (#2761).
     pub fn scale_shown(&self) -> (f64, f64) {
+        // Asked each frame: more than one object shows 100% without a
+        // copy of each.
+        if self.selection.len() != 1 {
+            return (100.0, 100.0);
+        }
         let shapes = self.selected_shapes();
         let [s] = shapes.as_slice() else {
             return (100.0, 100.0);
@@ -928,6 +978,7 @@ impl App {
                         shapes: id.clone(),
                         fills: Vec::new(),
                         strokes: Vec::new(),
+                        looks: None,
                     },
                     Command::SetShadow {
                         shapes: id.clone(),
@@ -1070,6 +1121,10 @@ impl App {
     pub fn create_symmetry(&mut self) {
         let mut shapes = self.selected_shapes();
         if shapes.is_empty() {
+            // Nothing selected: an empty symmetry, its mirror line down
+            // the middle of the page, straight into editing it; what is
+            // drawn then joins it (#2995).
+            self.create_empty_symmetry();
             return;
         }
         let Some(b) = self.selection_bounds() else {
@@ -1100,6 +1155,7 @@ impl App {
                 center,
                 angle: 90.0,
                 lines: 1,
+                rotate: false,
             });
             let cmd = Command::SetEffects {
                 shape: s.id,
@@ -1116,6 +1172,42 @@ impl App {
             }
         }
         // Straight into editing it, as Edit Symmetry does.
+        self.edit_symmetry();
+    }
+
+    /// Object > Symmetry > Create New Symmetry with nothing selected
+    /// (#2995): an empty symmetry group on the active layer, mirroring
+    /// about a vertical line through the page's centre, in editing. A
+    /// symmetry finished with nothing drawn in it goes away.
+    fn create_empty_symmetry(&mut self) {
+        let Some(layer) = self.active_layer() else {
+            return;
+        };
+        let center = self.page_rect().center();
+        let id = self.engine.new_shape_id();
+        let mut g = Shape::new(
+            id,
+            ShapeKind::Group {
+                children: Vec::new(),
+            },
+        );
+        g.fill = Fill::None;
+        g.stroke = None;
+        g.name = Some("Symmetry".into());
+        g.effects.push(Effect::Symmetry {
+            center,
+            angle: 90.0,
+            lines: 1,
+            rotate: false,
+        });
+        if let Err(e) = self
+            .engine
+            .run_with_label(&Command::AddShape { layer, shape: g }, "Symmetry")
+        {
+            self.status = e.to_string();
+            return;
+        }
+        self.selection = vec![id];
         self.edit_symmetry();
     }
 
@@ -1248,6 +1340,18 @@ impl App {
         *self.symmetry_doc.borrow_mut() = None;
         if let Some(id) = self.symmetry_edit.take() {
             self.status.clear();
+            // An empty symmetry (#2995) finished with nothing drawn in it
+            // goes, in the step that made it when nothing came between.
+            let empty = self
+                .doc()
+                .find_shape(id)
+                .is_some_and(|s| matches!(&s.kind, ShapeKind::Group { children } if children.is_empty()));
+            if empty {
+                if let Err(e) = self.engine.amend(&Command::DeleteShapes { shapes: vec![id] }) {
+                    self.status = e.to_string();
+                }
+                self.selection.retain(|s| *s != id);
+            }
             self.raster.borrow_mut().invalidate();
             // Nothing of the editing stays. The boxes measured while it was
             // edited are the object's own (without the copies): measured
@@ -1309,12 +1413,13 @@ impl App {
 
     /// The symmetry effect of the first selected object.
     pub fn selected_symmetry(&self) -> Option<(ShapeId, Point, f64, u8)> {
-        self.selected_shapes().iter().find_map(|s| {
+        self.selected_rc().iter().find_map(|s| {
             s.effects.iter().find_map(|e| match e {
                 Effect::Symmetry {
                     center,
                     angle,
                     lines,
+                    ..
                 } => Some((s.id, *center, *angle, *lines)),
                 _ => None,
             })
@@ -1411,6 +1516,28 @@ impl App {
         if let Err(e) = self.engine.run_batch("Clear Transparency", &cmds) {
             self.status = e.to_string();
         }
+    }
+
+    /// Object > Apply Uniform Transparency (#3622): the selected objects
+    /// (bitmaps and groups too) get a uniform transparency over fill and
+    /// outline in the Normal merge mode, at the amount last used (50% at
+    /// first); one undo step.
+    pub fn apply_uniform_transparency(&mut self) {
+        use crate::mixed::TransparencyField as F;
+        let last = self.transparency_default.amount;
+        let amount = if last > 0.0 && last <= 100.0 {
+            last
+        } else {
+            50.0
+        };
+        let set = crate::effects_ui::TransparencySettings {
+            kind: 0,
+            amount,
+            merge: tracedraw_core::live::MergeMode::Normal,
+            target: 2,
+            ..Default::default()
+        };
+        self.patch_transparency(&set, &[F::Kind, F::Amount, F::Merge, F::Target]);
     }
 
     /// Object > Clip to Frame > Edit Contents: take the contents out so they can
@@ -1814,6 +1941,37 @@ impl App {
         }
     }
 
+    /// Object > Group > Draw as One and Members Hide Those Beneath: each
+    /// selected group's look with `as_one` and `knockout` set where
+    /// given; one undo step.
+    pub fn set_group_looks(&mut self, as_one: Option<bool>, knockout: Option<bool>) {
+        let cmds: Vec<Command> = self
+            .selected_shapes()
+            .iter()
+            .filter(|s| matches!(s.kind, ShapeKind::Group { .. }))
+            .map(|s| {
+                let mut look = s.group_look.unwrap_or_default();
+                if let Some(v) = as_one {
+                    look.as_one = v;
+                }
+                if let Some(v) = knockout {
+                    look.knockout = v;
+                }
+                Command::SetGroupLook {
+                    shape: s.id,
+                    look: Some(look),
+                }
+            })
+            .collect();
+        if cmds.is_empty() {
+            return;
+        }
+        if let Err(e) = self.engine.run_batch("Group Look", &cmds) {
+            self.status = e.to_string();
+        }
+        self.raster.borrow_mut().invalidate();
+    }
+
     /// After moving unlocked clip frames by `t`, keep their contents in place.
     pub fn compensate_unlocked_clip_frames(&mut self, ids: &[ShapeId], t: Affine) {
         let inv = t.inverse();
@@ -2147,6 +2305,10 @@ impl App {
             self.status = e.to_string();
             return;
         }
+        // Live: the path keeps the fit, which follows it from now on.
+        if self.fit_path.live {
+            self.link_live_fit(&shapes, &plan, &placed);
+        }
         if group {
             if let Some(g) = self.doc().ancestors(grouped[0]).first().copied() {
                 self.select(vec![g]);
@@ -2456,11 +2618,12 @@ impl App {
     /// colours of its palette and is stored as an indexed PNG, so it is an
     /// indexed bitmap, no longer RGB or CMYK; one undo step. A bitmap
     /// left with more than 256 colours (its see-through levels counted)
-    /// stays RGB with the palette's colours (#2607).
+    /// stayed RGB (#2607): its soft edges are now made clear or opaque so
+    /// it is an indexed bitmap all the same (#3539).
     pub fn paletted_bitmaps(&mut self, settings: &crate::bitmap_modes::PalettedSettings) {
         self.recode_bitmaps("Paletted", |img, _| {
             let out = crate::bitmap_modes::paletted(img, settings);
-            crate::bitmap_fx::encode_indexed(&out).or_else(|| crate::bitmap_fx::encode(&out))
+            crate::bitmap_fx::encode_indexed_fitted(&out)
         });
     }
 
@@ -2470,7 +2633,13 @@ impl App {
     /// CMYK; one undo step. It stayed an RGB picture before (#2922).
     pub fn black_and_white_bitmaps(&mut self, settings: &crate::bitmap_modes::BwSettings) {
         self.recode_bitmaps("Black and White", |img, dpi| {
-            crate::bitmap_fx::encode_bw(&crate::bitmap_modes::black_and_white(img, settings, dpi))
+            // A 1-bit bitmap holds no transparency: a see-through one was
+            // stored as grayscale (#3539). It goes onto white paper first,
+            // as Convert to Bitmap's black and white does (#3204).
+            let on_white = crate::bitmap_fx::flatten_on_white(img);
+            crate::bitmap_fx::encode_bw(&crate::bitmap_modes::black_and_white(
+                &on_white, settings, dpi,
+            ))
         });
     }
 
@@ -2714,7 +2883,8 @@ impl App {
         let Some(tmp) = self.selection_alone(area) else {
             return;
         };
-        let Some((png, w, h)) = render_alone_png(&tmp, dpi, o.transparent, o.anti_alias) else {
+        let Some((png, w, h)) = render_alone_png(&tmp, dpi, o.keeps_transparency(), o.anti_alias)
+        else {
             return;
         };
         let bounds = area;
@@ -2746,12 +2916,12 @@ impl App {
                 ConvertMode::Grayscale => {
                     crate::bitmap_fx::encode_gray(&crate::bitmap_modes::convert_pixels(&img, o))
                 }
-                // Indexed: a PNG with a palette while the colours fit one
-                // (#2607).
+                // Indexed: a PNG with a palette (#2607), also with a
+                // see-through background, whose soft edges made it RGB
+                // (#3504).
                 ConvertMode::Paletted => {
                     let out = crate::bitmap_modes::convert_pixels(&img, o);
-                    crate::bitmap_fx::encode_indexed(&out)
-                        .or_else(|| crate::bitmap_fx::encode(&out))
+                    crate::bitmap_fx::encode_indexed_fitted(&out)
                 }
                 // Black and white: a 1-bit bitmap (#2922).
                 ConvertMode::BlackWhite => {
@@ -2801,6 +2971,123 @@ impl App {
         }
         if let Err(e) = self.engine.run_batch("Convert to Bitmap", &cmds) {
             self.status = e.to_string();
+        }
+        self.selection = vec![id];
+    }
+
+    /// Object > Flatten Transparency: the selected objects become one
+    /// opaque bitmap of how they look over what lies beneath them (at 300
+    /// dpi, shaped like them), in their place in the stack; the objects
+    /// beneath stay. One undo step. For printers and files that cannot mix
+    /// transparency.
+    pub fn flatten_transparency(&mut self) {
+        let shapes = self.selected_shapes();
+        let Some(layer) = self.active_layer() else {
+            return;
+        };
+        let Some(area) = self.convert_to_bitmap_area() else {
+            return;
+        };
+        let Some(alone) = self.selection_alone(area) else {
+            return;
+        };
+        let ids: Vec<ShapeId> = shapes.iter().map(|s| s.id).collect();
+        // What lies beneath: the objects on the page's visible layers
+        // below the topmost selected one, with the selection on top.
+        let doc = self.doc();
+        let tops: Vec<ShapeId> = ids
+            .iter()
+            .map(|id| doc.ancestors(*id).first().copied().unwrap_or(*id))
+            .collect();
+        let mut tmp = alone.clone();
+        let l = tmp.pages[0].layers[0].id;
+        let mut beneath = Vec::new();
+        let mut below_top = Vec::new();
+        for lay in self.page_layers() {
+            for sh in &lay.shapes {
+                if tops.contains(&sh.id) {
+                    beneath.append(&mut below_top);
+                } else if lay.visible {
+                    below_top.push(sh.clone());
+                }
+            }
+        }
+        let dpi = 300.0;
+        if let Ok(tl) = tmp.layer_mut(l) {
+            let mut all: Vec<Shape> = beneath
+                .into_iter()
+                .filter(|s| self.visual_bounds(s).overlaps(area))
+                .map(|mut c| {
+                    c.transform_by(Affine::translate((-area.x0, -area.y0)));
+                    c
+                })
+                .collect();
+            all.append(&mut tl.shapes);
+            tl.shapes = all;
+        }
+        let Some((whole, w, h)) = render_alone_png(&tmp, dpi, false, true) else {
+            return;
+        };
+        // The selection's shape: drawn alone without its transparency.
+        let mut solid = alone;
+        for lay in &mut solid.pages[0].layers {
+            for sh in &mut lay.shapes {
+                sh.opacity = 1.0;
+                sh.effects
+                    .retain(|e| !matches!(e, Effect::Transparency { .. }));
+            }
+        }
+        let Some((mask, _, _)) = render_alone_png(&solid, dpi, true, true) else {
+            return;
+        };
+        let (Some(mut img), Some(mask)) = (
+            crate::bitmap_fx::decode(&whole),
+            crate::bitmap_fx::decode(&mask),
+        ) else {
+            return;
+        };
+        if img.dimensions() != mask.dimensions() {
+            return;
+        }
+        // Only where the selection draws.
+        for (px, m) in img.pixels_mut().zip(mask.pixels()) {
+            px.0[3] = m.0[3];
+        }
+        let Some(png) = crate::bitmap_fx::encode(&img) else {
+            return;
+        };
+        let id = self.engine.new_shape_id();
+        let mut bitmap = Shape::new(
+            id,
+            ShapeKind::Bitmap {
+                rect: area,
+                width_px: w,
+                height_px: h,
+                png: png.into(),
+                fx: None,
+            },
+        );
+        bitmap.fill = Fill::None;
+        bitmap.stroke = None;
+        let mut cmds = vec![
+            Command::DeleteShapes {
+                shapes: ids.clone(),
+            },
+            Command::AddShape {
+                layer,
+                shape: bitmap,
+            },
+        ];
+        if let Some((at_layer, index)) = self.stack_place_of(&ids) {
+            cmds.push(Command::Reorder {
+                shape: id,
+                layer: at_layer,
+                index,
+            });
+        }
+        if let Err(e) = self.engine.run_batch("Flatten Transparency", &cmds) {
+            self.status = e.to_string();
+            return;
         }
         self.selection = vec![id];
     }
@@ -3067,6 +3354,10 @@ impl App {
                 text: tracedraw_core::spans_text(spans),
                 spans: spans.clone(),
                 ink,
+                align: match &s.kind {
+                    ShapeKind::Text { align, .. } => *align,
+                    _ => Default::default(),
+                },
             };
         }
     }
@@ -3084,6 +3375,47 @@ impl App {
         let mut spans = spans;
         retext_keeping_styles(&mut spans, text);
         self.set_text_spans(id, spans);
+    }
+
+    /// OK in the Edit Text box: its characters and the alignment set in
+    /// it (#3270), as one undo step "Edit Text".
+    pub fn set_edit_text(
+        &mut self,
+        id: ShapeId,
+        spans: Vec<TextSpan>,
+        align: tracedraw_core::TextAlign,
+    ) {
+        let Some(ShapeKind::Text {
+            spans: old,
+            origin,
+            frame,
+            align: old_align,
+            para,
+            on_path,
+        }) = self.doc().find_shape(id).map(|s| s.kind.clone())
+        else {
+            return;
+        };
+        if align == old_align {
+            self.set_text_spans(id, spans);
+            return;
+        }
+        let spans = tracedraw_core::document::merge_equal_spans(spans);
+        let spans = if spans.is_empty() { old } else { spans };
+        let kind = ShapeKind::Text {
+            spans,
+            origin,
+            frame,
+            align,
+            para,
+            on_path,
+        };
+        if let Err(e) = self
+            .engine
+            .run_with_label(&Command::SetShapeKind { shape: id, kind }, "Edit Text")
+        {
+            self.status = e.to_string();
+        }
     }
 
     /// The text object `id` gets the characters and formatting `spans`,
@@ -3441,6 +3773,7 @@ impl App {
             own.column_gutters = para.column_gutters.clone();
             own.columns_right_to_left = para.columns_right_to_left;
             own.fit_to_frame = para.fit_to_frame;
+            own.type_block = para.type_block;
             own.baseline_grid_mm = para.baseline_grid_mm;
             own.vertical_align = para.vertical_align;
             own.vertical = para.vertical;
@@ -3477,6 +3810,71 @@ impl App {
         };
         f(&mut p);
         self.set_paragraph_style(id, p);
+    }
+
+    /// Text > Bullets On/Off (Ctrl+Shift+L, #3593): bullets on or off for
+    /// the paragraphs at the caret of the paragraph text being edited,
+    /// else for every paragraph of the selected paragraph text. On when
+    /// the first of them has none, off when it has them. The bullet
+    /// itself stays as it was set (its character, font, size, indent), so
+    /// a text with a bullet of its own gets it back, and one that never
+    /// had one gets the default bullet. Nothing happens without paragraph
+    /// text.
+    pub fn toggle_bullets(&mut self) {
+        let targets: Vec<Shape> = match &self.text_edit {
+            Some(te) => self
+                .doc()
+                .find_shape(te.shape)
+                .cloned()
+                .into_iter()
+                .collect(),
+            None => self.selected_shapes(),
+        }
+        .into_iter()
+        .filter(|s| matches!(s.kind, ShapeKind::Text { frame: Some(_), .. }))
+        .collect();
+        let Some(first) = targets.first() else {
+            return;
+        };
+        let on = !self
+            .paragraph_style_of(first)
+            .is_some_and(|(_, p)| p.bullets);
+        for s in targets {
+            self.edit_paragraph_style(s.id, |p| p.bullets = on);
+        }
+    }
+
+    /// Text > Increase List Level and Decrease List Level (#3685): the
+    /// paragraphs with bullets at the caret of the paragraph text being
+    /// edited, else every paragraph with bullets of the selected
+    /// paragraph text, go one list level deeper or back up, each from its
+    /// own level. A number takes the next numbering of 1, a, i and a
+    /// symbol the next plain bullet, so the levels show apart.
+    pub fn change_list_level(&mut self, deeper: bool) {
+        let targets: Vec<Shape> = match &self.text_edit {
+            Some(te) => self
+                .doc()
+                .find_shape(te.shape)
+                .cloned()
+                .into_iter()
+                .collect(),
+            None => self.selected_shapes(),
+        }
+        .into_iter()
+        .filter(|s| matches!(s.kind, ShapeKind::Text { frame: Some(_), .. }))
+        .collect();
+        for s in targets {
+            let range = self.paragraph_range(s.id);
+            let mut kind = s.kind.clone();
+            tracedraw_core::paragraphs::edit_paragraph_formats(&mut kind, range, |f| {
+                if f.bullets {
+                    f.bullet.change_level(&mut f.bullet_char, deeper);
+                }
+            });
+            if kind != s.kind {
+                self.run(Command::SetShapeKind { shape: s.id, kind });
+            }
+        }
     }
 
     /// The texts Text > Use Hyphenation acts on: the one being edited,
@@ -3528,11 +3926,12 @@ impl App {
     /// Whether any selected object wraps paragraph text, and the wrap
     /// style of the first one.
     pub fn wrap_state(&self) -> (bool, tracedraw_core::TextWrap) {
-        let shapes = self.selected_shapes();
-        (
-            shapes.iter().any(|s| s.wrap_text),
-            shapes.first().map(|s| s.wrap_style).unwrap_or_default(),
-        )
+        *self.from_selection("wrap_state", |shapes| {
+            (
+                shapes.iter().any(|s| s.wrap_text),
+                shapes.first().map(|s| s.wrap_style).unwrap_or_default(),
+            )
+        })
     }
 
     /// Wrap paragraph text around the selected objects with this style,
@@ -3713,6 +4112,7 @@ impl App {
                 ..Default::default()
             }),
         }) {
+            self.note_text_path_source(id, path_id);
             self.text_edit = Some(crate::app::TextEdit::at_end(id, 0));
             self.select(vec![id]);
         }
@@ -3741,39 +4141,64 @@ impl App {
         else {
             return;
         };
-        let Some(kind) = crate::text_path::fit_kind(text, curve, at) else {
+        let Some((kind, transform)) = crate::text_path::fit(text, curve, at) else {
             return;
         };
-        self.run(Command::SetShapeKind {
-            shape: text.id,
+        // Fitted again just as it was: no step that undoes nothing.
+        if kind == text.kind && transform == text.transform {
+            self.selection = vec![text.id];
+            return;
+        }
+        let (text_id, curve_id) = (text.id, curve.id);
+        let before = self.engine.revision();
+        let mut cmds = vec![Command::SetShapeKind {
+            shape: text_id,
             kind,
-        });
-        self.selection = vec![text.id];
+        }];
+        // A squeezed text's squeeze went into its letters (#3485): the
+        // transform keeps the rest.
+        if transform != text.transform {
+            cmds.push(Command::TransformShapes {
+                shapes: vec![text_id],
+                transform: transform * text.transform.inverse(),
+            });
+        }
+        if let Err(e) = self.engine.run_batch("Fit Text to Path", &cmds) {
+            self.status = e.to_string();
+        }
+        // Where the text came from, for Follow Path (#3571).
+        if self.engine.revision() != before {
+            self.note_text_path_source(text_id, curve_id);
+        }
+        self.selection = vec![text_id];
     }
 
-    /// The Text tool clicked on the outline of a path (not a text): a new
-    /// text starts on that path. True when it did.
-    pub fn start_text_on_path_at(&mut self, p: Point) -> bool {
+    /// The path whose outline is at `p` (within 4 screen pixels) that
+    /// the Text tool would start a text on: not a text, a picture or a
+    /// group.
+    pub fn text_tool_path_at(&self, p: Point) -> Option<ShapeId> {
         let tolerance = 4.0 / f64::from(self.view.zoom).max(1e-6);
-        let Some(id) = self.hit_test(p) else {
-            return false;
-        };
-        let Ok((_, s)) = self.doc().shape(id) else {
-            return false;
-        };
+        let id = self.hit_test(p)?;
+        let (_, s) = self.doc().shape(id).ok()?;
         if matches!(
             s.kind,
             ShapeKind::Text { .. } | ShapeKind::Bitmap { .. } | ShapeKind::Group { .. }
         ) {
-            return false;
+            return None;
         }
         let path = s.page_path();
         let near = path.segments().any(|seg| {
             kurbo::ParamCurveNearest::nearest(&seg, p, 1e-3).distance_sq <= tolerance * tolerance
         });
-        if !near {
+        near.then_some(id)
+    }
+
+    /// The Text tool clicked on the outline of a path (not a text): a new
+    /// text starts on that path. True when it did.
+    pub fn start_text_on_path_at(&mut self, p: Point) -> bool {
+        let Some(id) = self.text_tool_path_at(p) else {
             return false;
-        }
+        };
         self.selection.clear();
         self.text_onto_path(id, Some(p), true);
         true
@@ -3819,7 +4244,12 @@ impl App {
         }
     }
 
+    /// Text > Change Case on the selected texts, all of them in one undo
+    /// step; texts already in that case are left alone, and when none
+    /// changes there is no step to undo. Each text was a step of its own,
+    /// and a text already in the case still gave an Undo that did nothing.
     pub fn change_case(&mut self, mode: CaseMode) {
+        let mut cmds = Vec::new();
         for s in self.text_shapes() {
             let ShapeKind::Text {
                 mut spans,
@@ -3832,10 +4262,15 @@ impl App {
             else {
                 continue;
             };
-            for sp in spans.iter_mut() {
-                sp.text = apply_case(&sp.text, mode);
+            let runs: Vec<&str> = spans.iter().map(|sp| sp.text.as_str()).collect();
+            let changed = apply_case_runs(&runs, mode);
+            if changed.iter().map(String::as_str).eq(runs.iter().copied()) {
+                continue;
             }
-            self.run(Command::SetShapeKind {
+            for (sp, text) in spans.iter_mut().zip(changed) {
+                sp.text = text;
+            }
+            cmds.push(Command::SetShapeKind {
                 shape: s.id,
                 kind: ShapeKind::Text {
                     spans,
@@ -3846,6 +4281,15 @@ impl App {
                     on_path,
                 },
             });
+        }
+        match cmds.len() {
+            0 => {}
+            1 => self.run(cmds.remove(0)),
+            _ => {
+                if let Err(e) = self.run_batch_keeping_lines("Edit Object", &cmds) {
+                    log::warn!("change case: {e}");
+                }
+            }
         }
     }
 
@@ -4008,6 +4452,15 @@ impl App {
     }
 
     pub fn run_script(&mut self, src: &str) {
+        // A script converted from a macro runs on the macros' object
+        // model, as a macro (docs/behavior/vba.md, "Converting macros").
+        if src.trim_start().starts_with(tracedraw_vba::convert::JS_MARKER) {
+            match tracedraw_vba::convert::js_run_name(src) {
+                Some(name) => self.run_macro_js(src, &name, "Scripts".into()),
+                None => self.scripts_output.push(tr("convert.nothing_to_run")),
+            }
+            return;
+        }
         let result = crate::scripting::run(self, src);
         match result {
             Ok(out) => {
@@ -5191,48 +5644,69 @@ pub fn placement_on(
     (tracedraw_core::TextAlign::Center, total / 2.0)
 }
 
-pub fn apply_case(text: &str, mode: CaseMode) -> String {
-    match mode {
-        CaseMode::Lower => text.to_lowercase(),
-        CaseMode::Upper => text.to_uppercase(),
-        CaseMode::Toggle => text
-            .chars()
-            .map(|c| {
-                if c.is_uppercase() {
-                    c.to_lowercase().collect::<String>()
-                } else {
-                    c.to_uppercase().collect::<String>()
+/// [`apply_case_runs`] for one text.
+#[cfg(test)]
+fn apply_case(text: &str, mode: CaseMode) -> String {
+    apply_case_runs(&[text], mode).pop().unwrap_or_default()
+}
+
+/// [`apply_case`] for the runs of one text, each in its own look, as one
+/// text: a sentence or a word goes on from one run into the next. Each run
+/// was changed as a text of its own, so a bold word in the middle of a
+/// sentence took a capital in Sentence case ("The big Dog runs."), and in
+/// Title Case a word in two looks took a capital in the middle. A word
+/// starts after any white space (a line break or a tab too, not only a
+/// space).
+pub fn apply_case_runs(runs: &[&str], mode: CaseMode) -> Vec<String> {
+    // Sentence: the next letter starts a sentence. Title: the next
+    // character starts a word.
+    let mut start = true;
+    runs.iter()
+        .map(|text| match mode {
+            CaseMode::Lower => text.to_lowercase(),
+            CaseMode::Upper => text.to_uppercase(),
+            CaseMode::Toggle => text
+                .chars()
+                .map(|c| {
+                    if c.is_uppercase() {
+                        c.to_lowercase().collect::<String>()
+                    } else {
+                        c.to_uppercase().collect::<String>()
+                    }
+                })
+                .collect(),
+            CaseMode::Title => {
+                let mut out = String::new();
+                for c in text.chars() {
+                    if c.is_whitespace() {
+                        out.push(c);
+                        start = true;
+                    } else if start {
+                        out.extend(c.to_uppercase());
+                        start = false;
+                    } else {
+                        out.extend(c.to_lowercase());
+                    }
                 }
-            })
-            .collect(),
-        CaseMode::Title => text
-            .split(' ')
-            .map(|w| {
-                let mut cs = w.chars();
-                match cs.next() {
-                    Some(f) => f.to_uppercase().collect::<String>() + &cs.as_str().to_lowercase(),
-                    None => String::new(),
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(" "),
-        CaseMode::Sentence => {
-            let mut out = String::new();
-            let mut start = true;
-            for c in text.chars() {
-                if start && c.is_alphabetic() {
-                    out.extend(c.to_uppercase());
-                    start = false;
-                } else {
-                    out.extend(c.to_lowercase());
-                }
-                if matches!(c, '.' | '!' | '?' | '\n') {
-                    start = true;
-                }
+                out
             }
-            out
-        }
-    }
+            CaseMode::Sentence => {
+                let mut out = String::new();
+                for c in text.chars() {
+                    if start && c.is_alphabetic() {
+                        out.extend(c.to_uppercase());
+                        start = false;
+                    } else {
+                        out.extend(c.to_lowercase());
+                    }
+                    if matches!(c, '.' | '!' | '?' | '\n') {
+                        start = true;
+                    }
+                }
+                out
+            }
+        })
+        .collect()
 }
 
 impl App {
@@ -5291,20 +5765,30 @@ impl App {
             return;
         };
         let path = path_shape.page_path();
-        for s in self.selected_shapes() {
-            if s.id == curve {
+        // The blends of the selection, also one picked by its end object;
+        // a new path starts from its two ends again (#2946).
+        let mut cmds = Vec::new();
+        for (id, _) in self.selected_blends() {
+            if id == curve {
                 continue;
             }
+            let Some(s) = self.doc().find_shape(id) else {
+                continue;
+            };
             let mut effects = s.effects.clone();
             for e in effects.iter_mut() {
-                if let Effect::Blend { path: p, .. } = e {
+                if let Effect::Blend {
+                    path: p, options, ..
+                } = e
+                {
                     *p = Some(path.clone());
+                    options.path_range = None;
                 }
             }
-            self.run(Command::SetEffects {
-                shape: s.id,
-                effects,
-            });
+            cmds.push(Command::SetEffects { shape: id, effects });
+        }
+        if let Err(e) = self.engine.run_batch("Blend Path", &cmds) {
+            self.status = e.to_string();
         }
     }
 
@@ -5558,6 +6042,55 @@ impl App {
     }
 }
 
+impl App {
+    /// The Symbols docker's Cancel beside Finish (#3437): the objects put
+    /// on the page to edit symbol `index` go away and the symbol keeps
+    /// the objects it had; one undo step, after which undo goes back into
+    /// the edit as it was.
+    pub fn cancel_symbol_edit(&mut self) {
+        if self.symbol_edit_index().is_none() {
+            return;
+        }
+        let contents = self.clip_edit_contents();
+        let Some((instance, outside)) = self.clip_frame_edit.take() else {
+            return;
+        };
+        let before = self.engine.last_step_id();
+        if !contents.is_empty() {
+            if let Err(e) = self.engine.run_batch(
+                "Cancel Editing Symbol",
+                &[Command::DeleteShapes { shapes: contents }],
+            ) {
+                self.status = e.to_string();
+                self.clip_frame_edit = Some((instance, outside));
+                return;
+            }
+        }
+        self.mark_clip_edit_step(before, instance, &outside, false);
+        self.select(vec![instance]);
+        self.status = String::new();
+    }
+
+    /// The Symbols docker's Duplicate (#3437): a new symbol drawing the
+    /// same objects as symbol `index` (copies of them, with ids of their
+    /// own), named after it, with no instance placed; one undo step.
+    pub fn duplicate_symbol(&mut self, index: usize) {
+        let Some(sym) = self.doc().symbols.get(index).cloned() else {
+            return;
+        };
+        let engine = &mut self.engine;
+        let mut shape = sym.shape.with_fresh_ids(&mut || engine.new_shape_id());
+        shape.id = ShapeId(0);
+        let name = trf("docker.symbol_copy_name", &[("name", &sym.name)]);
+        let _ = self.engine.run_with_label(
+            &Command::AddSymbol {
+                symbol: tracedraw_core::Symbol { name, shape },
+            },
+            "Duplicate Symbol",
+        );
+    }
+}
+
 /// Whether `t` can be undone (an instance scaled to nothing cannot).
 fn invertible(t: Affine) -> bool {
     let d = t.determinant();
@@ -5579,6 +6112,12 @@ impl App {
     /// are neither installed nor carried by a drawing (Font Manager,
     /// missing-font substitution notice).
     pub fn check_missing_fonts(&mut self) {
+        // Fonts still being installed are not missing: the check runs
+        // again once they are in (`poll_font_installs`).
+        if !self.font_installs.is_empty() {
+            self.missing_fonts.clear();
+            return;
+        }
         let missing: Vec<String> = self
             .doc()
             .font_families_used()
@@ -5709,6 +6248,8 @@ fn effects_reach(s: &Shape) -> f64 {
         .map(|e| match e {
             Effect::OuterShadow { offset, blur, .. } => blur.abs() + offset.hypot(),
             Effect::Glow { blur, .. } | Effect::GaussianBlur { radius: blur } => blur.abs(),
+            // Whole dots reach half a cell past the edge.
+            Effect::Halftone { size, .. } => size.abs(),
             _ => 0.0,
         })
         .filter(|r| r.is_finite())
@@ -5772,6 +6313,101 @@ fn scale_base(s: &tracedraw_core::document::Shape) -> Option<(f64, f64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #3622, #3621: uniform transparency on and off, and the document
+    /// palette's eyedropper, run as menu commands (so a shortcut can run
+    /// them), each one undo step.
+    #[test]
+    fn transparency_and_palette_sampling_run_as_commands() {
+        let ctx = crate::theme::ui_context();
+        // A command run inside a frame, as a shortcut runs it.
+        let run = |app: &mut App, key: &str| {
+            let mut ran = false;
+            let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+                ran = crate::ui::menus::run_command(app, ui.ctx(), key);
+            });
+            out.textures_delta.clear();
+            ran
+        };
+        let mut app = App::headless();
+        let id = app
+            .new_shape(ShapeKind::Rect {
+                rect: kurbo::Rect::new(0.0, 0.0, 10.0, 10.0),
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("rect");
+        app.select(vec![id]);
+        let opacity = |app: &App| app.doc().find_shape(id).map(|s| s.opacity);
+        assert!(run(&mut app, "menu.object.transparency_apply"));
+        assert_eq!(opacity(&app), Some(0.5), "50% at first");
+        assert!(run(&mut app, "menu.object.transparency_remove"));
+        assert_eq!(opacity(&app), Some(1.0));
+        app.undo();
+        assert_eq!(opacity(&app), Some(0.5));
+        // The amount last used in the docker.
+        app.transparency_default.amount = 30.0;
+        app.apply_uniform_transparency();
+        assert!((opacity(&app).unwrap() - 0.7).abs() < 1e-9);
+        // The palette's eyedropper starts and stops as its button does.
+        assert!(!app.pending_palette_sample);
+        assert!(run(&mut app, "menu.window.palette_sample"));
+        assert!(app.pending_palette_sample);
+        run(&mut app, "menu.window.palette_sample");
+        assert!(!app.pending_palette_sample);
+    }
+
+    /// Object > Flatten Transparency: a see-through blue square over a
+    /// red one becomes an opaque purple bitmap in its place; the red one
+    /// stays; one undo step.
+    #[test]
+    fn flatten_transparency_bakes_what_lies_beneath() {
+        let mut app = App::headless();
+        let square = |app: &mut App, c: tracedraw_core::Color| {
+            let id = app
+                .new_shape(ShapeKind::Rect {
+                    rect: kurbo::Rect::new(0.0, 0.0, 10.0, 10.0),
+                    radius: 0.0,
+                    corners: None,
+                })
+                .expect("rect");
+            app.run(Command::SetFill {
+                shapes: vec![id],
+                fill: Fill::Solid(c),
+            });
+            app.run(Command::SetStroke {
+                shapes: vec![id],
+                stroke: None,
+            });
+            id
+        };
+        let red = square(&mut app, tracedraw_core::Color::rgb8(255, 0, 0));
+        let blue = square(&mut app, tracedraw_core::Color::rgb8(0, 0, 255));
+        app.select(vec![blue]);
+        app.transparency_default.amount = 50.0;
+        app.apply_uniform_transparency();
+        app.flatten_transparency();
+        let [bid] = app.selection[..] else {
+            panic!("{:?}", app.selection);
+        };
+        let b = app.doc().find_shape(bid).expect("bitmap").clone();
+        assert!(app.doc().find_shape(blue).is_none());
+        assert!(app.doc().find_shape(red).is_some());
+        assert_eq!(b.opacity, 1.0);
+        let ShapeKind::Bitmap { png, .. } = &b.kind else {
+            panic!("{:?}", b.kind);
+        };
+        let img = crate::bitmap_fx::decode(png).expect("png");
+        let (w, h) = img.dimensions();
+        let c = img.get_pixel(w / 2, h / 2).0;
+        assert!(
+            c[0] > 100 && c[0] < 160 && c[1] < 20 && c[2] > 100 && c[2] < 160,
+            "{c:?}"
+        );
+        assert_eq!(c[3], 255);
+        app.undo();
+        assert!(app.doc().find_shape(blue).is_some());
+    }
 
     fn symbol_of(app: &mut App, rect: kurbo::Rect) -> ShapeId {
         let a = app
@@ -5906,6 +6542,48 @@ mod tests {
         assert!(app.clip_frame_is_empty(clip), "still a clip frame, empty");
         assert_eq!(app.doc().top_level_of(inner), Some(inner), "out");
         assert_eq!(app.engine.history_labels().0.len(), steps + 1);
+    }
+
+    /// Turning a PowerClip whose contents are not locked to it is one
+    /// Undo: the contents put back where they were joined the turn as a
+    /// step of their own, so one Undo left the frame turned and the
+    /// contents turned with it.
+    #[test]
+    fn transforming_an_unlocked_clip_frame_is_one_undo() {
+        let mut app = App::headless();
+        let rect = |app: &mut App, x: f64| {
+            app.new_shape(ShapeKind::Rect {
+                rect: kurbo::Rect::new(x, 0.0, x + 30.0, 30.0),
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("rect")
+        };
+        let frame = rect(&mut app, 0.0);
+        let inner = rect(&mut app, 5.0);
+        app.place_inside(vec![inner], frame);
+        let clip = app.doc().top_level_of(inner).expect("clip");
+        app.select(vec![clip]);
+        app.toggle_clip_frame_lock();
+        assert!(!app.clip_frame_locked(clip));
+        let inner_at = |app: &App| {
+            let p = app.doc().shape_on_page(inner).expect("inner").page_path();
+            p.elements()
+                .iter()
+                .map(|e| format!("{e:.6?}"))
+                .collect::<Vec<_>>()
+        };
+        let before = app.doc().to_json().unwrap();
+        let still = inner_at(&app);
+        let steps = app.engine.history_labels().0.len();
+        app.transform_selection(Affine::rotate(0.5));
+        assert_eq!(app.engine.history_labels().0.len(), steps + 1);
+        assert_eq!(inner_at(&app), still, "the contents stay where they are");
+        app.undo();
+        assert_eq!(app.doc().to_json().unwrap(), before, "one Undo: as before");
+        app.redo();
+        assert_eq!(inner_at(&app), still);
+        assert_ne!(app.doc().to_json().unwrap(), before);
     }
 
     /// #2761: the 100% button makes the size an object has now read
@@ -6101,6 +6779,98 @@ mod tests {
         app.finish_clip_frame_edit();
         assert_eq!(app.symbol_edit_index(), Some(0));
         assert_eq!(app.status, tr("status.symbol_holds_itself"));
+    }
+
+    /// #3437: a selected instance is outlined by its symbol's objects,
+    /// not a 10 x 10 placeholder, and a group holding one is picked over
+    /// them; Cancel beside Finish leaves the symbol as it was; Duplicate
+    /// adds a copy of the symbol, named after it, with no instance.
+    #[test]
+    fn symbol_instances_outline_their_objects_cancel_and_duplicate() {
+        let mut app = App::headless();
+        let a = symbol_of(&mut app, kurbo::Rect::new(40.0, 50.0, 100.0, 80.0));
+        app.select(vec![a]);
+        let lines = app.selected_outlines();
+        let xs: Vec<f64> = lines.iter().flatten().map(|p| p.x).collect();
+        let ys: Vec<f64> = lines.iter().flatten().map(|p| p.y).collect();
+        let lo = |v: &[f64]| v.iter().copied().fold(f64::INFINITY, f64::min);
+        let hi = |v: &[f64]| v.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            (lo(&xs) - 40.0).abs() < 1e-6 && (hi(&xs) - 100.0).abs() < 1e-6,
+            "{xs:?}"
+        );
+        assert!(
+            (lo(&ys) - 50.0).abs() < 1e-6 && (hi(&ys) - 80.0).abs() < 1e-6,
+            "{ys:?}"
+        );
+        // Grouped with a small square far from it: the group's box takes
+        // in the symbol's objects, and a click on them picks the group.
+        let other = app
+            .new_shape(ShapeKind::Rect {
+                rect: kurbo::Rect::new(150.0, 150.0, 155.0, 155.0),
+                radius: 0.0,
+                corners: None,
+            })
+            .expect("rect");
+        app.select(vec![a, other]);
+        app.group_selection();
+        let g = app.selection[0];
+        let s = app.doc().find_shape(g).cloned().expect("group");
+        let b = app.visual_bounds(&s);
+        assert!(
+            (b.x0 - 40.0).abs() < 1e-6 && (b.y0 - 50.0).abs() < 1e-6,
+            "{b:?}"
+        );
+        assert_eq!(app.hit_test(Point::new(98.0, 78.0)), Some(g));
+        app.undo();
+        // Cancel: the objects put on the page go, the symbol is as it was.
+        let before = app.doc().symbols[0].clone();
+        app.edit_symbol_instance(a);
+        let copy = app.selection[0];
+        app.run(Command::TransformShapes {
+            shapes: vec![copy],
+            transform: Affine::scale(2.0),
+        });
+        app.cancel_symbol_edit();
+        assert!(app.clip_frame_edit.is_none());
+        assert!(app.doc().find_shape(copy).is_none());
+        assert_eq!(app.doc().symbols[0], before);
+        assert_eq!(app.selection, vec![a]);
+        // Undo goes back into the edit, the objects as they were left.
+        app.undo();
+        assert_eq!(app.symbol_edit_index(), Some(0));
+        assert!(app.doc().find_shape(copy).is_some());
+        app.cancel_symbol_edit();
+        // Duplicate: a second symbol drawing the same, no instance placed.
+        let count = |app: &App| {
+            app.doc()
+                .all_layers()
+                .map(|l| l.shapes.len())
+                .sum::<usize>()
+        };
+        let shapes = count(&app);
+        app.duplicate_symbol(0);
+        assert_eq!(app.doc().symbols.len(), 2);
+        assert_eq!(
+            app.doc().symbols[1].name,
+            trf("docker.symbol_copy_name", &[("name", &before.name)])
+        );
+        assert_eq!(
+            app.doc().symbols[1].shape.page_path(),
+            app.doc().symbols[0].shape.page_path()
+        );
+        assert_eq!(count(&app), shapes);
+        // #3249: the Symbols docker draws a picture of each symbol, once.
+        let ctx = egui::Context::default();
+        for _ in 0..2 {
+            let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+                crate::ui::dockers2::show(&mut app, ui, crate::app::DockerTab::Symbols);
+            });
+            out.textures_delta.clear();
+        }
+        assert_eq!(app.symbol_thumbs.renders, 2);
+        app.undo();
+        assert_eq!(app.doc().symbols.len(), 1);
     }
 
     /// New Symbol is one step to undo: the symbol goes with its instance.
@@ -6541,6 +7311,13 @@ mod tests {
             )
         });
         assert!(fitted);
+        // Fitted again to the same path, just as it is: no step that
+        // undoes nothing.
+        let steps = app.engine.history_labels().0.len();
+        app.selection = vec![text, path];
+        app.fit_text_to_path();
+        assert_eq!(app.engine.history_labels().0.len(), steps);
+        assert_eq!(app.selection, vec![text]);
     }
 
     use kurbo::ParamCurve as _;
@@ -6617,6 +7394,68 @@ mod tests {
         assert!(b.height() < 10.0, "{b:?}");
     }
 
+    /// #3255: the Pick tool's mirrors on a circle and the text fitted to
+    /// it mirror the text's path, not its letters: top to bottom the text
+    /// on the top's outside comes to the bottom's inside, reading left to
+    /// right as Bottom centre puts it, in one undo step.
+    #[test]
+    fn mirroring_a_fitted_text_with_its_circle_keeps_it_readable() {
+        tracedraw_text::install();
+        let mut app = App::headless();
+        let e = app
+            .new_shape(ShapeKind::Ellipse {
+                rect: tracedraw_core::geometry::Rect::new(40.0, 100.0, 140.0, 200.0),
+                arc: None,
+            })
+            .expect("circle");
+        app.start_text(Point::new(60.0, 260.0), None);
+        app.text_insert("Abdullah");
+        app.finish_text();
+        let t = app.selection[0];
+        app.selection = vec![t, e];
+        app.begin_fit_text_to_path();
+        let before = fitted(&app, t);
+        app.selection = vec![e, t];
+        app.mirror(false);
+        assert_eq!(app.engine.undo_label(), Some("Mirror"));
+        assert_eq!(app.selection, vec![e, t]);
+        let after = fitted(&app, t);
+        assert_ne!(after.path, before.path);
+        assert_eq!(after.mirrors(), before.mirrors());
+        let bounds = |app: &App| {
+            let s = app.doc().shape(t).expect("text").1.clone();
+            app.visual_bounds(&s)
+        };
+        let fonts = !tracedraw_text::fonts().families().is_empty();
+        if fonts {
+            // Inside the bottom, centred.
+            let b = bounds(&app);
+            assert!((b.center().x - 90.0).abs() < 1.0, "{b:?}");
+            assert!(b.y0 > 99.0 && b.y1 < 125.0, "{b:?}");
+            // Bottom centre puts it just so: it reads left to right.
+            app.selection = vec![t];
+            app.place_fitted_text_round(true);
+            let c = bounds(&app);
+            assert!(
+                (c.x0 - b.x0).abs() < 1.0 && (c.y0 - b.y0).abs() < 1.0 && (c.x1 - b.x1).abs() < 1.0,
+                "{b:?} {c:?}"
+            );
+            app.undo();
+            app.selection = vec![e, t];
+        }
+        // Left to right it stays inside the bottom, centred.
+        app.mirror(true);
+        if fonts {
+            let b = bounds(&app);
+            assert!((b.center().x - 90.0).abs() < 1.0, "{b:?}");
+            assert!(b.y0 > 99.0 && b.y1 < 125.0, "{b:?}");
+        }
+        // Two undos give the text back as it was fitted.
+        app.undo();
+        app.undo();
+        assert_eq!(fitted(&app, t).path, before.path);
+    }
+
     #[test]
     fn text_on_a_straight_line_stands_on_it_from_the_start() {
         tracedraw_text::install();
@@ -6658,9 +7497,24 @@ mod tests {
                 arc: None,
             })
             .expect("ellipse");
-        let _ = e;
         // Inside, far from the outline: not on the path.
         app.selection.clear();
+        // Over the outline the Text tool shows the path and says a click
+        // types along it (#3255); inside it does not.
+        app.set_tool(crate::tools::Tool::Text);
+        assert_eq!(app.text_tool_path_at(Point::new(90.0, 160.0)), Some(e));
+        assert_eq!(app.text_tool_path_at(Point::new(90.0, 130.0)), None);
+        app.pointer_page = Some(Point::new(90.0, 160.0));
+        assert_eq!(
+            crate::ui::status::tool_hint(&app),
+            crate::i18n::tr("status_hint.text_on_path")
+        );
+        app.pointer_page = Some(Point::new(90.0, 130.0));
+        assert_eq!(
+            crate::ui::status::tool_hint(&app),
+            crate::i18n::tr("status_hint.text")
+        );
+        app.pointer_page = None;
         assert!(!app.start_text_on_path_at(Point::new(90.0, 130.0)));
         // On the outline at the top.
         assert!(app.start_text_on_path_at(Point::new(90.0, 160.0)));
@@ -6804,6 +7658,101 @@ mod tests {
         );
         assert_eq!(apply_case("hello world", CaseMode::Title), "Hello World");
         assert_eq!(apply_case("aBc", CaseMode::Toggle), "AbC");
+    }
+
+    /// The runs of a text, each in its own look, change case as one text:
+    /// a bold word in the middle of a sentence stays small in Sentence
+    /// case, a word in two looks takes one capital in Title Case, and a
+    /// word after a line break takes its capital too. Each run was a
+    /// sentence of its own: "The big Dog Runs."
+    #[test]
+    fn the_runs_of_a_text_change_case_as_one_text() {
+        let mut app = App::headless();
+        let mut bold = TextSpan::new("dog", "Arial", 12.0);
+        bold.bold = true;
+        let id = app
+            .new_shape(ShapeKind::Text {
+                spans: vec![
+                    TextSpan::new("the big ", "Arial", 12.0),
+                    bold,
+                    TextSpan::new(" ru", "Arial", 12.0),
+                    TextSpan::new("ns.\nsecond line", "Arial", 12.0),
+                ],
+                origin: tracedraw_core::Point::new(10.0, 10.0),
+                frame: None,
+                align: tracedraw_core::TextAlign::Left,
+                para: Default::default(),
+                on_path: None,
+            })
+            .expect("text");
+        let texts = |app: &App| match &app.doc().find_shape(id).expect("text").kind {
+            ShapeKind::Text { spans, .. } => spans.iter().map(|s| s.text.clone()).collect(),
+            _ => Vec::new(),
+        };
+        for (mode, want) in [
+            (
+                CaseMode::Sentence,
+                ["The big ", "dog", " ru", "ns.\nSecond line"],
+            ),
+            (
+                CaseMode::Title,
+                ["The Big ", "Dog", " Ru", "ns.\nSecond Line"],
+            ),
+            (
+                CaseMode::Upper,
+                ["THE BIG ", "DOG", " RU", "NS.\nSECOND LINE"],
+            ),
+        ] {
+            app.select(vec![id]);
+            app.change_case(mode);
+            assert_eq!(texts(&app), want, "{mode:?}");
+            app.undo();
+        }
+    }
+
+    /// Change Case on several texts is one undo step, and a text already
+    /// in that case gives no step: each text was a step of its own, and
+    /// Upper on capitals left an Undo that did nothing.
+    #[test]
+    fn change_case_is_one_step_and_no_step_when_nothing_changes() {
+        let mut app = App::headless();
+        let text = |app: &mut App, s: &str, y: f64| {
+            app.new_shape(ShapeKind::Text {
+                spans: vec![TextSpan::new(s, "Arial", 12.0)],
+                origin: tracedraw_core::Point::new(10.0, y),
+                frame: None,
+                align: tracedraw_core::TextAlign::Left,
+                para: Default::default(),
+                on_path: None,
+            })
+            .expect("text")
+        };
+        let a = text(&mut app, "one", 10.0);
+        let b = text(&mut app, "two", 30.0);
+        let c = text(&mut app, "THREE", 50.0);
+        let steps = |app: &App| app.engine.history_labels().0.len();
+        let words = |app: &App| -> Vec<String> {
+            [a, b, c]
+                .iter()
+                .map(|id| match &app.doc().find_shape(*id).expect("text").kind {
+                    ShapeKind::Text { spans, .. } => spans[0].text.clone(),
+                    _ => String::new(),
+                })
+                .collect()
+        };
+        app.select(vec![a, b, c]);
+        let n = steps(&app);
+        app.change_case(CaseMode::Upper);
+        assert_eq!(words(&app), ["ONE", "TWO", "THREE"]);
+        assert_eq!(steps(&app), n + 1, "one step for every text");
+        app.change_case(CaseMode::Upper);
+        assert_eq!(steps(&app), n + 1, "nothing changed, no step");
+        app.undo();
+        assert_eq!(words(&app), ["one", "two", "THREE"]);
+        app.select(vec![c]);
+        let n = steps(&app);
+        app.change_case(CaseMode::Upper);
+        assert_eq!(steps(&app), n);
     }
 
     /// #2220: a ring with a shadow converted to a bitmap went to the top
@@ -7082,6 +8031,49 @@ mod tests {
                 "{c:?} {e:?}"
             );
         }
+    }
+
+    #[test]
+    fn black_and_white_with_a_transparent_background_stays_one_bit() {
+        // #3204: Black and White with Transparent background ticked gave a
+        // grey PNG with alpha, which other programs open as grayscale.
+        use crate::bitmap_modes::{ConvertMode, ConvertOptions};
+        let o = ConvertOptions {
+            dpi: 72.0,
+            mode: ConvertMode::BlackWhite,
+            transparent: true,
+            ..Default::default()
+        };
+        assert!(!o.keeps_transparency());
+        assert!(ConvertOptions {
+            mode: ConvertMode::Grayscale,
+            ..o
+        }
+        .keeps_transparency());
+        let mut app = App::headless();
+        // An ellipse leaves its box's corners empty.
+        let id = app
+            .new_shape(ShapeKind::Ellipse {
+                rect: Rect::new(0.0, 0.0, 20.0, 20.0),
+                arc: None,
+            })
+            .expect("ellipse");
+        app.run(Command::SetFill {
+            shapes: vec![id],
+            fill: Fill::Solid(Color::rgb8(0, 0, 0)),
+        });
+        app.select(vec![id]);
+        app.convert_to_bitmap_with(&o);
+        let s = app.selected_shapes().into_iter().next().expect("bitmap");
+        let ShapeKind::Bitmap { png, .. } = &s.kind else {
+            panic!("not a bitmap");
+        };
+        // IHDR: bit depth 1, colour type 0 (grey, no alpha).
+        assert_eq!((png[24], png[25]), (1, 0));
+        let img = crate::bitmap_fx::decode(png).expect("png");
+        assert_eq!(*img.get_pixel(0, 0), image::Rgba([255, 255, 255, 255]));
+        let mid = img.get_pixel(img.width() / 2, img.height() / 2);
+        assert_eq!(*mid, image::Rgba([0, 0, 0, 255]));
     }
 
     #[test]
@@ -8110,7 +9102,7 @@ mod clip_frame_tests {
 #[cfg(test)]
 mod symmetry_tests {
     use crate::app::App;
-    use tracedraw_core::geometry::Rect;
+    use tracedraw_core::geometry::{Rect, Shape as _};
     use tracedraw_core::live::Effect;
     use tracedraw_core::{ShapeId, ShapeKind};
 
@@ -8136,6 +9128,122 @@ mod symmetry_tests {
             Some(ShapeKind::Group { children }) => children.iter().map(|c| c.id).collect(),
             _ => Vec::new(),
         }
+    }
+
+    /// Area Fill in a copy of a symmetry fills the same area on the
+    /// original, inside the symmetry, so every copy shows it filled, in
+    /// one undo step; in editing or not (#2998: only the area clicked was
+    /// filled).
+    #[test]
+    fn area_fill_in_a_symmetry_fills_every_copy() {
+        for editing in [true, false] {
+            let mut app = App::headless();
+            let a = rect(&mut app, Rect::new(10.0, 10.0, 30.0, 30.0));
+            app.run(tracedraw_core::Command::SetFill {
+                shapes: vec![a],
+                fill: tracedraw_core::Fill::None,
+            });
+            app.run(tracedraw_core::Command::SetStroke {
+                shapes: vec![a],
+                stroke: Some(tracedraw_core::Stroke::new(tracedraw_core::Color::BLACK, 0.2)),
+            });
+            app.select(vec![a]);
+            // The line at x = 30: the copy spans 30..50.
+            app.create_symmetry();
+            if !editing {
+                app.finish_symmetry_edit();
+            }
+            app.area_fill_mode = 1;
+            let depth = app.engine.history_labels().0.len();
+            app.area_fill_at(tracedraw_core::geometry::Point::new(40.0, 20.0));
+            assert_eq!(app.engine.history_labels().0.len(), depth + 1, "one step");
+            let sym = app
+                .doc()
+                .all_layers()
+                .flat_map(|l| &l.shapes)
+                .find(|s| s.effects.iter().any(|e| matches!(e, Effect::Symmetry { .. })))
+                .cloned()
+                .expect("the symmetry");
+            let ShapeKind::Group { children } = &sym.kind else {
+                panic!("a group: {:?}", sym.kind);
+            };
+            assert_eq!(children.len(), 2, "editing {editing}");
+            let filled = &children[1];
+            let b = filled.bounds();
+            assert!(
+                (b.x0 - 10.0).abs() < 0.5 && (b.x1 - 30.0).abs() < 0.5,
+                "on the original: {b:?}"
+            );
+            assert!(matches!(filled.fill, tracedraw_core::Fill::Solid(_)));
+            // Its mirror fills the copy clicked.
+            let ev = tracedraw_core::live::evaluate(&sym);
+            let copy = ev.above.iter().any(|m| {
+                let ShapeKind::Group { children } = &m.kind else {
+                    return false;
+                };
+                children.iter().any(|c| {
+                    let mb = (m.transform * c.transform * c.local_path()).bounding_box();
+                    matches!(c.fill, tracedraw_core::Fill::Solid(_))
+                        && (mb.x0 - 30.0).abs() < 0.5
+                        && (mb.x1 - 50.0).abs() < 0.5
+                })
+            });
+            assert!(copy, "editing {editing}");
+            let none_there = app
+                .doc()
+                .all_layers()
+                .flat_map(|l| &l.shapes)
+                .all(|s| s.bounds().x0 < 29.0);
+            assert!(none_there, "no area left on the copy");
+        }
+    }
+
+    /// Create New Symmetry with nothing selected: an empty symmetry about
+    /// the page's middle, in editing; what is drawn joins it and is
+    /// mirrored; finished empty it goes (#2995: an object had to be
+    /// selected first).
+    #[test]
+    fn a_new_symmetry_starts_empty_with_nothing_selected() {
+        let mut app = App::headless();
+        app.select(Vec::new());
+        let depth = app.engine.history_labels().0.len();
+        app.create_symmetry();
+        assert_eq!(app.engine.history_labels().0.len(), depth + 1, "one step");
+        let g = app.symmetry_edit.expect("editing the new symmetry");
+        assert!(has_symmetry(&app, g));
+        assert!(members(&app, g).is_empty());
+        let page = app.page_rect();
+        let (_, centre, angle, _) = app.edited_symmetry().expect("symmetry");
+        assert!((centre - page.center()).hypot() < 1e-9, "{centre:?}");
+        assert!((angle - 90.0).abs() < 1e-9);
+        // Drawn now: it joins the symmetry and its mirror is drawn.
+        let a = rect(&mut app, Rect::new(10.0, 10.0, 30.0, 30.0));
+        let g = app.symmetry_edit.expect("still editing");
+        assert_eq!(members(&app, g), vec![a]);
+        let sym = app.doc().find_shape(g).cloned().expect("group");
+        let ev = tracedraw_core::live::evaluate(&sym);
+        let mirrored = ev.above.iter().chain(ev.below.iter()).any(|m| {
+            let b = m.bounds();
+            (b.x1 - (2.0 * page.center().x - 10.0)).abs() < 0.01
+        });
+        assert!(mirrored, "{:?}", ev.above);
+        app.finish_symmetry_edit();
+        assert!(app.doc().find_shape(g).is_some());
+        // Started and finished with nothing drawn: nothing stays.
+        let groups = |app: &App| {
+            app.doc()
+                .all_layers()
+                .flat_map(|l| &l.shapes)
+                .filter(|s| matches!(s.kind, ShapeKind::Group { .. }))
+                .count()
+        };
+        let before = groups(&app);
+        app.select(Vec::new());
+        app.create_symmetry();
+        assert_eq!(groups(&app), before + 1);
+        app.finish_symmetry_edit();
+        assert_eq!(groups(&app), before);
+        assert!(app.selection.is_empty());
     }
 
     /// Several objects become one symmetry group in one step, each still

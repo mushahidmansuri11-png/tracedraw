@@ -874,8 +874,10 @@ mod tests {
                 from_center: false,
                 steps: false,
                 free: true,
+                even: false,
             },
             snapped: (false, false),
+            start_geometry: None,
         };
         assert!(glyph_scale_drag(&drag));
         let t = app.preview_transform_of(&drag).expect("a scale");

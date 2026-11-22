@@ -33,8 +33,13 @@ the [[docker.properties]] panel:
 
 - The type: [[fill.linear]] (along a line), [[fill.radial]] (from the center
   out), [[fill.conical]] (around the center), [[fill.square]] (in growing
-  squares) or [[fill.shaped]] (following the outline of the object, from the
-  edge inwards).
+  squares), [[fill.shaped]] (following the outline of the object, from the
+  edge inwards) or **Color points** (each color at a point of its own
+  anywhere in the object, blending into the others around it). With the
+  Interactive Fill or Shape tool the color points show on the object: drag
+  one to move it, click one and then a palette color to recolor it,
+  double-click inside the object to add one, and press Delete to remove the
+  chosen one (two always stay).
 - [[docker.gradient_presets]]: ready-made gradients to start from.
 - The **stops**: the colors and where they sit along the gradient, 2 to 64.
   Select a stop to change its color or position; [[docker.add_stop]] and
@@ -62,7 +67,9 @@ selection (or of new objects, with nothing selected).
   with the built-in gradients on the left. On the right: the type, how it
   repeats, and the band of colors with its nodes. Click a node to pick it and
   drag it to move it; double-click the band to add a node and a node to
-  remove it. The picked node's color, transparency, position and
+  remove it. <kbd>Alt</kbd> and a drag on a node copies it and moves the
+  copy: two nodes of one color make a solid band, and two nodes of different
+  colors side by side make a hard edge. The picked node's color, transparency, position and
   [[edit_fill.midpoint]] are under the band, with [[edit_fill.reverse]].
   [[edit_fill.transform]] has the rotation, the center (for radial, conical
   and square gradients), the edge pad, mirror and inversion. The preview has
@@ -89,7 +96,8 @@ The [[tool.interactive_fill]] tool (<kbd>G</kbd>) edits fills on the object.
 3. Double-click the line between the nodes to add a color node there;
    double-click a color node to remove it. Drag a color node along the line,
    or the short bar between two nodes to move the point where their colors
-   meet half way.
+   meet half way. Hold <kbd>Alt</kbd> as you start to drag a node to copy it
+   and drag the copy, for bands of solid color with hard edges.
 4. Click a node to pick it: a small bar opens under it with the node's color
    (click the swatch for the color picker) and its transparency. A palette
    color clicked while a node is picked goes to that node, and the property
@@ -117,6 +125,20 @@ it stay as they are.
 The new object goes on top of the active layer and is selected. A click on an
 outline, or in an area that nothing encloses, makes nothing.
 
+With **Up to outline edges** on the property bar, outlines count as wide as
+they are drawn: the area stops at their inner edges, and lines that only touch
+through their width still close it.
+
+Inside a [symmetry](../objects/symmetry.md), a click in one copy fills the same
+area in every copy: the new object becomes part of the symmetry.
+
+With **Live** on, a click inside a group paints the area its lines close off
+as a live fill of the group (the selected group, or else the topmost group
+under the click) instead of making a new object. When you move or reshape
+the lines of the group, the fills follow them. Click a painted area again to
+give it the bar's fill color, or with the Fill set to None to take the fill
+away. Each click is one undo step.
+
 ## Mesh fills {#mesh-fill}
 
 A mesh fill is a grid of nodes over an object, each node with its own color
@@ -137,6 +159,12 @@ softly, the **transparency** of the selected node, and **Clear mesh**, which
 removes the mesh fill. Changing the rows and columns of a mesh keeps its
 colors.
 
+For a quick colorful background, choose a color set in the **Colors** list
+(Aurora, Sunset, Ocean, Candy, Forest, Neon or the document palette) and
+click **Shuffle**: every selected object gets a random mesh of those colors,
+with its nodes nudged off the grid. Click again for another mix, or undo to
+go back.
+
 ## Pattern and texture fills {#pattern-texture}
 
 - A [[docker.fill_pattern]] fill repeats a tile: two colors, a vector
@@ -144,6 +172,10 @@ colors.
 - A [[docker.fill_texture]] fill is a generated, natural-looking texture:
   [[texture.clouds]], [[texture.marble]], [[texture.noise]] or
   [[texture.wood]], with its colors and scale.
+- [[texture.holographic]] and [[texture.holo_glitter]] give a fixed holographic foil look: rainbow colors flowing
+  through dark and light patches (colors A and B), the glitter with
+  sparkling grains. It does not change with the viewing angle; PDF and SVG
+  carry it as a picture.
 
 ## Several fills on one object {#several-fills}
 
@@ -152,6 +184,15 @@ paints another fill over the object's own, starting as a copy to change.
 Further fills show as "Fill 2", "Fill 3" and so on, each with its own editor
 and a button to remove it. The outline section can add further outlines the
 same way.
+
+The arrows beside each further fill or outline paint it one place earlier or
+later; the second trades places with the first, so any of them can go
+bottom or top.
+
+Under each further fill, Grow, Move and Blur give it a look of its own:
+its area grown (or shrunk, below zero), moved and blurred, while the
+object and its other fills stay as they are. A smaller fill of another colour,
+moved and blurred a little, makes a soft highlight, for example.
 
 Fills can also be painted on outlines; see
 [Setting outlines](../lines-shapes/outlines.md#outline-pen).

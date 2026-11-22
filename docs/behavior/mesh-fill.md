@@ -8,6 +8,18 @@ handles (`MeshNode::handles`: towards the next and the previous column,
 the next and the previous row); every cell is then the Coons patch
 bounded by its four grid lines.
 
+The editing grid follows those curves with adaptive line segments at
+the current zoom, targeting a quarter of a screen point of error after
+the object's transform. Zooming in refines a bent edge instead of
+revealing a fixed polygon; straight edges stay a single segment even
+when another edge bends. The Shape, Mesh Fill and Interactive Fill
+tools share this grid drawing.
+Subdivision stops after twelve levels (at most 4096 segments per edge)
+so extreme file coordinates cannot cause unbounded work; non-finite
+screen geometry is skipped. These display limits do not alter the mesh.
+Flattened edges are cached independently: panning reuses their points,
+and moving a node or handle rebuilds only the edges that changed.
+
 ## Mesh Fill tool
 
 - A click on an object gives it a mesh fill of the bar's rows and
@@ -54,7 +66,18 @@ bounded by its four grid lines.
 | Rows, Columns | 2 x 2 (the selected mesh's when there is one) | 1 to 50 each |
 | Smooth colour | off | |
 | Transparency (the selected node) | 0 % | 0 to 100 % |
+| Colors | Aurora | Aurora, Sunset, Ocean, Candy, Forest, Neon, Document palette |
+| Shuffle | | every selected object gets a random mesh from the colours (below) |
 | Clear Mesh | | the selected objects lose their mesh fill (no fill) |
+
+Shuffle gives each selected object (not groups or pictures) a mesh over
+its bounds with its own rows and columns when it has a mesh, else the
+bar's: every node takes one colour of the set mixed with up to half of
+another, the inner nodes move up to 35 % of a cell off the grid, and
+Smooth colour is on. Each click takes the next seed, so it makes another
+mix; all the objects change in one undo step ("Shuffle Mesh"). Document
+palette uses the colours of the palette shown (the Aurora set when it has
+fewer than two). Checked by `mesh_tool::tests::shuffle_makes_a_new_random_mesh_each_click`.
 
 New meshes take the rows and columns, and a selected mesh changes to
 them keeping its colours: the new nodes are spread evenly over the old
@@ -154,6 +177,9 @@ mesh.
 
 ## Checks
 
+- `canvas::tests::mesh_grid_curves_stay_smooth_at_every_zoom`
+- `canvas::tests::mesh_tools_draw_smooth_curves_and_keep_straight_edges_cheap`
+- `canvas::tests::mesh_grid_overlay_updates_after_view_and_geometry_changes`
 - `tracedraw_core::style::tests::meshes_regrid_and_lose_lines_keeping_their_colours`
 - `tracedraw_core::style::tests::mesh_handles_move_with_their_nodes_and_cut_at_new_lines`
 - `tracedraw_render::tests::curved_mesh_cells_follow_their_handles`

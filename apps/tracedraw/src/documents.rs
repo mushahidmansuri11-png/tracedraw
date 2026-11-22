@@ -51,6 +51,8 @@ pub struct DocSlot {
     pub cdr_unsaved_version: Option<u16>,
     pub tdraw_version: Option<u32>,
     pub fit_pending: bool,
+    /// Each page's view in this window (`App::page_views`).
+    pub page_views: std::collections::HashMap<PageId, View>,
     /// The view of Options > Display > View when a drawing opens is
     /// still to be set (#1134).
     pub open_view_pending: bool,
@@ -95,6 +97,7 @@ impl Default for DocSlot {
             cdr_unsaved_version: None,
             tdraw_version: None,
             fit_pending: false,
+            page_views: Default::default(),
             open_view_pending: false,
             page_numbers: PageNumberSettings::default(),
             missing_fonts: Vec::new(),
@@ -126,6 +129,7 @@ impl App {
         std::mem::swap(&mut self.view, &mut slot.view);
         std::mem::swap(&mut self.selection, &mut slot.selection);
         std::mem::swap(&mut self.fit_pending, &mut slot.fit_pending);
+        std::mem::swap(&mut self.page_views, &mut slot.page_views);
         std::mem::swap(&mut self.open_view_pending, &mut slot.open_view_pending);
         std::mem::swap(&mut self.picked_layer, &mut slot.picked_layer);
         std::mem::swap(self.raster.get_mut(), &mut slot.raster);
@@ -256,6 +260,10 @@ impl App {
         if self.symmetry_edit.is_some() {
             self.finish_symmetry_edit();
         }
+        // A picture being edited keeps what was done to it.
+        if self.pixel_edit.is_some() {
+            self.finish_pixel_edit();
+        }
         self.drag = Drag::None;
         self.curve = None;
         self.curve_steps.clear();
@@ -285,6 +293,7 @@ impl App {
         self.effect_node_drag = None;
         self.selected_effect_node = None;
         self.mesh_more_nodes = None;
+        self.envelope_more_nodes = None;
         self.mesh_eyedropper = false;
         self.lens_synced_to = None;
         self.bevel_synced_to = None;
@@ -334,6 +343,17 @@ impl App {
         self.docs.push(DocSlot::default());
         self.active_doc = self.docs.len() - 1;
         self.show_welcome = false;
+        // On a phone an open docker is a sheet over the whole room beside
+        // its tab strip, so a drawing opened or started behind it seemed
+        // not to open at all (#3735): the drawing comes in front, and the
+        // docker's tab opens the sheet again.
+        if crate::ui::phone::phone() {
+            for place in crate::app::DockerPlace::COLUMNS {
+                if self.docker_column(place).2 {
+                    self.set_docker_column(place, false, None);
+                }
+            }
+        }
         // The status bar's message was about the drawing before, such as
         // where it was saved (#1128); who opens a file says so after.
         self.status.clear();
@@ -667,6 +687,12 @@ impl App {
             self.quit_after_closing = false;
             // Cancel also cancels Restart after an update.
             self.installer.disarm();
+            // And the benchmark's start with or without the graphics card.
+            #[cfg(not(target_arch = "wasm32"))]
+            if crate::gpu::take_restart_after_exit().is_some() {
+                self.settings.benchmark_resume = None;
+                self.settings.save();
+            }
         }
     }
 
@@ -1360,5 +1386,29 @@ mod tests {
         let a = app.next_untitled_name();
         let b = app.next_untitled_name();
         assert_ne!(a, b);
+    }
+
+    /// On a phone a drawing opened or started comes in front of the
+    /// docker sheet that covered the room (#3735); elsewhere the dockers
+    /// stay open beside it.
+    #[test]
+    fn a_drawing_opened_on_a_phone_comes_in_front_of_the_docker_sheet() {
+        use crate::app::DockerPlace;
+        for phone in [false, true] {
+            let mut app = App::headless();
+            app.set_docker_column(DockerPlace::Right, true, None);
+            assert!(app.docker_column(DockerPlace::Right).2);
+            crate::ui::phone::set_phone(phone);
+            app.open_document(
+                tracedraw_core::Document::new("Art", Size::new(100.0, 100.0)),
+                None,
+            );
+            crate::ui::phone::set_phone(false);
+            assert_eq!(
+                app.docker_column(DockerPlace::Right).2,
+                !phone,
+                "phone {phone}"
+            );
+        }
     }
 }

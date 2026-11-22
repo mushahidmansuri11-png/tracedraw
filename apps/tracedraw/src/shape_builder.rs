@@ -11,7 +11,7 @@ use crate::app::{App, Drag};
 use crate::tools::Tool;
 use egui::{Color32, Modifiers, Painter, PointerButton, Response};
 use tracedraw_core::geometry::{Affine, BezPath, ParamCurve as _, Point, Shape as _};
-use tracedraw_core::shaping::{overlay, overlay_parts, Op};
+use tracedraw_core::shaping::{onto_sources, overlay, overlay_parts, Op};
 use tracedraw_core::{Command, Shape, ShapeId, ShapeKind};
 
 /// The tool's state: the parts the drag has crossed so far, on the page,
@@ -22,6 +22,15 @@ pub struct Builder {
     pub parts: Vec<BezPath>,
     /// Alt was held during the drag: the parts go instead of merging.
     pub remove: bool,
+    /// The property bar's Delete mode: a drag or a click takes the parts
+    /// away, and Alt merges them (#3220).
+    pub delete_mode: bool,
+    /// The property bar's Keep Originals: a merge makes the new object
+    /// and leaves the objects it came from as they were (#3220).
+    pub keep_originals: bool,
+    /// The steps the tool made since it was chosen or since the last
+    /// Accept, for Cancel to undo (#3220).
+    pub session_steps: usize,
     hover: std::cell::RefCell<Option<Hover>>,
 }
 
@@ -60,20 +69,32 @@ pub fn part_at(areas: &[BezPath], p: Point) -> Option<BezPath> {
         }
         part = overlay(&part, a, Op::Trim);
     }
-    overlay_parts(&part, &BezPath::new(), Op::Weld)
+    let piece = overlay_parts(&part, &BezPath::new(), Op::Weld)
         .into_iter()
-        .find(|piece| inside(piece, p))
+        .find(|piece| inside(piece, p))?;
+    // Laid back onto the objects, so a curve cut by an object that does
+    // not bound the part is one piece again (#3587).
+    let sources: Vec<&BezPath> = areas.iter().collect();
+    Some(onto_sources(&piece, &sources))
 }
 
-/// The parts crossed merged into one area.
-pub fn merged(parts: &[BezPath]) -> BezPath {
+/// The parts crossed merged into one area, its curves those of the
+/// `areas` the parts were cut from: each part has nodes where the others
+/// cut it, and the merge kept them where the cut was gone, a curve in
+/// many short pieces (#3587).
+pub fn merged(parts: &[BezPath], areas: &[BezPath]) -> BezPath {
     let mut it = parts.iter();
     let Some(first) = it.next() else {
         return BezPath::new();
     };
-    it.fold(overlay(first, &BezPath::new(), Op::Weld), |acc, p| {
+    let all = it.fold(overlay(first, &BezPath::new(), Op::Weld), |acc, p| {
         overlay(&acc, p, Op::Weld)
-    })
+    });
+    if all.elements().is_empty() || areas.is_empty() {
+        return all;
+    }
+    let sources: Vec<&BezPath> = areas.iter().collect();
+    onto_sources(&all, &sources)
 }
 
 /// Whether the tool can cut `s`: a closed curve, rectangle, ellipse or
@@ -149,17 +170,18 @@ impl App {
             }
             self.builder.parts.clear();
             self.builder_take(p);
-            self.builder_finish(mods.alt);
+            let remove = mods.alt != self.builder.delete_mode;
+            self.builder_finish(remove);
             return;
         }
         if response.drag_started_by(PointerButton::Primary) {
             self.builder.parts.clear();
-            self.builder.remove = mods.alt;
+            self.builder.remove = mods.alt != self.builder.delete_mode;
             self.drag = Drag::Freehand { points: vec![p] };
             self.builder_take(p);
         }
         if response.dragged_by(PointerButton::Primary) {
-            self.builder.remove = mods.alt;
+            self.builder.remove = mods.alt != self.builder.delete_mode;
             let step = 1.0 / self.view.zoom.max(1e-6) as f64;
             let mut add = Vec::new();
             if let Drag::Freehand { points } = &mut self.drag {
@@ -190,11 +212,12 @@ impl App {
         if parts.is_empty() {
             return;
         }
-        let area = merged(&parts);
+        let pieces = self.builder_pieces();
+        let areas: Vec<BezPath> = pieces.iter().map(|q| q.area.clone()).collect();
+        let area = merged(&parts, &areas);
         if area.elements().is_empty() {
             return;
         }
-        let pieces = self.builder_pieces();
         // The new object looks like the front object over the first part.
         let probe = parts[0]
             .segments()
@@ -209,7 +232,13 @@ impl App {
         let mut cmds = Vec::new();
         let mut gone = Vec::new();
         let mut kept = Vec::new();
+        // Keep Originals: a merge leaves the objects as they were (#3220).
+        let keep = self.builder.keep_originals && !remove;
         for q in &pieces {
+            if keep {
+                kept.push(q.id);
+                continue;
+            }
             if q.area.bounding_box().intersect(area.bounding_box()).area() <= 0.0 {
                 kept.push(q.id);
                 continue;
@@ -271,9 +300,46 @@ impl App {
             self.status = e.to_string();
             return;
         }
+        self.builder.session_steps += 1;
         // The objects stay selected, with the new one, to go on building.
         kept.extend(made);
         self.select(kept);
+    }
+}
+
+impl App {
+    /// The Shape Builder's Accept (#3220): the shapes built stay, and the
+    /// Pick tool comes back.
+    pub fn builder_accept(&mut self) {
+        self.builder.session_steps = 0;
+        self.builder.parts.clear();
+        self.set_tool(Tool::Pick);
+    }
+
+    /// The Shape Builder's Cancel (#3220): every step the tool made since
+    /// it was chosen or since the last Accept is undone, so the drawing
+    /// is as it was; the tool stays. Steps of other tools in between stop
+    /// it (they are not the tool's to undo).
+    pub fn builder_cancel(&mut self) {
+        self.builder.parts.clear();
+        while self.builder.session_steps > 0 {
+            let ours = self
+                .engine
+                .undo_label()
+                .is_some_and(|l| l.starts_with("Shape Builder"));
+            if !ours || self.engine.undo().is_err() {
+                break;
+            }
+            self.builder.session_steps -= 1;
+        }
+        self.builder.session_steps = 0;
+        let ids: Vec<ShapeId> = self
+            .selection
+            .iter()
+            .copied()
+            .filter(|id| self.doc().find_shape(*id).is_some())
+            .collect();
+        self.select(ids);
     }
 }
 
@@ -311,6 +377,23 @@ pub fn draw(app: &App, painter: &Painter) {
         return;
     }
     let color = crate::theme::Tokens::SELECTION;
+    // The objects the tool works on are edged in grey, apart from the
+    // usual selection colour, so the ones taking part show (#3220).
+    for q in app.builder_pieces() {
+        for seg in q.area.segments() {
+            let pts: Vec<egui::Pos2> = (0..=8)
+                .map(|i| app.view.to_screen(seg.eval(i as f64 / 8.0)))
+                .collect();
+            painter.add(egui::Shape::line(
+                pts.clone(),
+                egui::Stroke::new(3.0, Color32::from_white_alpha(200)),
+            ));
+            painter.add(egui::Shape::line(
+                pts,
+                egui::Stroke::new(1.5, Color32::from_gray(96)),
+            ));
+        }
+    }
     let mut shown: Vec<BezPath> = app.builder.parts.clone();
     if let Some(at) = painter.ctx().pointer_hover_pos() {
         if painter.clip_rect().contains(at) {
@@ -398,8 +481,47 @@ mod tests {
             assert!((area(p) - 200.0).abs() < 1e-6, "{}", area(p));
         }
         assert!(part_at(&areas, Point::new(40.0, 10.0)).is_none());
-        let both = merged(&[left, mid]);
+        let both = merged(&[left, mid], &areas);
         assert!((area(&both) - 400.0).abs() < 1e-6);
+    }
+
+    /// Three circles overlapping (#3587): two parts merged come out with
+    /// one curve for each stretch of a circle, as the circles draw it,
+    /// not split again where the third circle had cut the parts; the
+    /// merge covers the same area as the two parts.
+    #[test]
+    fn merged_parts_keep_the_curves_of_their_objects() {
+        use tracedraw_core::geometry::{Circle, PathEl, Shape as _};
+        let circle = |x: f64, y: f64| Circle::new((x, y), 10.0).to_path(0.1);
+        let areas = vec![circle(0.0, 0.0), circle(12.0, 0.0), circle(6.0, 9.0)];
+        let a = part_at(&areas, Point::new(-5.0, -3.0)).unwrap();
+        let b = part_at(&areas, Point::new(6.0, -3.0)).unwrap();
+        let both = merged(&[a.clone(), b.clone()], &areas);
+        let curves = both
+            .elements()
+            .iter()
+            .filter(|e| matches!(e, PathEl::CurveTo(..)))
+            .count();
+        // The left circle's outside run (two of its quarters and a piece
+        // up to its own node at the left of the top circle), the right
+        // circle's run inside, the top circle's run back: six, not eight.
+        assert_eq!(curves, 6, "{:?}", both.elements());
+        assert!(
+            (area(&both) - area(&a) - area(&b)).abs() < 1e-2,
+            "{} {} {}",
+            area(&both),
+            area(&a),
+            area(&b)
+        );
+        // Every node lies on one of the circles.
+        for el in both.elements() {
+            if let PathEl::MoveTo(p) | PathEl::CurveTo(_, _, p) = el {
+                let on = [(0.0, 0.0), (12.0, 0.0), (6.0, 9.0)].iter().any(|c| {
+                    ((p.to_vec2() - Point::new(c.0, c.1).to_vec2()).hypot() - 10.0).abs() < 1e-3
+                });
+                assert!(on, "{p:?}");
+            }
+        }
     }
 
     /// The same place inside the same objects in two pieces apart: only
@@ -485,5 +607,60 @@ mod tests {
         assert_eq!(before, after);
         assert!((page_area(&app, a) - 200.0).abs() < 1e-6);
         assert!((page_area(&app, b) - 200.0).abs() < 1e-6);
+    }
+
+    /// The bar's options (#3220): Keep Originals leaves the squares as
+    /// they were while the merge makes the new object; Cancel undoes every
+    /// step since the tool was chosen; Accept keeps them and goes back to
+    /// the Pick tool.
+    #[test]
+    fn keep_originals_cancel_and_accept() {
+        let mut app = App::headless();
+        let a = square(&mut app, 0.0, 0.0, 20.0, 20.0);
+        let b = square(&mut app, 10.0, 0.0, 30.0, 20.0);
+        app.select(vec![a, b]);
+        app.set_tool(Tool::ShapeBuilder);
+        let count = |app: &App| {
+            app.doc().pages[0]
+                .layers
+                .iter()
+                .map(|l| l.shapes.len())
+                .sum::<usize>()
+        };
+        let before = count(&app);
+        app.builder.keep_originals = true;
+        app.builder_take(Point::new(15.0, 10.0));
+        app.builder_finish(false);
+        assert_eq!(count(&app), before + 1, "the new object, the squares kept");
+        assert!((page_area(&app, a) - 400.0).abs() < 1e-6);
+        assert!((page_area(&app, b) - 400.0).abs() < 1e-6);
+        app.builder.keep_originals = false;
+        app.builder_take(Point::new(5.0, 10.0));
+        app.builder_finish(true);
+        assert_eq!(app.builder.session_steps, 2);
+        app.builder_cancel();
+        assert_eq!(count(&app), before, "both steps undone");
+        assert!((page_area(&app, a) - 400.0).abs() < 1e-6);
+        assert_eq!(app.tool, Tool::ShapeBuilder, "the tool stays");
+        assert!(app
+            .selection
+            .iter()
+            .all(|id| app.doc().find_shape(*id).is_some()));
+        // Accept keeps what was built.
+        app.select(vec![a, b]);
+        app.builder_take(Point::new(15.0, 10.0));
+        app.builder_finish(false);
+        app.builder_accept();
+        assert_eq!(app.tool, Tool::Pick);
+        assert_eq!(app.builder.session_steps, 0);
+        assert!(app.doc().find_shape(a).is_some());
+        // Steps of another tool in between stop Cancel.
+        app.set_tool(Tool::ShapeBuilder);
+        app.select(vec![a, b]);
+        app.builder_take(Point::new(25.0, 10.0));
+        app.builder_finish(true);
+        let c = square(&mut app, 50.0, 50.0, 60.0, 60.0);
+        app.builder_cancel();
+        assert!(app.doc().find_shape(c).is_some(), "not the tool's to undo");
     }
 }

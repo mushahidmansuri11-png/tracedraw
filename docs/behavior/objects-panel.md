@@ -62,6 +62,31 @@ the right.
   (`Layer::desktop`), and in `.cdr` files goes on the master page's
   desktop layer
   (`ui::objects_docker::tests::a_new_drawing_has_a_desktop_shared_by_every_page`).
+- The Desktop layer's menu has "Objects put beside the page go here"
+  (off by default, kept after TraceDraw is closed; #3100). On, an object
+  moved with the Pick tool or pasted so that it lies wholly beside the
+  page goes onto the Desktop layer, in the move's or paste's own undo
+  step, so pictures pasted together can wait beside the pages and be
+  taken from any of them; an object of the Desktop moved onto the page
+  goes back to the page's active layer. Objects dropped into a PowerClip,
+  pasted while its contents are edited, or moved onto another page of
+  the Multipage View go where they did before
+  (`pick_drag_tests::objects_put_beside_the_page_go_on_the_desktop_when_it_takes_them`).
+- PowerClips (#3053): a PowerClip's row has an arrow, as a group's,
+  that opens it to its contents, one step further in, front first. A
+  click on a content's row takes the contents out for editing (Edit
+  Contents, as Object > PowerClip > Edit Contents does) with that object
+  selected, so it can be moved, edited or put in another order among the
+  contents in the list; Finish Editing puts them back. A row dragged and
+  let go in the middle third of another object's row puts the objects it
+  carries inside that object as a PowerClip, as Place Inside Frame does
+  (the object becomes the frame; a PowerClip takes them into its
+  contents), one undo step, the PowerClip selected and opened in the
+  list; the row is framed while the drop would do so. The upper and
+  lower parts of the row still put them in front or behind, a group's
+  middle still takes them into the group, and a locked object, a group
+  or an object inside a group takes none
+  (`ui::objects_docker::drag_tests::a_row_dropped_in_the_middle_of_another_powerclips_it`).
 - Double-click a layer to rename it; double-click an object to name it
   (Rename Object; an empty name goes back to the description).
 - Double-click the page node, or pick Rename in its context menu, to
@@ -208,3 +233,14 @@ the right.
 - `object_thumbs::tests::the_least_recently_shown_pictures_go_first`
 - `object_thumbs::tests::sizes_are_clamped`
 - `command::tests::master_layers_reorder_and_delete_down_to_none` (core)
+
+## Object Data
+
+The Object Data docker lists the fields of the first selected object
+(name and value), edits, adds and removes them. With several objects
+selected, Copy to Selection (#3262) gives the first object's fields to
+the others as one undo step ("Copy Object Data"): a field they have of
+the same name takes the value, their other fields stay, and the fields
+TraceDraw keeps for itself (names with a dot, `connector`, `hinting`)
+are not copied
+(`ui::dockers2::object_data_copy_tests::copy_to_selection_gives_the_fields_in_one_step`).

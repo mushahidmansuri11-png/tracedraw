@@ -726,6 +726,9 @@ mod tests {
             }
         }
         assert_eq!(app.doc().color_styles, styles);
-        assert_eq!(groups(&styles), vec![(None, vec![0]), (Some("H".into()), vec![1, 2])]);
+        assert_eq!(
+            groups(&styles),
+            vec![(None, vec![0]), (Some("H".into()), vec![1, 2])]
+        );
     }
 }

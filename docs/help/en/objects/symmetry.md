@@ -16,6 +16,11 @@ draw (a contour, a blend, an extrusion), are mirrored with it. The commands are 
 A vertical mirror line is placed at the right edge of the object, so the copy
 appears next to it, and TraceDraw goes straight into editing the symmetry.
 
+You can also start from an empty page: with nothing selected,
+[[menu.object.symmetry_create]] places the mirror line down the middle of the
+page and starts editing an empty symmetry. Everything you draw joins it and is
+mirrored. Finish with nothing drawn and the empty symmetry goes away.
+
 ## Editing a symmetry {#edit}
 
 [[menu.object.symmetry_edit]] (<kbd>Alt+E</kbd>) edits the symmetry of the
@@ -25,6 +30,9 @@ selected object. A bar at the top left of the drawing window sets:
   more lines you get a kaleidoscope: with *n* lines there are 2*n* - 1 copies;
 - the center (X and Y);
 - the angle of the first line (0 to 360 degrees);
+- **Rotational** (off): the copies are turned round the center instead of
+  mirrored, as many objects in all as there are lines (two at least), so a
+  shape repeats round a circle the same way up;
 - Show full preview (copies drawn in full, or as red outlines when off) and
   Show symmetry lines.
 
@@ -34,6 +42,9 @@ paste or duplicate join it. Drag a mirror line with the Pick tool to move the
 lines; click a line to show round handles at its ends and drag one to turn
 the lines. While an object with symmetry is selected or edited, its mirror
 lines show as dashed lines.
+
+The [[tool.area_fill]] tool fills an area in every copy at once: click the
+area in any copy.
 
 Click Finish on the bar, or choose [[menu.object.symmetry_finish]]
 (<kbd>Alt+Shift+E</kbd>), to stop editing.

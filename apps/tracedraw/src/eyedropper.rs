@@ -227,6 +227,24 @@ impl App {
         crate::ui::palette::name_of(self, c)
     }
 
+    /// The document palette's eyedropper clicked at `p`: the colour
+    /// there joins the palette, the outline's with Shift held, as the
+    /// Colour Eyedropper reads it. Only the fill was read, so an
+    /// outline colour could not be taken (#3093).
+    pub fn sample_into_document_palette(&mut self, p: Point, outline: bool) {
+        if let Some(c) = self.sample_color_at(p, outline) {
+            self.add_to_document_palette(c);
+        }
+    }
+
+    /// Does a colour eyedropper wait to sample, so the colour under the
+    /// pointer is shown beside it: the Colour Eyedropper in Select mode,
+    /// or the document palette's eyedropper, which showed nothing
+    /// (#3093). A colour picker's eyedropper is asked for apart.
+    pub fn color_readout_wanted(&self, resample: bool) -> bool {
+        self.eyedropper_sampling(resample) || self.pending_palette_sample
+    }
+
     /// Does the Colour Eyedropper wait to sample (Select mode)?
     pub fn eyedropper_sampling(&self, resample: bool) -> bool {
         self.tool == crate::tools::Tool::ColorEyedropper
@@ -235,7 +253,8 @@ impl App {
 }
 
 /// Which groups the Attributes eyedropper copies.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct AttrGroups {
     pub outline: bool,
     pub fill: bool,
@@ -483,7 +502,18 @@ impl App {
         match &s.fill {
             Fill::Solid(c) => Some(*c),
             Fill::Fountain(f) => f.stops.first().map(|st| st.color),
-            _ => s.stroke.as_ref().map(|st| st.color),
+            // No fill: the outline's colour on the outline only. Inside an
+            // unfilled object (picked there with Treat All Objects as
+            // Filled) nothing of it shows, and its outline colour was read
+            // as if it were the fill (#3499): nothing is read from it, so
+            // the colour shown there is taken.
+            _ => {
+                let st = s.stroke.as_ref()?;
+                let reach = crate::interaction::outline_reach(s, s.transform);
+                let tol = self.object_pick_tol();
+                (crate::canvas::distance_to_path(&s.page_path(), p) <= (tol * 1.5).max(reach + tol))
+                    .then_some(st.color)
+            }
         }
     }
 
@@ -697,22 +727,30 @@ impl App {
                     self.eyedropper_apply = false;
                 }
             } else if let Some(c) = self.sample_color_at(p, shift) {
-                self.eyedropper_color = Some(c);
-                self.eyedropper_apply = true;
-                self.status = crate::i18n::trf(
-                    "status.sampled_color",
-                    &[("c", &crate::app::color_description(c))],
-                );
-                // With objects selected the colour goes straight onto them,
-                // as a palette swatch would: the fill, or the outline with
-                // Shift, in one undo step (#2551).
-                if !self.selection.is_empty() {
-                    if shift {
-                        self.apply_outline_color(Some(c));
-                    } else {
-                        self.apply_fill(Fill::Solid(c));
-                    }
-                }
+                self.took_sampled_color(c, shift);
+            }
+        }
+    }
+
+    /// A colour the Color Eyedropper sampled, from an object or from the
+    /// window's pixels (#3040): it is kept, the tool goes on to Apply, and
+    /// with objects selected it goes straight onto them.
+    pub fn took_sampled_color(&mut self, c: Color, shift: bool) {
+        self.eyedropper_color = Some(c);
+        self.eyedropper_apply = true;
+        crate::ui::color_docker::take_sampled_color(self, c);
+        self.status = crate::i18n::trf(
+            "status.sampled_color",
+            &[("c", &crate::app::color_description(c))],
+        );
+        // With objects selected the colour goes straight onto them, as a
+        // palette swatch would: the fill, or the outline with Shift, in
+        // one undo step (#2551).
+        if !self.selection.is_empty() {
+            if shift {
+                self.apply_outline_color(Some(c));
+            } else {
+                self.apply_fill(Fill::Solid(c));
             }
         }
     }
@@ -746,7 +784,7 @@ impl App {
     /// A click of the Color Mask's eyedropper (#2479): the colour under
     /// `p` (a picture's pixel) goes into the chosen slot, which is turned
     /// on, and the tool used before comes back, the picture still
-    /// selected for Apply, as CorelDRAW's Bitmap Color Mask does. Each
+    /// selected for Apply. Each
     /// pick samples: the second one applied the first colour to the
     /// picture as a fill instead, the Colour Eyedropper being in its
     /// Apply mode, so only one colour of an imported picture could be
@@ -815,6 +853,56 @@ mod tests {
         app.eyedropper_click(Point::new(45.0, 5.0), false, false, false);
         let sb = app.doc().find_shape(b).expect("b");
         assert_eq!(sb.fill, Fill::Solid(Color::rgb8(r, g, b8)));
+    }
+
+    /// A colour the Color Eyedropper samples shows in the Colour panel
+    /// as its new colour too, ready to apply or tweak; the panel kept
+    /// the colour it had before.
+    #[test]
+    fn a_sampled_colour_becomes_the_colour_panels_new_colour() {
+        let mut app = App::headless();
+        let a = rect(&mut app, Rect::new(0.0, 0.0, 20.0, 20.0));
+        app.run(Command::SetFill {
+            shapes: vec![a],
+            fill: Fill::Solid(Color::rgb8(30, 120, 210)),
+        });
+        app.select(Vec::new());
+        app.color_model = 0;
+        app.eyedropper_click(Point::new(10.0, 10.0), false, false, false);
+        assert_eq!(app.mixer_color.to_rgb8(), [30, 120, 210]);
+    }
+
+    /// #3499: with Treat All Objects as Filled, a click inside an
+    /// unfilled rectangle with a green outline read the green as its
+    /// fill. Inside, nothing of it shows: nothing is read from it (the
+    /// colour shown there is taken from the window); on its outline the
+    /// green is read, and Shift reads the outline anywhere.
+    #[test]
+    fn an_unfilled_object_gives_its_outline_colour_on_the_outline_only() {
+        let mut app = App::headless();
+        app.settings.treat_all_filled = true;
+        let a = rect(&mut app, Rect::new(0.0, 0.0, 40.0, 40.0));
+        app.run(Command::SetFill {
+            shapes: vec![a],
+            fill: Fill::None,
+        });
+        let green = Color::rgb8(0, 160, 0);
+        app.run(Command::SetStroke {
+            shapes: vec![a],
+            stroke: Some(tracedraw_core::Stroke {
+                color: green,
+                ..Default::default()
+            }),
+        });
+        let inside = Point::new(20.0, 20.0);
+        assert_eq!(app.hit_test_to_read(inside), Some(a), "picked inside");
+        assert_eq!(app.sample_color_at(inside, false), None);
+        assert!(app.eyedropper_wants_screen(inside, false, false));
+        assert_eq!(
+            app.sample_color_at(Point::new(0.0, 20.0), false),
+            Some(green)
+        );
+        assert_eq!(app.sample_color_at(inside, true), Some(green));
     }
 
     #[test]
@@ -1328,6 +1416,35 @@ mod tests {
             .cloned()
             .expect("read");
         assert!(r.lines[0].starts_with("R:"), "{:?}", r.lines);
+    }
+
+    /// #3093: the document palette's eyedropper shows the readout while
+    /// it waits, and takes the outline's colour with Shift.
+    #[test]
+    fn the_palette_eyedropper_reads_outlines_and_shows_the_colour() {
+        let mut app = App::headless();
+        let layer = app.active_layer().expect("a layer");
+        let id = app.engine.new_shape_id();
+        let mut s = tracedraw_core::Shape::new(
+            id,
+            ShapeKind::Rect {
+                rect: tracedraw_core::Rect::new(0.0, 0.0, 20.0, 20.0),
+                radius: 0.0,
+                corners: None,
+            },
+        );
+        s.fill = Fill::Solid(Color::rgb8(255, 0, 0));
+        s.stroke = Some(tracedraw_core::Stroke::new(Color::rgb8(0, 0, 255), 1.0));
+        app.run(tracedraw_core::Command::AddShape { layer, shape: s });
+        assert!(!app.color_readout_wanted(false));
+        app.pending_palette_sample = true;
+        assert!(app.color_readout_wanted(false));
+        let inside = Point::new(10.0, 10.0);
+        app.sample_into_document_palette(inside, false);
+        app.sample_into_document_palette(inside, true);
+        let pal = &app.doc().palette;
+        assert!(pal.contains(&Color::rgb8(255, 0, 0)), "{pal:?}");
+        assert!(pal.contains(&Color::rgb8(0, 0, 255)), "{pal:?}");
     }
 
     /// The readout names a palette colour and gives its values in the

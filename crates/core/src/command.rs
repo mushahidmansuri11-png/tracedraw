@@ -153,6 +153,18 @@ pub enum Command {
         shape: ShapeId,
         mask: Option<crate::document::OpacityMask>,
     },
+    /// How group `shape` puts its members together (`None`: one after
+    /// another, as plain groups do).
+    SetGroupLook {
+        shape: ShapeId,
+        look: Option<crate::document::GroupLook>,
+    },
+    /// Stretch zones of symbol `index` (`None`: an instance stretches as
+    /// a whole).
+    SetSymbolScaleGrid {
+        index: usize,
+        grid: Option<crate::document::ScaleGrid>,
+    },
     /// Bitmap effects (and their picture) on a vector object; `None`
     /// removes them.
     SetRasterFx {
@@ -319,6 +331,10 @@ pub enum Command {
         shapes: Vec<ShapeId>,
         fills: Vec<Fill>,
         strokes: Vec<Stroke>,
+        /// The further fills' looks of their own (`Shape::fill_looks`);
+        /// `None` keeps them, as many as there are fills.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        looks: Option<Vec<crate::document::FillLook>>,
     },
     SetOverprint {
         shapes: Vec<ShapeId>,
@@ -575,6 +591,8 @@ impl Command {
             Command::SetDocumentPaletteNames { .. } => "Document Palette",
             Command::SetInks { .. } => "Spot Inks",
             Command::SetOpacityMask { .. } => "Opacity Mask",
+            Command::SetGroupLook { .. } => "Group Look",
+            Command::SetSymbolScaleGrid { .. } => "Stretch Zones",
             Command::SetRasterFx { .. } => "Effect",
             Command::AddSymbol { .. } => "New Symbol",
             Command::SetSymbolShape { .. } => "Edit Symbol",
@@ -840,6 +858,22 @@ impl Command {
                 }
                 s.opacity_mask = *mask;
             }
+            Command::SetSymbolScaleGrid { index, grid } => {
+                let sym = doc
+                    .symbols
+                    .get_mut(*index)
+                    .ok_or(Error::SymbolNotFound(*index))?;
+                sym.shape.scale_grid = grid.map(|g| Box::new(g.sanitized()));
+            }
+            Command::SetGroupLook { shape, look } => {
+                let s = doc
+                    .find_shape_mut(*shape)
+                    .ok_or(Error::ShapeNotFound(*shape))?;
+                if !matches!(s.kind, ShapeKind::Group { .. }) {
+                    return Err(Error::NotGroup(*shape));
+                }
+                s.group_look = look.filter(|l| !l.is_plain());
+            }
             Command::SetRasterFx { shape, fx } => {
                 let s = doc
                     .find_shape_mut(*shape)
@@ -857,7 +891,10 @@ impl Command {
                     return Err(Error::SymbolCycle(*index));
                 }
                 if let Some(sym) = doc.symbols.get_mut(*index) {
+                    // The stretch zones stay with the symbol through an edit.
+                    let grid = shape.scale_grid.clone().or(sym.shape.scale_grid.take());
                     sym.shape = shape.clone();
+                    sym.shape.scale_grid = grid;
                 }
             }
             Command::MovePage { page, to } => {
@@ -1129,27 +1166,28 @@ impl Command {
                 // Bottom to top: by layer (in drawing order), then by place
                 // in the layer, so members from several layers keep the
                 // order they were drawn in.
-                let layer_rank = |l: LayerId| {
-                    doc.pages
-                        .iter()
-                        .flat_map(|p| p.layers.iter())
-                        .chain(doc.master.iter())
-                        .position(|x| x.id == l)
-                        .unwrap_or(usize::MAX)
-                };
+                let mut ranks: std::collections::HashMap<LayerId, usize> =
+                    std::collections::HashMap::new();
+                for (r, x) in doc
+                    .pages
+                    .iter()
+                    .flat_map(|p| p.layers.iter())
+                    .chain(doc.master.iter())
+                    .enumerate()
+                {
+                    ranks.entry(x.id).or_insert(r);
+                }
+                let layer_rank = |l: LayerId| ranks.get(&l).copied().unwrap_or(usize::MAX);
                 located.sort_by_key(|(_, l, i)| (layer_rank(*l), *i));
+                // An id named twice lies at one place: group it once.
+                located.dedup_by_key(|(id, _, _)| *id);
                 let layer_id = located[0].1;
                 let insert_at = located[0].2;
-                let mut children = Vec::with_capacity(shapes.len());
-                for (id, l, _) in &located {
-                    let layer = doc.layer_mut(*l)?;
-                    let i = layer
-                        .shapes
-                        .iter()
-                        .position(|s| s.id == *id)
-                        .ok_or(Error::ShapeNotFound(*id))?;
-                    children.push(layer.shapes.remove(i));
-                }
+                let mut taken = take_out(doc, &located)?;
+                let children = located
+                    .iter()
+                    .map(|(id, _, _)| taken.remove(id).ok_or(Error::ShapeNotFound(*id)))
+                    .collect::<Result<Vec<_>>>()?;
                 let gid = doc.ids_mut().shape();
                 let mut group = Shape::new(gid, ShapeKind::Group { children });
                 group.stroke = None;
@@ -1217,11 +1255,18 @@ impl Command {
                 shapes,
                 fills,
                 strokes,
+                looks,
             } => {
                 for id in shapes {
                     let s = any_mut(doc, *id)?;
                     s.extra_fills = fills.clone();
                     s.extra_strokes = strokes.clone();
+                    let mut l = match looks {
+                        Some(l) => l.clone(),
+                        None => s.fill_looks.as_deref().cloned().unwrap_or_default(),
+                    };
+                    l.truncate(fills.len());
+                    s.fill_looks = (!l.iter().all(|x| x.is_plain())).then(|| Box::new(l));
                 }
             }
             Command::SetOverprint {
@@ -1419,12 +1464,7 @@ impl Command {
                         path.extend(part);
                     }
                 }
-                for (id, l, _) in &located {
-                    let layer = doc.layer_mut(*l)?;
-                    if let Some(i) = layer.shapes.iter().position(|s| s.id == *id) {
-                        layer.shapes.remove(i);
-                    }
-                }
+                take_out(doc, &located)?;
                 // The parts lie in page space: a mesh fill goes there too,
                 // or becomes its mean colour where it would not cover them
                 // all (a live test of 0.41: the colour was lost).
@@ -2356,6 +2396,39 @@ fn box_to_box(
     )
 }
 
+/// Take the objects `located` names (id, layer, place) off their layers,
+/// walking each layer once: taking them one at a time, each a
+/// `Vec::remove`, made Group and Combine of tens of thousands of objects
+/// take a minute. An object not on its layer is left out.
+fn take_out(
+    doc: &mut Document,
+    located: &[(ShapeId, LayerId, usize)],
+) -> Result<std::collections::HashMap<ShapeId, Shape>> {
+    let mut by_layer: Vec<(LayerId, std::collections::HashSet<ShapeId>)> = Vec::new();
+    for (id, l, _) in located {
+        match by_layer.iter_mut().find(|(x, _)| x == l) {
+            Some((_, ids)) => {
+                ids.insert(*id);
+            }
+            None => by_layer.push((*l, std::collections::HashSet::from([*id]))),
+        }
+    }
+    let mut out = std::collections::HashMap::with_capacity(located.len());
+    for (l, ids) in by_layer {
+        let layer = doc.layer_mut(l)?;
+        let all = std::mem::take(&mut layer.shapes);
+        layer.shapes.reserve(all.len().saturating_sub(ids.len()));
+        for s in all {
+            if ids.contains(&s.id) && !out.contains_key(&s.id) {
+                out.insert(s.id, s);
+            } else {
+                layer.shapes.push(s);
+            }
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     /// The Objects docker's moves (#2672): objects go next to an object
@@ -3201,6 +3274,50 @@ mod tests {
         .unwrap();
         assert!(doc.find_shape(cid).unwrap().opacity_mask.is_none());
     }
+    #[test]
+    fn only_groups_take_a_look() {
+        use crate::document::GroupLook;
+        let mut doc = Document::default();
+        let layer = doc.pages[0].layers[0].id;
+        let r = Shape::new(
+            doc.ids_mut().shape(),
+            ShapeKind::Rect {
+                rect: crate::geometry::Rect::new(0.0, 0.0, 10.0, 10.0),
+                radius: 0.0,
+                corners: None,
+            },
+        );
+        let rid = r.id;
+        let group = Shape::new(
+            doc.ids_mut().shape(),
+            ShapeKind::Group {
+                children: vec![r.clone()],
+            },
+        );
+        let gid = group.id;
+        doc.layer_mut(layer).unwrap().shapes.push(group);
+        let look = Some(GroupLook {
+            as_one: false,
+            knockout: true,
+        });
+        assert!(Command::SetGroupLook { shape: rid, look }
+            .apply(&mut doc)
+            .is_err());
+        Command::SetGroupLook { shape: gid, look }
+            .apply(&mut doc)
+            .unwrap();
+        assert_eq!(doc.find_shape(gid).unwrap().group_look, look);
+        let back = Document::from_json(&doc.to_json().unwrap()).unwrap();
+        assert_eq!(back.find_shape(gid).unwrap().group_look, look);
+        // Nothing set is no look.
+        Command::SetGroupLook {
+            shape: gid,
+            look: Some(GroupLook::default()),
+        }
+        .apply(&mut doc)
+        .unwrap();
+        assert!(doc.find_shape(gid).unwrap().group_look.is_none());
+    }
     use crate::geometry::Rect;
 
     /// #1491: nodes moved so the object loses its left half: its gradient
@@ -3348,6 +3465,104 @@ mod tests {
         )
     }
 
+    /// Group and Combine of objects named in any order (they now come off
+    /// their layer in one walk): the members keep their drawing order, the other objects
+    /// stay where they were, and lookups stay right after objects move.
+    #[test]
+    fn group_and_combine_of_shuffled_objects_keep_order_and_the_rest() {
+        let mut doc = Document::default();
+        let layer = doc.pages[0].layers[0].id;
+        let mut ids = Vec::new();
+        for k in 0..60 {
+            let s = rect(&mut doc, k as f64 * 20.0);
+            ids.push(s.id);
+            Command::AddShape { layer, shape: s }
+                .apply(&mut doc)
+                .unwrap();
+        }
+        // Every third object, named back to front and one named twice.
+        let mut pick: Vec<ShapeId> = ids.iter().copied().step_by(3).collect();
+        pick.reverse();
+        pick.push(pick[0]);
+        Command::Group {
+            shapes: pick.clone(),
+        }
+        .apply(&mut doc)
+        .unwrap();
+        let g = doc.top_level_of(ids[0]).unwrap();
+        let ShapeKind::Group { children } = &doc.find_shape(g).unwrap().kind else {
+            panic!("not a group");
+        };
+        let got: Vec<ShapeId> = children.iter().map(|c| c.id).collect();
+        let want: Vec<ShapeId> = ids.iter().copied().step_by(3).collect();
+        assert_eq!(got, want);
+        let shapes = &doc.pages[0].layers[0].shapes;
+        assert_eq!(shapes.len(), 60 - 20 + 1);
+        assert_eq!(shapes[0].id, g);
+        let rest: Vec<ShapeId> = shapes[1..].iter().map(|s| s.id).collect();
+        let want_rest: Vec<ShapeId> = ids
+            .iter()
+            .enumerate()
+            .filter(|(k, _)| k % 3 != 0)
+            .map(|(_, id)| *id)
+            .collect();
+        assert_eq!(rest, want_rest);
+        // Lookups of nested and moved objects after the change.
+        assert_eq!(doc.ancestors(ids[3]), vec![g]);
+        assert!(doc.ancestors(ids[1]).is_empty());
+        for id in &ids {
+            assert!(doc.find_shape(*id).is_some(), "{id:?} lost");
+        }
+        // An object put in front moves every other one: still found.
+        let front = rect(&mut doc, -50.0);
+        let fid = front.id;
+        doc.pages[0].layers[0].shapes.insert(0, front);
+        assert_eq!(doc.locate(ids[59]).unwrap().1, 41);
+        assert_eq!(doc.locate(fid).unwrap().1, 0);
+        // Combine of the loose ones, named back to front.
+        let mut loose = want_rest.clone();
+        loose.reverse();
+        Command::Combine { shapes: loose }.apply(&mut doc).unwrap();
+        let shapes = &doc.pages[0].layers[0].shapes;
+        assert_eq!(shapes.len(), 3, "front, group and the combined curve");
+        assert_eq!(shapes[0].id, fid);
+        assert_eq!(shapes[1].id, g);
+    }
+
+    /// Keeping only the objects still there checks nested ones and drops
+    /// missing ones, with a long list (one walk) as with a short one.
+    #[test]
+    fn retain_existing_keeps_nested_drops_gone_in_order() {
+        let mut doc = Document::default();
+        let layer = doc.pages[0].layers[0].id;
+        let mut ids = Vec::new();
+        for k in 0..40 {
+            let s = rect(&mut doc, k as f64 * 20.0);
+            ids.push(s.id);
+            Command::AddShape { layer, shape: s }
+                .apply(&mut doc)
+                .unwrap();
+        }
+        Command::Group {
+            shapes: ids[..5].to_vec(),
+        }
+        .apply(&mut doc)
+        .unwrap();
+        let gone: Vec<ShapeId> = (0..30).map(|_| doc.ids_mut().shape()).collect();
+        let mut long: Vec<ShapeId> = Vec::new();
+        for (k, id) in ids.iter().enumerate() {
+            long.push(*id);
+            if k < gone.len() {
+                long.push(gone[k]);
+            }
+        }
+        doc.retain_existing(&mut long);
+        assert_eq!(long, ids);
+        let mut short = vec![gone[0], ids[2], gone[1], ids[30]];
+        doc.retain_existing(&mut short);
+        assert_eq!(short, vec![ids[2], ids[30]]);
+    }
+
     /// Objects inside a group take page-space transforms, fills and
     /// outlines, and can be deleted; a group left empty goes too.
     #[test]
@@ -3482,6 +3697,7 @@ mod tests {
             offset: 1.5,
             outside: true,
             to_center: false,
+            both: false,
             fill_to: Color::WHITE,
             outline_to: None,
             fill_end_to: None,

@@ -4,7 +4,30 @@ Edit > Find and Replace (Ctrl+F) opens the Find and Replace panel. It has
 three modes: Text, Objects and Properties.
 
 - Text: finds text objects holding a string (Match case, Whole word) and
-  replaces it (Replace, Replace All). Current page.
+  replaces it (Replace, Replace All). Current page. A text's runs (its
+  parts in their own looks) are searched as one text: a word half of it
+  bold is found and replaced, the replacement taking the look of the run
+  its match starts in. Texts inside groups and PowerClip frames are found
+  (Find selects the object they are in) and replaced. Without Match case
+  letters match one for one ignoring case; with Whole word a match has
+  no letter or digit right before or after it. Before, a word in two
+  looks was found but not replaced, grouped text was neither, and a
+  Turkish "İ" before the match (longer in lower case) cut the text in the
+  wrong place or closed TraceDraw
+  (`export::tests::replace_finds_words_across_runs_in_groups_and_after_a_dotted_capital_i`).
+  Special characters (#3679), in Find and in Replace: `^p` a paragraph
+  break (Enter), `^l` a line break (Shift+Enter), `^t` a tab, `^s` a
+  non-breaking space, `^^` a caret; in Find only, `^w` is two or more
+  spaces in a row (the whole run), and in Replace `^w` puts one space. A
+  caret before any other letter stays as typed. So Find `^p` Replace
+  with a space joins paragraphs, and Find `^w` Replace `^w` leaves one
+  space wherever there were several
+  (`export::tests::find_and_replace_read_the_special_characters`).
+  The Find and Replace with fields have a right-click menu (#3678):
+  Cut, Copy, Paste (as one line) and Select All, and Special Character,
+  which puts the code of each of these at the cursor, over the letters
+  picked
+  (`ui::dockers2::find_field_tests::the_find_fields_menu_puts_text_at_the_cursor`).
 - Objects: finds objects whose name or kind contains the string. Current
   page.
 - Properties: finds objects by their look and type and replaces fill

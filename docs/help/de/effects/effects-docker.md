@@ -28,9 +28,30 @@ seinem eigenen Werkzeug oder Andockfenster bearbeitet.
 
 - [[menu.effects > menu.effects.flatten]] wandelt die Effekte der ausgewählten
   Objekte in einfache Objekte um.
+- [[menu.effects > menu.effects.merge_shapes]] gruppiert die gewählten
+  Objekte und gibt der Gruppe ein Live-[[effect.offset_path]], das sie zu
+  einem Umriss verbindet, gerundet, wo sie sich treffen, und gefärbt wie das
+  unterste Objekt: Verschieben Sie ein Objekt, fließen die Formen ineinander
+  oder trennen sich. **Glätten** stellen Sie in den Ebeneneffekten oben im
+  Bedienfeld ein.
 - [[menu.effects.picker]] zeigt eine Liste von Effekten, die auf die Auswahl
   angewendet werden können.
 - [[menu.object > menu.object.clear_effect]] entfernt den Effekt der Auswahl.
 - [[menu.object > menu.object.copy_effect]] kopiert einen Effekt von einem
   anderen Objekt, und [[menu.object.clone_effect]] erstellt einen Klon, der
   ihm folgt; siehe [Effekte kopieren und klonen](copy-and-clone.md).
+
+## Handgemachtes Aussehen und Rahmen
+
+Die Ebeneneffekte oben im Bedienfeld enthalten auch diese, alle live:
+
+- [[effect.roughen]] zeichnet den Umriss mit kleinen zufälligen Wellen neu.
+- [[effect.jitter_nodes]] verschiebt die Knoten der Kurve zufällig.
+- [[effect.scribble]] zeichnet die Füllung als lockere Zickzacklinie in der
+  Füllfarbe; der Umriss bleibt.
+- [[effect.shape_frame]] ersetzt den Umriss durch ein Rechteck, ein
+  abgerundetes Rechteck oder eine Ellipse um das Objekt.
+- [[effect.trim_marks]] zeichnet Linien an den Ecken des Objekts, außerhalb.
+- [[effect.feather]] lässt das Objekt zum Rand hin ausblenden.
+
+**Variante** gibt den zufälligen Effekten ein anderes Muster.

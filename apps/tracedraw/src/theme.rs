@@ -247,6 +247,51 @@ pub fn shadow(s: egui::epaint::Shadow) -> egui::epaint::Shadow {
     }
 }
 
+/// Customization > Appearance > Translucent menus: the opacity of open
+/// menus' bodies, 0 to 255 (255 is solid, the default). Each test thread
+/// keeps its own, as with the theme.
+#[cfg(not(test))]
+static MENU_ALPHA: AtomicU8 = AtomicU8::new(255);
+#[cfg(test)]
+thread_local! {
+    static MENU_ALPHA: AtomicU8 = const { AtomicU8::new(255) };
+}
+
+/// The most see-through a translucent menu may be, so its rows stay
+/// readable over any drawing.
+pub const MENU_OPACITY_MIN: f32 = 0.5;
+
+/// Open menus solid (`None`) or at `opacity` (0.5 to 1).
+pub fn set_menu_opacity(opacity: Option<f32>) {
+    let a = match opacity {
+        Some(o) if o.is_finite() => (o.clamp(MENU_OPACITY_MIN, 1.0) * 255.0).round() as u8,
+        _ => 255,
+    };
+    #[cfg(not(test))]
+    MENU_ALPHA.store(a, Ordering::Relaxed);
+    #[cfg(test)]
+    MENU_ALPHA.with(|m| m.store(a, Ordering::Relaxed));
+}
+
+/// The opacity of open menus' bodies, 0 to 255.
+pub fn menu_alpha() -> u8 {
+    #[cfg(not(test))]
+    let a = MENU_ALPHA.load(Ordering::Relaxed);
+    #[cfg(test)]
+    let a = MENU_ALPHA.with(|m| m.load(Ordering::Relaxed));
+    a
+}
+
+/// `c` at the open menus' opacity (the body and its gutter).
+pub fn menu_fill(c: Color32) -> Color32 {
+    let a = menu_alpha();
+    if a == 255 {
+        c
+    } else {
+        Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), a)
+    }
+}
+
 /// The theme in use.
 pub fn theme() -> Theme {
     #[cfg(not(test))]
@@ -965,7 +1010,10 @@ pub fn bundled_font_definitions() -> egui::FontDefinitions {
 /// script (the bundled one covers Latin, Greek and Cyrillic).
 #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 pub fn needs_system_font(code: &str) -> bool {
-    matches!(code, "zh-CN" | "zh-TW" | "ja" | "ar" | "hi" | "bn" | "lo")
+    matches!(
+        code,
+        "zh-CN" | "zh-TW" | "ja" | "ar" | "hi" | "bn" | "lo" | "vi"
+    )
 }
 
 /// The family of the font folder (browser build) that covers the script
@@ -977,6 +1025,8 @@ pub fn ui_script_family(code: &str) -> Option<&'static str> {
         "zh-TW" => Some("Noto Sans TC"),
         "ja" => Some("Noto Sans JP"),
         "lo" => Some("Noto Sans Lao"),
+        // The bundled font lacks the Vietnamese letters with two marks.
+        "vi" => Some("Noto Sans"),
         _ => None,
     }
 }
@@ -1062,6 +1112,17 @@ const UI_SCRIPT_FONTS: &[&[&str]] = &[
         "Lao Sangam MN",
         "Leelawadee UI",
         "Saysettha OT",
+    ],
+    // Vietnamese: the letters with two marks (ấ, ể, ợ and the like),
+    // which the bundled font lacks.
+    &[
+        "Noto Sans",
+        "Segoe UI",
+        "Arial",
+        "Helvetica Neue",
+        "DejaVu Sans",
+        "Liberation Sans",
+        "FreeSans",
     ],
     // Thai: file names, layer and page names typed in it (#2168).
     &[
@@ -1171,6 +1232,26 @@ mod theme_tests {
         .join()
         .expect("the other test");
         assert_eq!(theme(), Theme::Light);
+    }
+
+    /// The Vietnamese interface shows its letters with two marks when the
+    /// system has a font for them (the bundled one has none of them).
+    #[test]
+    fn vietnamese_letters_have_an_interface_font() {
+        let vi = UI_SCRIPT_FONTS
+            .iter()
+            .find(|g| g.first() == Some(&"Noto Sans"))
+            .expect("a group of fonts with the Vietnamese letters");
+        assert!(vi.contains(&"Segoe UI") && vi.contains(&"Arial"));
+        if tracedraw_text::fonts().first_face_data(vi).is_some() {
+            let ctx = ui_context();
+            let mut out = ctx.run_ui(Default::default(), |_| {});
+            out.textures_delta.clear();
+            let font = egui::FontId::proportional(14.0);
+            for c in "Tiếng Việt ợ ể".chars().filter(|c| !c.is_whitespace()) {
+                assert!(ctx.fonts_mut(|f| f.has_glyph(&font, c)), "{c}");
+            }
+        }
     }
 
     /// Names typed in Hebrew show in the interface (the file name field,
@@ -1337,7 +1418,7 @@ mod theme_tests {
     /// bundled font covers (#561), Lao among them.
     #[test]
     fn cjk_interface_languages_have_a_font_to_fetch() {
-        for code in ["zh-CN", "zh-TW", "ja", "lo"] {
+        for code in ["zh-CN", "zh-TW", "ja", "lo", "vi"] {
             assert!(needs_system_font(code));
             assert!(ui_script_family(code).is_some(), "{code}");
         }
@@ -1397,6 +1478,23 @@ mod shadow_tests {
         assert_eq!(visuals().window_shadow, egui::epaint::Shadow::NONE);
         set_shadows(true);
         assert_eq!(shadow(s), s);
+    }
+
+    #[test]
+    fn translucent_menus_are_off_by_default_and_kept_readable() {
+        let c = Color32::from_rgb(0x4B, 0x4B, 0x4B);
+        assert_eq!(menu_fill(c), c);
+        set_menu_opacity(Some(0.85));
+        assert_eq!(menu_fill(c).a(), 217);
+        let u = menu_fill(c).to_srgba_unmultiplied();
+        assert_eq!(&u[..3], &[0x4B, 0x4B, 0x4B]);
+        // Never below half, whatever the setting says.
+        set_menu_opacity(Some(0.1));
+        assert_eq!(menu_alpha(), 128);
+        set_menu_opacity(Some(f32::NAN));
+        assert_eq!(menu_alpha(), 255);
+        set_menu_opacity(None);
+        assert_eq!(menu_fill(c), c);
     }
 }
 

@@ -38,6 +38,18 @@ A ferramenta [[tool.two_point_line]] desenha um segmento reto: pressione onde
 ele começa e solte onde termina, ou clique duas vezes. Mantenha
 <kbd>Ctrl</kbd> pressionado para limitá-lo a passos de 15 graus.
 
+Ative **Arco** na barra de propriedades para arrastar um quarto de
+arco: ele sai do ponto pressionado na vertical e chega na horizontal onde você
+solta (redondo, como um quarto de círculo, quando o arrasto é tão alto quanto
+largo; segure <kbd>Ctrl</kbd> para isso). **Inverter arco** curva o
+arco para o outro lado.
+
+Segure <kbd>C</kbd> enquanto arrasta um arco, ou um retângulo, elipse,
+polígono ou estrela com a ferramenta deles, para deixar uma cópia da forma a
+cada movimento do ponteiro: um leque de arcos saindo de um ponto, ou um túnel
+de retângulos, num só arrasto. As cópias e a forma solta são um único passo de
+desfazer e ficam selecionadas, prontas para agrupar, espelhar ou colorir.
+
 ## Bézier {#bezier}
 
 A ferramenta [[tool.bezier]] desenha curvas precisas, nó por nó.
@@ -109,6 +121,21 @@ controle, sem alças.
 
 O resultado é uma curva comum; os pontos de controle não são guardados.
 
+## Caneta de curvatura {#curvature-pen}
+
+A ferramenta [[tool.curvature_pen]] desenha uma curva suave que passa pelos
+pontos que você clica, sem alças para puxar.
+
+1. Clique para pôr cada ponto. A curva passa por todos eles e se curva suave
+   sozinha; a prévia mostra aonde o próximo clique a leva.
+2. Segure <kbd>Alt</kbd> (ou <kbd>C</kbd> ou <kbd>V</kbd>) ao clicar para
+   fazer daquele ponto um canto.
+3. Clique duas vezes ou pressione <kbd>Enter</kbd> para terminar. Clique no
+   primeiro ponto (a partir de três) para fechar a curva.
+
+O resultado é uma curva comum cujos nós são os pontos clicados, e a
+ferramenta [[tool.shape]] a edita como qualquer outra.
+
 ## Polilinha {#polyline}
 
 A ferramenta [[tool.polyline]] desenha segmentos retos um após o outro: clique
@@ -158,6 +185,17 @@ contorno, o estilo de linha e as setas de início e fim, e um botão que fecha
 uma curva aberta. A ferramenta [[tool.freehand]] acrescenta a suavização. Sem
 nada selecionado, ela lembra como terminar uma curva. Veja
 [Contornos](outlines.md) para as configurações de contorno.
+
+**Linhas paralelas** (com as ferramentas Mão livre, Bézier, Caneta, Polilinha,
+Linha de 2 pontos e Curva de 3 pontos) desenha linhas ao lado de cada nova
+curva: defina quantas **Linhas** de cada lado, a **Distância** de uma linha à
+seguinte e se ficam **Dos dois lados** ou só à esquerda da curva. As linhas são
+curvas próprias com o contorno da curva, selecionadas com ela; um Desfazer
+tira-as e deixa a curva. Vem desligado.
+
+Enquanto puxa a alça do primeiro nó de uma curva com a Caneta ou a Bézier, a
+alça oposta também aparece, para ver a direção em que a curva sai para os dois
+lados.
 
 ## Editar curvas depois {#edit}
 

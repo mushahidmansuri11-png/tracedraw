@@ -141,6 +141,71 @@ With Group all objects the objects placed (copies, and originals not
 already inside a group) are grouped in the same undo step, when there
 are at least two; the group is selected.
 
+## Live
+
+With Live on (off by default) the fit stays after Apply: the path keeps
+it in its object data (`fit_path.live`, JSON): the settings, each object
+fitted by its identity with the move (page space) the fit gave it, and
+the identities of the copies, in the order placed. After every change of
+the drawing each live fit is worked out again, in the same undo step,
+from the objects as they were before the fit (each object's move taken
+back off it), so:
+
+- moving, scaling or reshaping the path moves the objects with it;
+- an object resized, reshaped or recoloured is fitted again at its new
+  size, and its copies are made again from it;
+- an object moved off the path goes back onto it;
+- an object deleted leaves the fit; with none left, or the path deleted,
+  the fit ends;
+- a copy of the path (Duplicate, Paste) carries the data under another
+  identity and lets it go: the copy is a plain path;
+- an object is placed by one live fit only (the first path naming it).
+
+Nothing changes, and no step is added, when a refit would move nothing by
+more than a rounding error. Selecting the path, an object or a copy shows
+the fit's settings in the panel; a change refits at once, a run of
+changes with nothing in between is one undo step, and turning Live off
+lets the objects go where they are ("Release From Path"). Group all
+objects shows only before a fit is made live.
+
+With the Pick tool the selected live fit shows two handles:
+
+- a diamond on the second object's point on the path: dragging it along
+  the path sets the spacing so that the second object's point follows the
+  pointer (the nearest point of the path), the first object staying where
+  it is. The fit becomes spaced by a distance from the start, the offset
+  set so the first object does not move; with edges measured the distance
+  is the gap between the edges. A tag beside the pointer shows it;
+- a ring 30 pixels under the middle of the path's box, joined to a dot
+  there: dragging it turns all the objects by the pointer's turn about the
+  dot (the Angle, -180 to 180 degrees; Ctrl in steps of 15). A tag shows
+  the angle.
+
+Each handle drag is one undo step.
+
+### Strokes read from `.cdr` files
+
+A brush stroke a `.cdr` file links to its curve (#3680; the
+reader marks the curve with the stroke's objects, see `cdr-format.md`)
+opens as a live fit of those objects to the curve, when they lie on it
+as a fit places them. The settings are measured from the objects, taken
+from the start of the curve: the first object is the one fitted (turned
+back to how it lies along the path), the others are its copies; spaced by
+distance (the steps between the first and the last, in microns), copies
+filling the path, turned with it by the turn the first object has from
+the path's direction (thousandths of a degree, -180 to 180), starting
+where the first one's centre lands; a centre off the path places the
+objects above it with the side that makes up the shift (negative when
+the object straddles the path), and an end offset keeps the count the
+file's when the path has room for more. The fit worked out from those
+settings must put every node of every object within 0.15 mm of where
+the file drew it; otherwise the objects stay plain objects. Either way
+the mark goes; nothing is added to undo
+(`fit_live::tests::a_brush_stroke_read_from_a_cdr_file_opens_live`,
+`a_stroke_whose_objects_do_not_follow_a_fit_stays_as_drawn`). The
+objects keep the file's look until the curve or an object changes; then
+the fit places them (within that tolerance of the file).
+
 ## Preview
 
 The preview is worked out again only when the settings, the selection or

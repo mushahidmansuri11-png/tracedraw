@@ -92,11 +92,15 @@ pub fn dialog_topic(d: &Dialog, options: OptionsPage) -> &'static str {
         Dialog::CreatePattern { .. } => "color/patterns#create-pattern",
         Dialog::CreateTable { .. } => "objects/tables#create-table",
         Dialog::TextToTable(_) => "objects/tables#convert",
+        Dialog::StretchZones(_) => "objects/stretch-zones",
         Dialog::PasteSpecial(_) => "objects/paste-special",
         Dialog::Barcode(_) => "objects/barcodes",
         Dialog::Formula(_) => "objects/formulas",
+        Dialog::TransformEach(_) => "objects/transforming#transform-each",
+        Dialog::Flare(_) => "objects/light-flare",
         Dialog::ConvertToBitmap(_) => "bitmaps/convert-to-bitmap",
         Dialog::PictureCaptions(_) => "bitmaps/picture-captions",
+        Dialog::AiTurn(_) | Dialog::AiSketch(_) | Dialog::AiRemove(_) => "bitmaps/ai-photo",
         Dialog::StraightenImage(_) => "bitmaps/resample-and-straighten#straighten",
         Dialog::Resample(_) => "bitmaps/resample-and-straighten#resample",
         Dialog::InflateBitmap(_) => "bitmaps/resample-and-straighten#inflate",
@@ -115,9 +119,10 @@ pub fn dialog_topic(d: &Dialog, options: OptionsPage) -> &'static str {
         Dialog::CustomHyphens(_) => "text/writing-tools#custom-hyphens",
         Dialog::Encode(_) => "text/writing-tools#encode",
         Dialog::BorderGrommet(_) => "printing/border-and-grommet",
-        Dialog::ColorManagement(_) | Dialog::ConvertColors(_) | Dialog::Recolor(_) => {
-            "color/color-management"
-        }
+        Dialog::ColorManagement(_)
+        | Dialog::ConvertColors(_)
+        | Dialog::Recolor(_)
+        | Dialog::ReplaceColor(_) => "color/color-management",
         Dialog::FontManager(_) => "text/fonts#font-manager",
         Dialog::TraceCut(_) => "objects/tracecut",
         Dialog::PaletteEditor(_) => "color/palettes#palette-editor",
@@ -132,6 +137,7 @@ pub fn dialog_topic(d: &Dialog, options: OptionsPage) -> &'static str {
         Dialog::MacrosDesktopOnly => "get-started/browser-version#differences",
         Dialog::StorageRefused(_) => "get-started/browser-version",
         Dialog::TimeTracker(_) => "customize/time-tracker",
+        Dialog::Workflow => "customize/scripts#workflow",
         Dialog::Preflight(_) => "printing/preflight",
         Dialog::PublishPdf(_) => "file-formats/publish-pdf",
         Dialog::PdfPassword(_) => "file-formats/publish-pdf#password",
@@ -236,6 +242,10 @@ pub fn docker_topic(t: DockerTab) -> &'static str {
         DockerTab::Coordinates => "objects/transforming#coordinates",
         DockerTab::VectorMosaic => "effects/mosaics#vector-mosaic",
         DockerTab::PictureMosaic => "effects/mosaics#picture-mosaic",
+        DockerTab::ShapeGenerator => "objects/shape-generator",
+        DockerTab::SymbolScatter => "effects/symbol-scatter",
+        DockerTab::FrameGenerator => "effects/frame-generator",
+        DockerTab::Shape3d => "effects/revolve-inflate",
         DockerTab::Shelf => "objects/shelf",
         DockerTab::Export => "web-graphics/export-docker",
         DockerTab::Comments => "objects/comments",
@@ -271,6 +281,7 @@ pub fn tool_topic(t: Tool) -> &'static str {
         Tool::Bezier => "lines-shapes/lines#bezier",
         Tool::Pen => "lines-shapes/lines#pen",
         Tool::BSpline => "lines-shapes/lines#b-spline",
+        Tool::CurvaturePen => "lines-shapes/lines#curvature-pen",
         Tool::Polyline => "lines-shapes/lines#polyline",
         Tool::ThreePointCurve => "lines-shapes/lines#three-point-curve",
         Tool::BrushStrokes => "lines-shapes/artistic-media#brush-strokes",

@@ -23,6 +23,7 @@
 //! failure: opening a file must always yield a document.
 #![forbid(unsafe_code)]
 
+pub mod artistic;
 mod bitmap_effects;
 mod blend_record;
 pub mod check;
@@ -30,6 +31,7 @@ pub mod cmx;
 pub mod container;
 mod kept_blends;
 mod kept_data;
+mod kept_document;
 mod kept_effects;
 pub mod parse;
 mod shadow_image;
@@ -146,14 +148,10 @@ pub fn open_bytes_keeping(
     .map(|b| kept_effects::decode(&b))
     .unwrap_or_default();
     // Object data, a clone's link to its master among it (#2879).
-    let kept_data = container::own_member(
-        bytes,
-        &container,
-        kept_data::MEMBER,
-        kept_data::MAX_MEMBER,
-    )
-    .map(|b| kept_data::decode(&b))
-    .unwrap_or_default();
+    let kept_data =
+        container::own_member(bytes, &container, kept_data::MEMBER, kept_data::MAX_MEMBER)
+            .map(|b| kept_data::decode(&b))
+            .unwrap_or_default();
     let mut doc_report = parse::parse_document_kept_data(
         &root,
         &riff,
@@ -183,10 +181,21 @@ pub fn open_bytes_keeping(
             p.covers_drawing = true;
             Some(p)
         };
+        // RIFF files from version 4 to 13 carry a `DISP` picture of the
+        // drawing fitted into a square.
+        let disp = || {
+            let mut found = None;
+            root.root.walk(&mut |c, _| {
+                if c.is(b"DISP") && found.is_none() {
+                    found = Some(c.clone());
+                }
+            });
+            spot::Preview::from_disp(root.data(&riff, &found?))
+        };
         let preview = if container.version.0 < 4 {
             thumbnail()
         } else {
-            container::page_preview(bytes, &container)
+            container::page_preview(bytes, &container).or_else(disp)
         };
         if let Some(preview) = preview {
             let n = spot::colours_from_preview(&mut doc_report.0, &preview);
@@ -197,9 +206,26 @@ pub fn open_bytes_keeping(
             }
         }
     }
+    // The palette, inks and styles TraceDraw keeps in a member of its
+    // own, where the file gives none (after the spot inks the file
+    // names take their look from its preview).
+    if let Some(k) = container::own_member(
+        bytes,
+        &container,
+        kept_document::MEMBER,
+        kept_document::MAX_MEMBER,
+    )
+    .and_then(|b| kept_document::decode(&b))
+    {
+        kept_document::restore(&mut doc_report.0, k);
+    }
     let (fonts, notes) = container::embedded_fonts(bytes, &container);
     doc_report.0.fonts = fonts;
     doc_report.0.cmyk_profile = cmyk_profile;
+    // An RGB document stays one (#3425).
+    if let Some(mode) = container::primary_color_mode(bytes, &container) {
+        doc_report.0.metadata.primary_color_mode = mode;
+    }
     for n in notes {
         doc_report.1.warn(n);
     }
