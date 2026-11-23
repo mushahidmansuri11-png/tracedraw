@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main]
+    branches: [main, on-0.50]
     tags: ["v*"]
   pull_request:
   # Run by hand (Actions > build > Run workflow): with a version, the run
