@@ -162,6 +162,67 @@ fn paint(ui: &mut Ui, bounds: Rect, layers: &[&[Item]], paper: Color32) {
 
 // ----- the tabs --------------------------------------------------------
 
+/// The Panels section of the Box tab: one panel at a time gets a colour
+/// and a line of text of its own. The preview shows it at once and Create
+/// box draws it.
+fn panel_section(ui: &mut Ui, st: &mut PackStudioState) {
+    let sane = st.spec.sane();
+    let faces = sane.face_panels();
+    let panels = sane.panels();
+    ui.label(egui::RichText::new(tr("pack.panels")).strong());
+    let Some(first) = faces.first() else { return };
+    if !faces.iter().any(|(i, _)| *i == st.panel_sel) {
+        st.panel_sel = first.0;
+    }
+    let sel = st.panel_sel;
+    let sel_name = faces
+        .iter()
+        .find(|(i, _)| *i == sel)
+        .map(|(_, n)| n.clone())
+        .unwrap_or_default();
+    let minor = panels.get(sel).map(|p| p.minor).unwrap_or(false);
+    egui::Grid::new("pack_panel")
+        .num_columns(2)
+        .spacing([8.0, 4.0])
+        .show(ui, |ui| {
+            row(ui, "pack.panel", |ui| {
+                crate::ui::keynav::ComboBox::from_id_salt("pack_panel_sel")
+                    .selected_text(sel_name)
+                    .width(200.0)
+                    .show_ui(ui, |ui| {
+                        for (i, n) in &faces {
+                            ui.selectable_value(&mut st.panel_sel, *i, n.clone());
+                        }
+                    })
+                    .response
+                    .rich_tip(tip("pack.panel"));
+            });
+        });
+    let before = st.opts.own_fill(sel);
+    let mut own = before.is_some();
+    let mut c = before.unwrap_or_else(|| st.opts.fill_of(sel, minor));
+    ui.horizontal(|ui| {
+        check(ui, &mut own, "pack.panel_own_color");
+        if own {
+            colour(ui, &mut c, "pack.panel_color");
+        }
+    });
+    let after = if own { Some(c) } else { None };
+    if after != before {
+        st.opts.set_fill(sel, after);
+    }
+    let mut t = st.opts.text_of(sel).to_string();
+    egui::Grid::new("pack_panel_text")
+        .num_columns(2)
+        .spacing([8.0, 4.0])
+        .show(ui, |ui| {
+            row(ui, "pack.panel_text", |ui| text(ui, &mut t, "pack.panel_text"));
+        });
+    if t != st.opts.text_of(sel) {
+        st.opts.set_text(sel, t);
+    }
+}
+
 fn box_tab(ui: &mut Ui, st: &mut PackStudioState) {
     egui::Grid::new("pack_box")
         .num_columns(2)
@@ -211,6 +272,9 @@ fn box_tab(ui: &mut Ui, st: &mut PackStudioState) {
             row(ui, "pack.safe", |ui| {
                 mm(ui, &mut st.spec.safe, 0.0, 100.0, "pack.safe")
             });
+            row(ui, "pack.corner", |ui| {
+                mm(ui, &mut st.spec.corner, 0.5, 20.0, "pack.corner")
+            });
             row(ui, "pack.country", |ui| {
                 country_box(ui, &mut st.nutrition.country, "pack_box_country")
             });
@@ -239,6 +303,55 @@ fn box_tab(ui: &mut Ui, st: &mut PackStudioState) {
                 });
             });
     }
+    ui.add_space(4.0);
+    ui.label(egui::RichText::new(tr("pack.cut_extras")).strong());
+    ui.horizontal_wrapped(|ui| {
+        check(ui, &mut st.opts.round_corners, "pack.round_corners");
+        check(ui, &mut st.opts.hang_hole, "pack.hang_hole");
+        check(ui, &mut st.opts.window, "pack.window");
+    });
+    if st.opts.hang_hole || st.opts.window {
+        egui::Grid::new("pack_extras")
+            .num_columns(2)
+            .spacing([8.0, 4.0])
+            .show(ui, |ui| {
+                if st.opts.hang_hole {
+                    row(ui, "pack.hole_dia", |ui| {
+                        mm(ui, &mut st.opts.hole_dia, 2.0, 60.0, "pack.hole_dia")
+                    });
+                }
+                if st.opts.window {
+                    row(ui, "pack.window_w", |ui| {
+                        mm(ui, &mut st.opts.window_w, 5.0, 2000.0, "pack.window_w")
+                    });
+                    row(ui, "pack.window_h", |ui| {
+                        mm(ui, &mut st.opts.window_h, 5.0, 2000.0, "pack.window_h")
+                    });
+                    row(ui, "pack.window_r", |ui| {
+                        mm(ui, &mut st.opts.window_r, 0.0, 1000.0, "pack.window_r")
+                    });
+                    row(ui, "pack.window_dx", |ui| {
+                        mm(ui, &mut st.opts.window_dx, -2000.0, 2000.0, "pack.window_dx")
+                    });
+                    row(ui, "pack.window_dy", |ui| {
+                        mm(ui, &mut st.opts.window_dy, -2000.0, 2000.0, "pack.window_dy")
+                    });
+                }
+            });
+    }
+    if ui
+        .button(tr("pack.dieline_only"))
+        .rich_tip(tip("pack.dieline_only"))
+        .clicked()
+    {
+        st.opts.fill_panels = false;
+        st.opts.starter_text = false;
+        st.opts.show_names = false;
+        st.opts.show_safe = false;
+        st.opts.show_fop = false;
+    }
+    ui.add_space(4.0);
+    panel_section(ui, st);
     ui.add_space(4.0);
     ui.label(egui::RichText::new(tr("pack.guides")).strong());
     ui.horizontal_wrapped(|ui| {

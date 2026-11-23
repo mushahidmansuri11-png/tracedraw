@@ -122,6 +122,9 @@ pub struct BoxSpec {
     pub tuck: f64,
     pub bleed: f64,
     pub safe: f64,
+    /// Size of the flaps' corners (a chamfer, or a round of this radius
+    /// with `BoxOptions::round_corners`).
+    pub corner: f64,
 }
 
 impl Default for BoxSpec {
@@ -135,6 +138,7 @@ impl Default for BoxSpec {
             tuck: 12.0,
             bleed: 3.0,
             safe: 5.0,
+            corner: 3.0,
         }
     }
 }
@@ -183,6 +187,7 @@ impl BoxSpec {
             tuck: c(self.tuck, 3.0),
             bleed: c(self.bleed, 0.0),
             safe: c(self.safe, 0.0),
+            corner: c(self.corner, 0.5).min(20.0),
         }
     }
 
@@ -213,7 +218,7 @@ impl BoxSpec {
             ye,
             yz,
             df: (s.depth - 3.0).max(1.0),
-            c: 3.0_f64.min(s.depth / 2.0).min(s.width / 2.0),
+            c: s.corner.min(s.depth / 2.0).min(s.width / 2.0),
         }
     }
 
@@ -296,6 +301,30 @@ impl BoxSpec {
                 face: false,
                 minor: true,
             });
+        }
+        out
+    }
+
+    /// The panels that carry artwork as (place in `panels()`, name), a
+    /// name that two panels share numbered (SIDE 1, SIDE 2).
+    pub fn face_panels(&self) -> Vec<(usize, String)> {
+        let panels = self.panels();
+        let mut out: Vec<(usize, String)> = Vec::new();
+        for (i, p) in panels.iter().enumerate() {
+            if !p.face {
+                continue;
+            }
+            let same = panels.iter().filter(|q| q.face && q.name == p.name).count();
+            let nth = panels[..=i]
+                .iter()
+                .filter(|q| q.face && q.name == p.name)
+                .count();
+            let name = if same > 1 {
+                format!("{} {}", p.name, nth)
+            } else {
+                p.name.to_string()
+            };
+            out.push((i, name));
         }
         out
     }
@@ -491,6 +520,27 @@ pub struct BoxOptions {
     pub show_safe: bool,
     pub show_names: bool,
     pub show_fop: bool,
+    /// A panel's own fill, by its place in `BoxSpec::panels()`; `None`
+    /// keeps the main or side colour.
+    pub panel_fill: Vec<Option<[u8; 3]>>,
+    /// A panel's own line of text, by the same place; empty adds none.
+    pub panel_text: Vec<String>,
+    /// A round hang hole in the dieline: on a pouch in the middle of the
+    /// top seal, otherwise near the top of the front.
+    pub hang_hole: bool,
+    pub hole_dia: f64,
+    /// A rectangular window cut out of the front.
+    pub window: bool,
+    pub window_w: f64,
+    pub window_h: f64,
+    /// The window's corner radius (0 is square; half the shorter side
+    /// makes a pill, or a circle for a square window) and its offset from
+    /// the middle of the front (right and down are positive).
+    pub window_r: f64,
+    pub window_dx: f64,
+    pub window_dy: f64,
+    /// The flaps' chamfered corners drawn as arcs.
+    pub round_corners: bool,
 }
 
 impl Default for BoxOptions {
@@ -508,7 +558,51 @@ impl Default for BoxOptions {
             show_safe: true,
             show_names: true,
             show_fop: false,
+            panel_fill: Vec::new(),
+            panel_text: Vec::new(),
+            hang_hole: false,
+            hole_dia: 6.0,
+            window: false,
+            window_w: 50.0,
+            window_h: 40.0,
+            window_r: 0.0,
+            window_dx: 0.0,
+            window_dy: 0.0,
+            round_corners: false,
         }
+    }
+}
+
+impl BoxOptions {
+    /// A panel's own fill, when it has one.
+    pub fn own_fill(&self, index: usize) -> Option<[u8; 3]> {
+        self.panel_fill.get(index).copied().flatten()
+    }
+
+    /// The colour a panel is filled with: its own, else the main or the
+    /// side colour.
+    pub fn fill_of(&self, index: usize, minor: bool) -> [u8; 3] {
+        self.own_fill(index)
+            .unwrap_or(if minor { self.minor_color } else { self.main_color })
+    }
+
+    pub fn set_fill(&mut self, index: usize, fill: Option<[u8; 3]>) {
+        if self.panel_fill.len() <= index {
+            self.panel_fill.resize(index + 1, None);
+        }
+        self.panel_fill[index] = fill;
+    }
+
+    /// A panel's own line of text (empty for none).
+    pub fn text_of(&self, index: usize) -> &str {
+        self.panel_text.get(index).map(|t| t.as_str()).unwrap_or("")
+    }
+
+    pub fn set_text(&mut self, index: usize, text: String) {
+        if self.panel_text.len() <= index {
+            self.panel_text.resize(index + 1, String::new());
+        }
+        self.panel_text[index] = text;
     }
 }
 
@@ -556,6 +650,88 @@ fn disc(c: Point, r: f64, fill: [u8; 3]) -> Item {
         closed: true,
         fill: Some(fill),
         line: None,
+        dash: Vec::new(),
+    }
+}
+
+/// The chamfered corners of a closed outline turned into arcs, each
+/// tangent to both edges. The outline runs clockwise on the sheet, so its
+/// inside is on the right of every edge and an arc's centre is there.
+fn round_chamfers(pts: &[Point]) -> Vec<Point> {
+    let n = pts.len();
+    let mut out: Vec<Point> = Vec::with_capacity(n * 3);
+    for i in 0..n {
+        let a = pts[i];
+        let b = pts[(i + 1) % n];
+        out.push(a);
+        let (dx, dy) = (b.x - a.x, b.y - a.y);
+        if dx.abs() < 1e-6 || dy.abs() < 1e-6 || (dx.abs() - dy.abs()).abs() > 1e-6 {
+            continue;
+        }
+        let len = dx.hypot(dy);
+        let centre = Point::new((a.x + b.x) / 2.0 - dy / 2.0, (a.y + b.y) / 2.0 + dx / 2.0);
+        let r = len / std::f64::consts::SQRT_2;
+        let a0 = (a.y - centre.y).atan2(a.x - centre.x);
+        let a1 = (b.y - centre.y).atan2(b.x - centre.x);
+        let mut sweep = a1 - a0;
+        while sweep > std::f64::consts::PI {
+            sweep -= std::f64::consts::TAU;
+        }
+        while sweep < -std::f64::consts::PI {
+            sweep += std::f64::consts::TAU;
+        }
+        const STEPS: usize = 12;
+        for k in 1..STEPS {
+            let t = a0 + sweep * k as f64 / STEPS as f64;
+            out.push(Point::new(centre.x + r * t.cos(), centre.y + r * t.sin()));
+        }
+    }
+    out
+}
+
+/// A rectangle with rounded corners as a closed cut line; a radius of
+/// half the shorter side or more makes a pill, or a circle if square.
+fn round_rect(r: Rect, rad: f64) -> Item {
+    let rad = rad.max(0.0).min(r.width().min(r.height()) / 2.0);
+    if rad < 1e-6 {
+        return rect_poly(r, None, Some((MAGENTA, 0.35)), &[]);
+    }
+    use std::f64::consts::{FRAC_PI_2, PI};
+    let corners = [
+        (r.x1 - rad, r.y0 + rad, -FRAC_PI_2),
+        (r.x1 - rad, r.y1 - rad, 0.0),
+        (r.x0 + rad, r.y1 - rad, FRAC_PI_2),
+        (r.x0 + rad, r.y0 + rad, PI),
+    ];
+    let mut pts: Vec<Point> = Vec::new();
+    for (cx, cy, a0) in corners {
+        for k in 0..=12 {
+            let t = a0 + FRAC_PI_2 * k as f64 / 12.0;
+            pts.push(Point::new(cx + rad * t.cos(), cy + rad * t.sin()));
+        }
+    }
+    Item::Poly {
+        pts,
+        closed: true,
+        fill: None,
+        line: Some((MAGENTA, 0.35)),
+        dash: Vec::new(),
+    }
+}
+
+/// A circle as a closed cut line, for a hole in the dieline.
+fn ring(c: Point, r: f64) -> Item {
+    let pts: Vec<Point> = (0..48)
+        .map(|i| {
+            let a = i as f64 / 48.0 * std::f64::consts::TAU;
+            Point::new(c.x + r * a.cos(), c.y + r * a.sin())
+        })
+        .collect();
+    Item::Poly {
+        pts,
+        closed: true,
+        fill: None,
+        line: Some((MAGENTA, 0.35)),
         dash: Vec::new(),
     }
 }
@@ -708,16 +884,26 @@ impl BoxSpec {
 
         // The printing artwork.
         if o.fill_panels {
-            for pn in panels.iter().filter(|p| p.face || p.name == "TUCK") {
-                let fill = if pn.minor { o.minor_color } else { o.main_color };
+            for (i, pn) in panels.iter().enumerate() {
+                if !(pn.face || pn.name == "TUCK") {
+                    continue;
+                }
+                let fill = o.fill_of(i, pn.minor);
                 out.artwork
                     .push(rect_poly(with_bleed(pn.rect, tw, th, s.bleed), Some(fill), None, &[]));
             }
         }
+        // The starter text sits on the front, so its ink follows the
+        // front's own colour.
+        let front_fill = panels
+            .iter()
+            .position(|p| p.name == "FRONT")
+            .map(|i| o.fill_of(i, false))
+            .unwrap_or(o.main_color);
         if o.starter_text {
             // Text on the back halves of a pouch sits on the minor
             // colour, the rest on the main one.
-            let ink = if o.fill_panels && !is_light(o.main_color) {
+            let ink = if o.fill_panels && !is_light(front_fill) {
                 WHITE
             } else {
                 BLACK
@@ -729,10 +915,39 @@ impl BoxSpec {
             };
             out.artwork.extend(s.starter(o, country, ink));
         }
+        // A panel's own line of text, sized to fit inside its safe margin.
+        for (i, pn) in panels.iter().enumerate() {
+            let t = o.text_of(i).trim();
+            if !pn.face || t.is_empty() {
+                continue;
+            }
+            let fill = o.fill_of(i, pn.minor);
+            let ink = if o.fill_panels && !is_light(fill) {
+                WHITE
+            } else {
+                BLACK
+            };
+            let room = s.safe_of(pn.rect).width();
+            let chars = t.chars().count().max(1) as f64;
+            let size = (room / (chars * 0.55 * MM_PT)).clamp(5.0, 14.0);
+            out.artwork.push(label(
+                Point::new(pn.rect.center().x, pn.rect.y0 + pn.rect.height() * 0.2),
+                t,
+                size,
+                true,
+                TextAlign::Center,
+                ink,
+            ));
+        }
 
         // The dieline.
+        let outline = if o.round_corners {
+            round_chamfers(&s.outline())
+        } else {
+            s.outline()
+        };
         out.dieline.push(Item::Poly {
-            pts: s.outline(),
+            pts: outline,
             closed: true,
             fill: None,
             line: Some((MAGENTA, 0.35)),
@@ -741,6 +956,34 @@ impl BoxSpec {
         for (a, b) in s.folds() {
             out.dieline
                 .push(seg(a, b, AMBER, 0.33, &[5.0, 2.0, 1.0, 2.0]));
+        }
+        // Holes cut out of the pack: they are part of the cut line.
+        if o.hang_hole {
+            let d = o.hole_dia.clamp(2.0, 60.0);
+            let f = s.front();
+            let y = if s.style == BoxStyle::Pouch {
+                s.tuck / 2.0
+            } else {
+                f.y0 + d
+            };
+            out.dieline.push(ring(Point::new(f.center().x, y), d / 2.0));
+        }
+        if o.window {
+            let f = s.front();
+            let safe = s.safe_of(f);
+            let w = o.window_w.clamp(5.0, safe.width().max(5.0));
+            let h = o.window_h.clamp(5.0, safe.height().max(5.0));
+            // The window stays inside the front's safe margin.
+            let lo_x = safe.x0 + w / 2.0;
+            let hi_x = (safe.x1 - w / 2.0).max(lo_x);
+            let lo_y = safe.y0 + h / 2.0;
+            let hi_y = (safe.y1 - h / 2.0).max(lo_y);
+            let cx = (f.center().x + o.window_dx).max(lo_x).min(hi_x);
+            let cy = (f.center().y + o.window_dy).max(lo_y).min(hi_y);
+            out.dieline.push(round_rect(
+                Rect::new(cx - w / 2.0, cy - h / 2.0, cx + w / 2.0, cy + h / 2.0),
+                o.window_r,
+            ));
         }
 
         // The guides.
@@ -1995,6 +2238,9 @@ pub struct PackStudioState {
     /// the middle of the page.
     pub on_back_panel: bool,
     pub print: PrintChoice,
+    /// The panel the Box tab's Panels section edits, by its place in
+    /// `BoxSpec::panels()`.
+    pub panel_sel: usize,
 }
 
 impl Default for PackStudioState {
@@ -2002,10 +2248,14 @@ impl Default for PackStudioState {
         PackStudioState {
             tab: Tab::Box,
             spec: BoxSpec::default(),
-            opts: BoxOptions::default(),
+            opts: BoxOptions {
+                round_corners: true,
+                ..BoxOptions::default()
+            },
             nutrition: NutritionSpec::default(),
             on_back_panel: true,
             print: PrintChoice::default(),
+            panel_sel: 0,
         }
     }
 }

@@ -7,6 +7,10 @@ full, row-by-row status.
 ## Unreleased
 
 - Pack Studio (File > Pack Studio): draws the dieline of a tuck-end carton, a sleeve or a flat pillow pouch from its size, with panel fills, starter text and the cut, fold, trim, bleed, safe margin and panel-name guides on layers of their own (the dieline and guide layers do not print), and sets the page to the trim size and the drawing's bleed to the pack's.
+- Pack Studio > Box > Panels: pick one panel (front, back, side, top, bottom, or a pouch's back half) and give it a colour and a line of text of its own; the preview shows it at once, Create box draws it, and the front's starter text turns dark or light with the front's own colour.
+- Pack Studio > Box > Cut-outs: a round hang hole and a rectangular window on the front, drawn on the dieline layer as part of the cut line, and a Dieline only button that turns off the fills, starter text and extra guides, so Create box draws just the cut and fold lines to edit in TraceCut.
+- Pack Studio > Box > Round corners and Corner size: the cut corners of the flaps and the glue flap drawn as smooth arcs (on by default), the flaps' corner size set in millimetres.
+- Pack Studio > Box > Cut-outs > Window: a corner radius (a pill, or a circle for a square window) and an offset from the middle of the front, so the window that shows the product inside can be any rounded shape anywhere on the front.
 - Pack Studio > Nutrition: a nutrition table for India, USA, Canada, the United Kingdom, the European Union, Australia / New Zealand, UAE / GCC, Mexico, Chile or Singapore, as one group of editable curves and text; the US and Canadian facts panels work out % Daily Value, and the table can go on the box's back panel.
 - Pack Studio > Export for print: opens Export as PDF set to PDF/X-1a, X-3 or X-4 with the pack's bleed and printers' marks chosen.
 

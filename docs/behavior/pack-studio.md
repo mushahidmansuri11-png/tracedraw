@@ -23,6 +23,35 @@ Create box:
   page go first, so Create box again redraws the box;
 - all of it is two undo steps ("Pack Studio").
 
+Panels: below the starter text, a panel list (FRONT, BACK, SIDE 1, SIDE 2,
+TOP, BOTTOM; a pouch has FRONT, BACK 1 and BACK 2) chooses one panel. Own
+colour fills that panel with a colour of its own instead of the Main or
+Side colour, and Panel text adds one bold line near the top of the panel,
+sized to fit inside its safe margin (5 to 14 pt) and set in white or black
+to suit the panel's colour. The preview shows both at once; Create box draws
+them. The front's starter text turns white or black to suit the front's own
+colour. The choices live in the open dialog; Create box draws the whole box
+again, so edits made on the canvas afterwards are replaced by it.
+
+Corner size (0.5 to 20 mm, 3 by default) sets the corners of a carton's or
+sleeve's flaps, kept within half the depth and half the width; with Round
+corners on (the default in the dialog) the cut line draws each of those
+corners, and the glue flap's, as an arc tangent to both edges instead of a
+straight chamfer. A pouch has square corners.
+
+Cut-outs: Hang hole cuts a round hole (Hole diameter, 2 to 60 mm) in the
+middle of a pouch's top seal, or near the top of the front of a carton or
+sleeve; Window cuts a rectangle (Window width and height, kept inside the
+front's safe margin) out of the front, in the middle unless Window right and
+Window down move it (it stays inside the safe margin); Window corner radius
+rounds it (half the shorter side makes a pill, a square window with that
+radius a circle). Both are drawn on the
+Pack dieline layer in the cut colour, so they are part of the cut line.
+Dieline only turns off Fill the panels, Add starter text and the Safe,
+Panel names and Front-of-pack guides; Create box then draws just the cut
+and fold lines with the trim and bleed, as ordinary curves for TraceCut
+(Tools > TraceCut) or any other tool.
+
 Trim size: a tuck-end carton is glue + 2 x width + 2 x depth wide and
 tuck + 2 x depth + height high (100 x 150 x 60 with a 12 mm glue flap
 and tuck lip is 332 x 282 mm); a sleeve is the same width and the height
