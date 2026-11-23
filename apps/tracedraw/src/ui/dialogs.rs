@@ -1495,6 +1495,8 @@ pub enum Dialog {
     /// Image > Remove Object with AI.
     AiRemove(crate::ai_photo::RemoveState),
     Barcode(BarcodeState),
+    /// File > Pack Studio (`ui/pack_studio_dialog.rs`).
+    PackStudio(Box<crate::pack_studio::PackStudioState>),
     /// Object > Insert > Formula (#2183).
     Formula(crate::ui::formula_dialog::FormulaState),
     /// Object > Transformations > Transform Each.
@@ -3249,6 +3251,7 @@ pub fn show(app: &mut App, ctx: &Context) {
             });
         }
         Dialog::Barcode(st) => crate::ui::barcode_wizard::dialog(app, ctx, st, &mut close),
+        Dialog::PackStudio(st) => crate::ui::pack_studio_dialog::dialog(app, ctx, st, &mut close),
         Dialog::Formula(st) => crate::ui::formula_dialog::dialog(app, ctx, st, &mut close),
         Dialog::TransformEach(st) => crate::ui::transform_each::dialog(app, ctx, st, &mut close),
         Dialog::Flare(st) => crate::ui::flare::dialog(app, ctx, st, &mut close),
@@ -9395,6 +9398,15 @@ pub(crate) mod tests {
             Dialog::ColorManagement(Default::default()),
             Dialog::FontManager(FontManagerState::default()),
             Dialog::TraceCut(Box::default()),
+            Dialog::PackStudio(Default::default()),
+            Dialog::PackStudio(Box::new(crate::pack_studio::PackStudioState {
+                tab: crate::pack_studio::Tab::Nutrition,
+                ..Default::default()
+            })),
+            Dialog::PackStudio(Box::new(crate::pack_studio::PackStudioState {
+                tab: crate::pack_studio::Tab::Print,
+                ..Default::default()
+            })),
             Dialog::PaletteEditor(PaletteEditorState::default()),
             Dialog::PictureColors(Box::new(
                 crate::ui::picture_colors::PictureColorsState::new(

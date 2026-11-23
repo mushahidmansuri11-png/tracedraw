@@ -116,6 +116,7 @@ mod font_folder;
 #[cfg(not(target_arch = "wasm32"))]
 mod frame_stats;
 mod frame_gen;
+mod pack_studio;
 mod frame_type;
 mod fx;
 mod gather_pages;

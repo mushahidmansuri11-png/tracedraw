@@ -140,6 +140,7 @@ pub fn dialog_topic(d: &Dialog, options: OptionsPage) -> &'static str {
         Dialog::Workflow => "customize/scripts#workflow",
         Dialog::Preflight(_) => "printing/preflight",
         Dialog::PublishPdf(_) => "file-formats/publish-pdf",
+        Dialog::PackStudio(_) => "printing/print",
         Dialog::PdfPassword(_) => "file-formats/publish-pdf#password",
         Dialog::PdfText(_) => "file-formats/import#formats",
         Dialog::PdfPages(_) => "file-formats/import#pdf-pages",

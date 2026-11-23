@@ -2901,6 +2901,9 @@ fn file_menu(app: &mut App, ui: &mut Ui) {
     if item(ui, "menu.file.publish_to_pdf", "", doc) {
         app.publish_pdf();
     }
+    if item(ui, "menu.file.pack_studio", "", doc) {
+        app.dialog = Dialog::PackStudio(Default::default());
+    }
     // Folders are a desktop thing (#852); greyed with the reason in the
     // browser (#1416).
     let why = crate::package::why_not_package(crate::files::WEB).map(tr);

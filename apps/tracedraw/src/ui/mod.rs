@@ -12,6 +12,7 @@ pub mod align_docker;
 pub mod arrowhead_editor;
 pub mod bar_items;
 pub mod barcode_wizard;
+pub mod pack_studio_dialog;
 pub mod bars;
 pub mod before_after;
 pub mod benchmark;

@@ -4,6 +4,12 @@ Versions follow the tags of this repository; every push to `main` also
 publishes a nightly build. [`docs/features.md`](docs/features.md) has the
 full, row-by-row status.
 
+## Unreleased
+
+- Pack Studio (File > Pack Studio): draws the dieline of a tuck-end carton, a sleeve or a flat pillow pouch from its size, with panel fills, starter text and the cut, fold, trim, bleed, safe margin and panel-name guides on layers of their own (the dieline and guide layers do not print), and sets the page to the trim size and the drawing's bleed to the pack's.
+- Pack Studio > Nutrition: a nutrition table for India, USA, Canada, the United Kingdom, the European Union, Australia / New Zealand, UAE / GCC, Mexico, Chile or Singapore, as one group of editable curves and text; the US and Canadian facts panels work out % Daily Value, and the table can go on the box's back panel.
+- Pack Studio > Export for print: opens Export as PDF set to PDF/X-1a, X-3 or X-4 with the pack's bleed and printers' marks chosen.
+
 ## 0.50.0 (2026-11-21)
 
 - Text > Bullets: a bullet or number can have its own colour, bold and italic instead of the first letter's (#3682). Lists can have levels: each level is set in by its own indent and numbers on its own, starting again under each paragraph above it, with Restart and Continue numbering; Text > Increase List Level and Decrease List Level move the bulleted paragraphs, a number taking 1, a, i and a symbol the next plain bullet by level (#3685).
