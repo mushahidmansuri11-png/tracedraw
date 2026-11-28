@@ -196,6 +196,21 @@ fn tool_options(ui: &mut egui::Ui, pe: &mut crate::pixel_edit_app::PixelEdit) {
         }
         PixelTool::Gradient => {
             ui.checkbox(&mut o.gradient_to_clear, tr("pixel.opt.to_clear"));
+            ui.checkbox(&mut o.gradient_use_second, tr("pixel.opt.to_second"));
+            if o.gradient_use_second {
+                let g = o.gradient_second;
+                let mut c = egui::Color32::from_rgba_unmultiplied(g[0], g[1], g[2], g[3]);
+                if egui::color_picker::color_edit_button_srgba(
+                    ui,
+                    &mut c,
+                    egui::color_picker::Alpha::OnlyBlend,
+                )
+                .changed()
+                {
+                    let [r, gg, b, a] = c.to_srgba_unmultiplied();
+                    o.gradient_second = [r, gg, b, a];
+                }
+            }
         }
         _ => {}
     }
@@ -231,6 +246,7 @@ fn panel(app: &mut App, ctx: &Context) {
                         retouch_section(ui, pe);
                         effects_section(ui, pe);
                         picture_section(ui, pe);
+            perspective_row(ui, pe);
                     });
             });
         });
@@ -629,6 +645,48 @@ fn effects_section(ui: &mut egui::Ui, pe: &mut crate::pixel_edit_app::PixelEdit)
                 pe.refresh_preview();
             }
         });
+}
+
+/// Perspective of the layer in use: the corners move so one side is the
+/// short one (sideways or up and down), by an amount, applied in one undo
+/// step to the whole layer. Separate from the Warp grid.
+pub(crate) fn perspective_row(ui: &mut egui::Ui, pe: &mut crate::pixel_edit_app::PixelEdit) {
+    use crate::pixel_persp::Persp;
+    ui.label(RichText::new(tr("pixel.persp.title")).strong());
+    ui.horizontal_wrapped(|ui| {
+        for (kind, key) in [
+            (Persp::Sideways, "pixel.persp.sideways"),
+            (Persp::UpDown, "pixel.persp.updown"),
+        ] {
+            if ui
+                .selectable_label(pe.persp_kind == kind, tr(key))
+                .clicked()
+            {
+                pe.persp_kind = kind;
+            }
+        }
+    });
+    ui.add(
+        egui::Slider::new(&mut pe.persp_amount, -100.0..=100.0)
+            .suffix(" %")
+            .text(tr("pixel.persp.amount")),
+    );
+    let locked = pe.pi.active_locked();
+    let (w, h) = pe.pi.img.dimensions();
+    ui.horizontal_wrapped(|ui| {
+        if ui
+            .add_enabled(!locked && pe.persp_amount != 0.0, egui::Button::new(tr("pixel.persp.apply")))
+            .rich_tip(tr("pixel.persp.apply_tip"))
+            .clicked()
+        {
+            let (kind, amt) = (pe.persp_kind, (pe.persp_amount / 100.0) as f64);
+            pe.apply(true, |pi| {
+                pi.img = crate::pixel_persp::apply(&pi.img, kind, amt);
+                Some([0, 0, w, h])
+            });
+            pe.persp_amount = 0.0;
+        }
+    });
 }
 
 fn picture_section(ui: &mut egui::Ui, pe: &mut crate::pixel_edit_app::PixelEdit) {

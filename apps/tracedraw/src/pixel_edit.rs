@@ -146,6 +146,8 @@ pub struct BrushOpts {
     pub desaturate: bool,
     /// The gradient goes from the colour to see-through (else to white).
     pub gradient_to_clear: bool,
+    pub gradient_use_second: bool,
+    pub gradient_second: [u8; 4],
 }
 
 impl Default for BrushOpts {
@@ -160,6 +162,8 @@ impl Default for BrushOpts {
             contiguous: true,
             desaturate: false,
             gradient_to_clear: true,
+            gradient_use_second: false,
+            gradient_second: [255, 255, 255, 255],
         }
     }
 }
@@ -579,7 +583,9 @@ pub fn gradient(pi: &mut PixelImage, a: (f32, f32), b: (f32, f32), o: &BrushOpts
     let bounds = pi.sel_bounds()?;
     let (dx, dy) = (b.0 - a.0, b.1 - a.1);
     let len2 = (dx * dx + dy * dy).max(1e-6);
-    let end = if o.gradient_to_clear {
+    let end = if o.gradient_use_second {
+        o.gradient_second
+    } else if o.gradient_to_clear {
         [o.color[0], o.color[1], o.color[2], 0]
     } else {
         [255, 255, 255, 255]

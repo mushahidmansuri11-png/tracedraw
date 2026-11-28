@@ -3450,6 +3450,55 @@ pub(crate) fn layout_menu(app: &mut App, ui: &mut Ui) {
     if item(ui, "menu.layout.edit_artboard", "", true) {
         app.artboard_begin();
     }
+    sub(ui, "menu.layout.grids", |ui| {
+        use crate::layout_grids as lg;
+        let page_rect = app
+            .doc()
+            .page(app.page)
+            .ok()
+            .map(|p| tracedraw_core::geometry::Rect::new(0.0, 0.0, p.size.width, p.size.height));
+        let geom = app.selection_geometry();
+        let cell = app.logo_cell;
+        let clear = app.clearspace_mm;
+        if item(ui, "menu.layout.grid_square", "", page_rect.is_some()) {
+            if let Some(b) = page_rect {
+                app.apply_grid_lines(lg::square(b, cell), "Square Grid");
+            }
+        }
+        if item(ui, "menu.layout.grid_isometric", "", page_rect.is_some()) {
+            if let Some(b) = page_rect {
+                app.apply_grid_lines(lg::isometric(b, 20.0), "Isometric Grid");
+            }
+        }
+        if item(ui, "menu.layout.grid_golden", "", page_rect.is_some()) {
+            if let Some(b) = page_rect {
+                app.apply_grid_lines(lg::golden(b), "Golden Ratio Grid");
+            }
+        }
+        sep(ui);
+        if item(ui, "menu.layout.grid_construction", "", geom.is_some()) {
+            if let Some((b, nodes)) = &geom {
+                app.apply_grid_lines(lg::construction(*b, nodes), "Construction Grid");
+            }
+        }
+        if item(ui, "menu.layout.grid_lockup", "", geom.is_some()) {
+            if let Some((b, _)) = &geom {
+                app.apply_grid_lines(lg::lockup(*b), "Lockup Grid");
+            }
+        }
+        if item(ui, "menu.layout.grid_clearspace", "", geom.is_some()) {
+            if let Some((b, _)) = &geom {
+                app.apply_grid_lines(lg::clearspace(*b, clear), "Clearspace Grid");
+            }
+        }
+        sep(ui);
+        if item(ui, "menu.layout.grid_page", "", true) {
+            app.show_page_grid = true;
+        }
+        if item(ui, "menu.layout.grid_clear", "", !app.grid_lines.is_empty()) {
+            app.clear_grid_lines();
+        }
+    });
     if item(ui, "menu.layout.page_background", "", true) {
         app.dialog = Dialog::Options;
         app.options_page = crate::ui::dialogs::OptionsPage::Background;

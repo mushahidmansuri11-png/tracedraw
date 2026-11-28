@@ -35,6 +35,8 @@ pub struct PixelView {
 
 /// A picture being edited in place.
 pub struct PixelEdit {
+    pub persp_kind: crate::pixel_persp::Persp,
+    pub persp_amount: f32,
     pub shape: ShapeId,
     /// The picture's pixel space as first opened (y down) to the page.
     pub img_to_page: Affine,
@@ -249,6 +251,8 @@ impl App {
         let img_to_page = img_to_page
             * Affine::scale_non_uniform(w0 / size_px.0.max(1) as f64, h0 / size_px.1.max(1) as f64);
         self.pixel_edit = Some(Box::new(PixelEdit {
+            persp_kind: Default::default(),
+            persp_amount: 0.0,
             shape: id,
             img_to_page,
             rect: *rect,

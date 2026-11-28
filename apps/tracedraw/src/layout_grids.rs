@@ -218,7 +218,7 @@ impl crate::app::App {
     /// Write `lines` to the page in one undo step, replacing the lines of
     /// the grid made last (which are taken away first) and skipping any
     /// guideline the page already has. Returns how many were added.
-    pub fn apply_grid_lines(&mut self, lines: Vec<GuideLine>, label: &str) -> usize {
+    pub fn apply_grid_lines(&mut self, lines: Vec<GuideLine>, label: &'static str) -> usize {
         let page = self.page;
         let Ok(p) = self.doc().page(page) else {
             return 0;
@@ -281,8 +281,6 @@ pub fn page_grid_window(app: &mut crate::app::App, ctx: &egui::Context) {
     let mut apply = false;
     let mut clear = false;
     crate::ui::chrome::window(crate::i18n::tr("layout_grids.title"))
-        .open(&mut open)
-        .resizable(false)
         .show(ctx, |ui| {
             let f = &mut app.page_grid;
             ui.add(egui::Slider::new(&mut f.columns, 1..=24).text(crate::i18n::tr("layout_grids.columns")));
@@ -292,6 +290,9 @@ pub fn page_grid_window(app: &mut crate::app::App, ctx: &egui::Context) {
             ui.horizontal_wrapped(|ui| {
                 apply = ui.button(crate::i18n::tr("layout_grids.apply")).clicked();
                 clear = ui.button(crate::i18n::tr("layout_grids.clear")).clicked();
+                if ui.button("Close").clicked() {
+                    open = false;
+                }
             });
         });
     if apply {

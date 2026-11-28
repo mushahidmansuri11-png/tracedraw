@@ -193,6 +193,8 @@ mod cut_tools;
 mod pick_drag_tests;
 mod picture_mosaic;
 mod picture_plates;
+mod layout_grids;
+mod pixel_persp;
 mod pixel_edit;
 mod pixel_edit_app;
 mod pixel_light;
