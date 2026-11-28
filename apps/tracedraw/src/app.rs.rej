@@ -1,0 +1,28 @@
+diff a/apps/tracedraw/src/app.rs b/apps/tracedraw/src/app.rs	(rejected hunks)
+@@ -1935,6 +1935,14 @@
+     >,
+     pub rasterize_complex_effects: bool,
+     pub show_bleed: bool,
++    /// Layout > Grids: the grid made last (replaced by the next one) and
++    /// the magazine and poster grid's settings and window.
++    pub grid_lines: Vec<tracedraw_core::document::GuideLine>,
++    pub page_grid: crate::layout_grids::PageGridForm,
++    pub show_page_grid: bool,
++    /// The square logo grid's cell and the clearspace distance, mm.
++    pub logo_cell: f64,
++    pub clearspace_mm: f64,
+     pub show_printable_area: bool,
+     /// The printers' hard margins, read off the interface's thread: the
+     /// printable area on the canvas and in Print Preview (#1924).
+@@ -3720,6 +3728,11 @@
+             view_plate_doc: std::cell::RefCell::new(None),
+             rasterize_complex_effects: true,
+             show_bleed: false,
++            grid_lines: Vec::new(),
++            page_grid: Default::default(),
++            show_page_grid: false,
++            logo_cell: 10.0,
++            clearspace_mm: 5.0,
+             show_printable_area: false,
+             printer_margins: Default::default(),
+             mask_outside_page: false,

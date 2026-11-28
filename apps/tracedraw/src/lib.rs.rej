@@ -1,0 +1,10 @@
+diff a/apps/tracedraw/src/lib.rs b/apps/tracedraw/src/lib.rs	(rejected hunks)
+@@ -224,6 +224,8 @@
+ mod pixel_spray;
+ mod pixel_surface;
+ mod pixel_view;
++mod layout_grids;
++mod pixel_persp;
+ mod pixel_warp;
+ mod placeholder;
+ mod plugins;

@@ -1,0 +1,20 @@
+diff a/apps/tracedraw/src/pixel_edit_app.rs b/apps/tracedraw/src/pixel_edit_app.rs	(rejected hunks)
+@@ -116,6 +116,9 @@
+     /// Warp: the grid being dragged, the box it covers and its points
+     /// across and down.
+     pub warp: Option<crate::pixel_warp::Warp>,
++    /// Perspective (see `pixel_persp.rs`): the kind and the amount in per cent.
++    pub persp_kind: crate::pixel_persp::Persp,
++    pub persp_amount: f32,
+     pub warp_box: Dirty,
+     pub warp_grid: usize,
+     /// The picture as it was when the editing began (Restore paints it
+@@ -714,6 +717,8 @@
+             target: MaskTarget::Pixels,
+             mask_stroke: None,
+             saved_sels: Vec::new(),
++            persp_kind: Default::default(),
++            persp_amount: 0.0,
+             warp: None,
+             warp_box: [0, 0, 0, 0],
+             warp_grid: 4,

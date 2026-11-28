@@ -942,6 +942,7 @@ fn root_frame(app: &mut App, ui: &mut Ui) {
     update_card::show(app, &ctx);
     command_search::show(app, &ctx);
     dialogs::show(app, &ctx);
+    crate::layout_grids::page_grid_window(app, &ctx);
     // A change this frame made to a master shows on its clones at once.
     let before = app.engine.revision();
     app.sync_object_clones();

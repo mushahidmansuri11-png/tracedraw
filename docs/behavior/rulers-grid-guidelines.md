@@ -335,3 +335,26 @@ properties for new objects (see `object-styles.md`), for new drawings.
 - `drawing_scale::tests::presets_have_the_ratio_their_label_says`
 - `drawing_scale::tests::the_settings_find_their_preset_and_label`
 - `drawing_scale::tests::world_distances_go_through_the_scale`
+
+## Layout > Grids (`layout_grids.rs`)
+
+Grids made as guidelines on the page, in one undo step each. Applying a
+grid again replaces the one made last (its lines are taken away first;
+Layout > Grids > Clear the grid made last takes them off). At most 200
+lines per grid.
+
+- Base: **Square grid** (cell from the Document Setup grid, 10 mm to
+  start), **Isometric grid** (verticals and lines at 30 and 150 degrees,
+  20 mm apart), **Golden ratio grid** (0.382 and 0.618 of the width and
+  of the height).
+- Logo, of the selection: **Construction lines** (centres, edges, the
+  two diagonals of the box and a vertical and horizontal through every
+  node), **Lockup thirds** (the thirds in both directions), **Clearspace**
+  (lines the clearspace distance, 5 mm to start, outside each edge).
+- Magazine and poster: **Magazine and poster grid...** opens a window with
+  columns and rows (1 to 24), gutter and margin (mm). Apply draws the
+  column and row edges inside the margins; changing the numbers and
+  applying again moves the grid. Too narrow a page for the gutters gives no
+  lines.
+
+Tests: `layout_grids::tests`.

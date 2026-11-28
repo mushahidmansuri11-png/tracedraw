@@ -1,0 +1,1497 @@
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/ar.toml b/apps/tracedraw/lang/ar.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/ar.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/ar.toml	2026-11-28 03:56:39.037594122 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "جارٍ اللصق..."
+ 
+ status.clipboard_failed = "تعذر اللصق من الحافظة: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/bn.toml b/apps/tracedraw/lang/bn.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/bn.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/bn.toml	2026-11-28 03:56:39.037969718 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "পেস্ট করা হচ্ছে..."
+ 
+ status.clipboard_failed = "ক্লিপবোর্ড থেকে পেস্ট করা যায়নি: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/cs.toml b/apps/tracedraw/lang/cs.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/cs.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/cs.toml	2026-11-28 03:56:39.038953209 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Vkládání..."
+ 
+ status.clipboard_failed = "Nelze vložit ze schránky: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/de.toml b/apps/tracedraw/lang/de.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/de.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/de.toml	2026-11-28 03:56:39.039198709 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Einfügen..."
+ 
+ status.clipboard_failed = "Einfügen aus der Zwischenablage nicht möglich: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/en.toml b/apps/tracedraw/lang/en.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/en.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/en.toml	2026-11-28 03:56:39.039475953 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Pasting..."
+ 
+ status.clipboard_failed = "Could not paste from the clipboard: {e}"
++pixel.opt.to_second = "To second colour"
++pixel.persp.title = "Perspective"
++pixel.persp.sideways = "Sideways"
++pixel.persp.updown = "Up and down"
++pixel.persp.amount = "Amount"
++pixel.persp.apply = "Apply"
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step."
++menu.layout.grids = "Grids"
++menu.layout.grid_square = "Square grid"
++menu.layout.grid_isometric = "Isometric grid"
++menu.layout.grid_golden = "Golden ratio grid"
++menu.layout.grid_construction = "Construction lines of the selection"
++menu.layout.grid_lockup = "Lockup thirds of the selection"
++menu.layout.grid_clearspace = "Clearspace round the selection"
++menu.layout.grid_page = "Magazine and poster grid..."
++menu.layout.grid_clear = "Clear the grid made last"
++layout_grids.title = "Magazine and poster grid"
++layout_grids.columns = "Columns"
++layout_grids.rows = "Rows"
++layout_grids.gutter = "Gutter"
++layout_grids.margin = "Margin"
++layout_grids.apply = "Apply"
++layout_grids.clear = "Clear"
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/eo.toml b/apps/tracedraw/lang/eo.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/eo.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/eo.toml	2026-11-28 03:56:39.039787970 +0000
+@@ -11819,3 +11819,26 @@
+ same.smaller_desc = "Neither dimension is larger beyond the tolerance; at least one is smaller beyond it."
+ status.pasting = "Pasting..."
+ status.clipboard_failed = "Could not paste from the clipboard: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/es.toml b/apps/tracedraw/lang/es.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/es.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/es.toml	2026-11-28 03:56:39.040094888 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Pegando..."
+ 
+ status.clipboard_failed = "No se pudo pegar desde el portapapeles: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/fr.toml b/apps/tracedraw/lang/fr.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/fr.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/fr.toml	2026-11-28 03:56:39.040378292 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Collage en cours..."
+ 
+ status.clipboard_failed = "Impossible de coller depuis le presse-papiers : {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/hi.toml b/apps/tracedraw/lang/hi.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/hi.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/hi.toml	2026-11-28 03:56:39.041100690 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "चिपकाया जा रहा है..."
+ 
+ status.clipboard_failed = "क्लिपबोर्ड से चिपकाया नहीं जा सका: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/id.toml b/apps/tracedraw/lang/id.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/id.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/id.toml	2026-11-28 03:56:39.041456378 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Menempelkan..."
+ 
+ status.clipboard_failed = "Tidak dapat menempelkan dari papan klip: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/it.toml b/apps/tracedraw/lang/it.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/it.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/it.toml	2026-11-28 03:56:39.042121379 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Incolla in corso..."
+ 
+ status.clipboard_failed = "Impossibile incollare dagli appunti: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/ja.toml b/apps/tracedraw/lang/ja.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/ja.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/ja.toml	2026-11-28 03:56:39.042380727 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "貼り付け中..."
+ 
+ status.clipboard_failed = "クリップボードから貼り付けできませんでした: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/lo.toml b/apps/tracedraw/lang/lo.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/lo.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/lo.toml	2026-11-28 03:56:39.042622309 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "ກຳລັງວາງ..."
+ 
+ status.clipboard_failed = "ບໍ່ສາມາດວາງຈາກຄລິບບອດໄດ້: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/nl.toml b/apps/tracedraw/lang/nl.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/nl.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/nl.toml	2026-11-28 03:56:39.043442400 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Bezig met plakken..."
+ 
+ status.clipboard_failed = "Kan niet plakken vanuit het klembord: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/pl.toml b/apps/tracedraw/lang/pl.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/pl.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/pl.toml	2026-11-28 03:56:39.043656710 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Wklejanie..."
+ 
+ status.clipboard_failed = "Nie można wkleić ze schowka: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/pt-BR.toml b/apps/tracedraw/lang/pt-BR.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/pt-BR.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/pt-BR.toml	2026-11-28 03:56:39.044370348 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Colando..."
+ 
+ status.clipboard_failed = "Não foi possível colar da área de transferência: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/ru.toml b/apps/tracedraw/lang/ru.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/ru.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/ru.toml	2026-11-28 03:56:39.044639505 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Вставка..."
+ 
+ status.clipboard_failed = "Не удалось вставить из буфера обмена: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/tr.toml b/apps/tracedraw/lang/tr.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/tr.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/tr.toml	2026-11-28 03:56:39.045384787 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "Yapıştırılıyor..."
+ 
+ status.clipboard_failed = "Panodan yapıştırılamadı: {e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/uk.toml b/apps/tracedraw/lang/uk.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/uk.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/uk.toml	2026-11-28 03:56:39.045635619 +0000
+@@ -11823,3 +11823,26 @@
+ mockup.group_name = "Mockup: {name}" # review
+ status.mockup_select_design = "Select the design to put on the product." # review
+ status.mockup_select_photo = "Select a picture together with the design: it becomes the photo." # review
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/vi.toml b/apps/tracedraw/lang/vi.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/vi.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/vi.toml	2026-11-28 03:56:39.045941300 +0000
+@@ -11821,3 +11821,26 @@
+ mockup.group_name = "Mockup: {name}" # mt
+ status.mockup_select_design = "Chọn thiết kế để đặt lên sản phẩm." # mt
+ status.mockup_select_photo = "Chọn một hình cùng với thiết kế: hình đó sẽ là ảnh nền." # mt
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/zh-CN.toml b/apps/tracedraw/lang/zh-CN.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/zh-CN.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/zh-CN.toml	2026-11-28 03:56:39.046612454 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "正在粘贴..."
+ 
+ status.clipboard_failed = "无法从剪贴板粘贴：{e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/lang/zh-TW.toml b/apps/tracedraw/lang/zh-TW.toml
+--- orig/tracedraw-0.53.0/apps/tracedraw/lang/zh-TW.toml	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/lang/zh-TW.toml	2026-11-28 03:56:39.046897683 +0000
+@@ -11826,3 +11826,26 @@
+ status.pasting = "正在貼上..."
+ 
+ status.clipboard_failed = "無法從剪貼簿貼上：{e}"
++pixel.opt.to_second = "To second colour" # mt
++pixel.persp.title = "Perspective" # mt
++pixel.persp.sideways = "Sideways" # mt
++pixel.persp.updown = "Up and down" # mt
++pixel.persp.amount = "Amount" # mt
++pixel.persp.apply = "Apply" # mt
++pixel.persp.apply_tip = "Put the perspective into the layer in use, as a whole, in one undo step." # mt
++menu.layout.grids = "Grids" # mt
++menu.layout.grid_square = "Square grid" # mt
++menu.layout.grid_isometric = "Isometric grid" # mt
++menu.layout.grid_golden = "Golden ratio grid" # mt
++menu.layout.grid_construction = "Construction lines of the selection" # mt
++menu.layout.grid_lockup = "Lockup thirds of the selection" # mt
++menu.layout.grid_clearspace = "Clearspace round the selection" # mt
++menu.layout.grid_page = "Magazine and poster grid..." # mt
++menu.layout.grid_clear = "Clear the grid made last" # mt
++layout_grids.title = "Magazine and poster grid" # mt
++layout_grids.columns = "Columns" # mt
++layout_grids.rows = "Rows" # mt
++layout_grids.gutter = "Gutter" # mt
++layout_grids.margin = "Margin" # mt
++layout_grids.apply = "Apply" # mt
++layout_grids.clear = "Clear" # mt
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/src/app.rs b/apps/tracedraw/src/app.rs
+--- orig/tracedraw-0.53.0/apps/tracedraw/src/app.rs	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/src/app.rs	2026-11-28 03:56:39.047853925 +0000
+@@ -1935,6 +1935,14 @@
+     >,
+     pub rasterize_complex_effects: bool,
+     pub show_bleed: bool,
++    /// Layout > Grids: the grid made last (replaced by the next one) and
++    /// the magazine and poster grid's settings and window.
++    pub grid_lines: Vec<tracedraw_core::document::GuideLine>,
++    pub page_grid: crate::layout_grids::PageGridForm,
++    pub show_page_grid: bool,
++    /// The square logo grid's cell and the clearspace distance, mm.
++    pub logo_cell: f64,
++    pub clearspace_mm: f64,
+     pub show_printable_area: bool,
+     /// The printers' hard margins, read off the interface's thread: the
+     /// printable area on the canvas and in Print Preview (#1924).
+@@ -3720,6 +3728,11 @@
+             view_plate_doc: std::cell::RefCell::new(None),
+             rasterize_complex_effects: true,
+             show_bleed: false,
++            grid_lines: Vec::new(),
++            page_grid: Default::default(),
++            show_page_grid: false,
++            logo_cell: 10.0,
++            clearspace_mm: 5.0,
+             show_printable_area: false,
+             printer_margins: Default::default(),
+             mask_outside_page: false,
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/src/layout_grids.rs b/apps/tracedraw/src/layout_grids.rs
+--- orig/tracedraw-0.53.0/apps/tracedraw/src/layout_grids.rs	1970-01-01 00:00:00.000000000 +0000
++++ b/apps/tracedraw/src/layout_grids.rs	2026-11-28 03:56:39.079160733 +0000
+@@ -0,0 +1,392 @@
++//! Grids for designing a logo, a page of a magazine or a poster, as
++//! guidelines. The geometry is pure (millimetres in, guidelines out); the
++//! App methods at the bottom write the lines to the page in one undo step
++//! and remember them, so applying a grid again replaces the one made last
++//! (a magazine grid is edited by changing its columns and applying again).
++//!
++//! Logo grids: base (square, isometric, golden ratio), construction (the
++//! centres, edges, diagonals and nodes of the selection), lockup (the
++//! thirds of the selection) and clearspace (a clear distance round it).
++//! Page grid: columns and rows with gutters inside the margins.
++//! See docs/behavior/rulers-grid-guidelines.md.
++
++use tracedraw_core::document::{Guide, GuideLine};
++use tracedraw_core::geometry::{Point, Rect};
++
++/// The most guidelines one grid makes: a square grid of tiny cells would
++/// otherwise make thousands.
++pub const MAX_LINES: usize = 200;
++
++const INV_PHI: f64 = 0.618_033_988_749_894_9;
++
++fn push_unique(out: &mut Vec<GuideLine>, line: GuideLine) {
++    if out.len() >= MAX_LINES {
++        return;
++    }
++    let same = |a: &GuideLine, b: &GuideLine| match (a, b) {
++        (GuideLine::Horizontal { y: p }, GuideLine::Horizontal { y: q }) => (p - q).abs() < 1e-9,
++        (GuideLine::Vertical { x: p }, GuideLine::Vertical { x: q }) => (p - q).abs() < 1e-9,
++        (
++            GuideLine::Angled { x: px, y: py, angle: pa },
++            GuideLine::Angled { x: qx, y: qy, angle: qa },
++        ) => (px - qx).abs() < 1e-9 && (py - qy).abs() < 1e-9 && (pa - qa).abs() < 1e-9,
++        _ => false,
++    };
++    if !out.iter().any(|o| same(o, &line)) {
++        out.push(line);
++    }
++}
++
++fn finite(r: &Rect) -> bool {
++    [r.x0, r.y0, r.x1, r.y1].iter().all(|v| v.is_finite()) && r.x1 > r.x0 && r.y1 > r.y0
++}
++
++/// Vertical and horizontal lines every `step` across `b` from its
++/// top-left corner.
++pub fn square(b: Rect, step: f64) -> Vec<GuideLine> {
++    let mut out = Vec::new();
++    if !finite(&b) || !(step.is_finite() && step > 0.0) {
++        return out;
++    }
++    let mut x = b.x0;
++    while x <= b.x1 + 1e-9 && out.len() < MAX_LINES {
++        push_unique(&mut out, GuideLine::Vertical { x });
++        x += step;
++    }
++    let mut y = b.y0;
++    while y <= b.y1 + 1e-9 && out.len() < MAX_LINES {
++        push_unique(&mut out, GuideLine::Horizontal { y });
++        y += step;
++    }
++    out
++}
++
++/// Lines at 0.382 and 0.618 of the width and of the height of `b`: the
++/// golden section.
++pub fn golden(b: Rect) -> Vec<GuideLine> {
++    let mut out = Vec::new();
++    if !finite(&b) {
++        return out;
++    }
++    let (w, h) = (b.width(), b.height());
++    for f in [1.0 - INV_PHI, INV_PHI] {
++        push_unique(&mut out, GuideLine::Vertical { x: b.x0 + w * f });
++        push_unique(&mut out, GuideLine::Horizontal { y: b.y0 + h * f });
++    }
++    out
++}
++
++/// Vertical lines and lines at 30 and 150 degrees, `step` apart measured
++/// across the lines, through `b`: the isometric grid of a drawing that
++/// sits on a cube's faces.
++pub fn isometric(b: Rect, step: f64) -> Vec<GuideLine> {
++    let mut out = Vec::new();
++    if !finite(&b) || !(step.is_finite() && step > 0.0) {
++        return out;
++    }
++    let tan = 30f64.to_radians().tan();
++    let along = step / 30f64.to_radians().cos();
++    let mut x = b.x0;
++    while x <= b.x1 + 1e-9 && out.len() < MAX_LINES {
++        push_unique(&mut out, GuideLine::Vertical { x });
++        x += step;
++    }
++    let w = b.width();
++    let mut c = b.y0 - w * tan;
++    while c <= b.y1 + 1e-9 && out.len() < MAX_LINES {
++        push_unique(&mut out, GuideLine::Angled { x: b.x0, y: c, angle: 30.0 });
++        c += along;
++    }
++    let mut c = b.y0;
++    while c <= b.y1 + w * tan + 1e-9 && out.len() < MAX_LINES {
++        push_unique(&mut out, GuideLine::Angled { x: b.x0, y: c, angle: 150.0 });
++        c += along;
++    }
++    out
++}
++
++/// The construction lines of a logo: its centre lines, edges, the two
++/// diagonals of its box, and through every node a vertical and a
++/// horizontal, so that alignments show up.
++pub fn construction(b: Rect, nodes: &[Point]) -> Vec<GuideLine> {
++    let mut out = Vec::new();
++    if !finite(&b) {
++        return out;
++    }
++    let (cx, cy) = (b.x0 + b.width() / 2.0, b.y0 + b.height() / 2.0);
++    for x in [b.x0, cx, b.x1] {
++        push_unique(&mut out, GuideLine::Vertical { x });
++    }
++    for y in [b.y0, cy, b.y1] {
++        push_unique(&mut out, GuideLine::Horizontal { y });
++    }
++    let a = b.height().atan2(b.width()).to_degrees();
++    push_unique(&mut out, GuideLine::Angled { x: b.x0, y: b.y0, angle: a });
++    push_unique(&mut out, GuideLine::Angled { x: b.x0, y: b.y1, angle: -a });
++    for p in nodes.iter().filter(|p| p.x.is_finite() && p.y.is_finite()) {
++        push_unique(&mut out, GuideLine::Vertical { x: p.x });
++        push_unique(&mut out, GuideLine::Horizontal { y: p.y });
++    }
++    out
++}
++
++/// The thirds of `b` in both directions: how a logomark and its logotype
++/// are paired and placed.
++pub fn lockup(b: Rect) -> Vec<GuideLine> {
++    let mut out = Vec::new();
++    if !finite(&b) {
++        return out;
++    }
++    let (w, h) = (b.width(), b.height());
++    for f in [1.0 / 3.0, 2.0 / 3.0] {
++        push_unique(&mut out, GuideLine::Vertical { x: b.x0 + w * f });
++        push_unique(&mut out, GuideLine::Horizontal { y: b.y0 + h * f });
++    }
++    out
++}
++
++/// Clearspace: the lines `x` outside each edge of `b`, the space no other
++/// object should enter round a logo. A negative or NaN `x` gives none.
++pub fn clearspace(b: Rect, x: f64) -> Vec<GuideLine> {
++    let mut out = Vec::new();
++    if !finite(&b) || !(x.is_finite() && x > 0.0) {
++        return out;
++    }
++    push_unique(&mut out, GuideLine::Vertical { x: b.x0 - x });
++    push_unique(&mut out, GuideLine::Vertical { x: b.x1 + x });
++    push_unique(&mut out, GuideLine::Horizontal { y: b.y0 - x });
++    push_unique(&mut out, GuideLine::Horizontal { y: b.y1 + x });
++    out
++}
++
++/// The settings of the magazine and poster grid window.
++#[derive(Debug, Clone, Copy, PartialEq)]
++pub struct PageGridForm {
++    pub columns: u32,
++    pub rows: u32,
++    /// Space between columns and between rows, mm.
++    pub gutter: f64,
++    /// Space from each page edge to the grid, mm.
++    pub margin: f64,
++}
++
++impl Default for PageGridForm {
++    fn default() -> Self {
++        PageGridForm {
++            columns: 3,
++            rows: 1,
++            gutter: 5.0,
++            margin: 10.0,
++        }
++    }
++}
++
++/// Column and row edges of a page: each column and row has its two edges
++/// as guidelines. Empty when the margins and gutters leave no room.
++pub fn page_grid(page: Rect, form: PageGridForm) -> Vec<GuideLine> {
++    let mut out = Vec::new();
++    if !finite(&page) || form.columns == 0 || form.rows == 0 {
++        return out;
++    }
++    let (m, g) = (form.margin.max(0.0), form.gutter.max(0.0));
++    if !(m.is_finite() && g.is_finite()) {
++        return out;
++    }
++    let inner_w = page.width() - 2.0 * m;
++    let inner_h = page.height() - 2.0 * m;
++    let cols = form.columns as f64;
++    let rows = form.rows as f64;
++    let cw = (inner_w - (cols - 1.0) * g) / cols;
++    let rh = (inner_h - (rows - 1.0) * g) / rows;
++    if cw <= 0.0 || rh <= 0.0 {
++        return out;
++    }
++    for i in 0..form.columns {
++        let left = page.x0 + m + i as f64 * (cw + g);
++        push_unique(&mut out, GuideLine::Vertical { x: left });
++        push_unique(&mut out, GuideLine::Vertical { x: left + cw });
++    }
++    for j in 0..form.rows {
++        let top = page.y0 + m + j as f64 * (rh + g);
++        push_unique(&mut out, GuideLine::Horizontal { y: top });
++        push_unique(&mut out, GuideLine::Horizontal { y: top + rh });
++    }
++    out
++}
++
++impl crate::app::App {
++    /// Write `lines` to the page in one undo step, replacing the lines of
++    /// the grid made last (which are taken away first) and skipping any
++    /// guideline the page already has. Returns how many were added.
++    pub fn apply_grid_lines(&mut self, lines: Vec<GuideLine>, label: &str) -> usize {
++        let page = self.page;
++        let Ok(p) = self.doc().page(page) else {
++            return 0;
++        };
++        let mut guides: Vec<Guide> = p
++            .guides
++            .iter()
++            .filter(|g| !self.grid_lines.iter().any(|l| *l == g.line))
++            .cloned()
++            .collect();
++        let mut added = 0;
++        for l in &lines {
++            if !guides.iter().any(|g| g.line == *l) {
++                guides.push(Guide::from(*l));
++                added += 1;
++            }
++        }
++        let cmds = vec![tracedraw_core::Command::SetGuides { page, guides }];
++        if let Err(e) = self.engine.run_batch(label, &cmds) {
++            self.status = format!("{label}: {e}");
++            return 0;
++        }
++        self.grid_lines = lines;
++        added
++    }
++
++    /// Take away the grid made last.
++    pub fn clear_grid_lines(&mut self) -> usize {
++        let n = self.grid_lines.len();
++        if n == 0 {
++            return 0;
++        }
++        // The lines are still remembered while they are taken away.
++        self.apply_grid_lines(Vec::new(), "Clear Grid");
++        n
++    }
++
++    /// The bounds and node positions of the selected objects, for the
++    /// construction grid. None with nothing selected.
++    pub fn selection_geometry(&self) -> Option<(Rect, Vec<Point>)> {
++        let bounds = self.selection_bounds()?;
++        let mut nodes = Vec::new();
++        for s in self.selected_shapes() {
++            let path = s.page_path();
++            for n in tracedraw_core::nodes::nodes(&path) {
++                nodes.push(n.pos);
++            }
++        }
++        Some((bounds, nodes))
++    }
++}
++
++/// The magazine and poster grid window: columns, rows, gutter and margin,
++/// with Apply (which replaces the grid made last) and Clear.
++pub fn page_grid_window(app: &mut crate::app::App, ctx: &egui::Context) {
++    if !app.show_page_grid {
++        return;
++    }
++    let mut open = true;
++    let mut apply = false;
++    let mut clear = false;
++    crate::ui::chrome::window(crate::i18n::tr("layout_grids.title"))
++        .open(&mut open)
++        .resizable(false)
++        .show(ctx, |ui| {
++            let f = &mut app.page_grid;
++            ui.add(egui::Slider::new(&mut f.columns, 1..=24).text(crate::i18n::tr("layout_grids.columns")));
++            ui.add(egui::Slider::new(&mut f.rows, 1..=24).text(crate::i18n::tr("layout_grids.rows")));
++            ui.add(egui::Slider::new(&mut f.gutter, 0.0..=50.0).suffix(" mm").text(crate::i18n::tr("layout_grids.gutter")));
++            ui.add(egui::Slider::new(&mut f.margin, 0.0..=80.0).suffix(" mm").text(crate::i18n::tr("layout_grids.margin")));
++            ui.horizontal_wrapped(|ui| {
++                apply = ui.button(crate::i18n::tr("layout_grids.apply")).clicked();
++                clear = ui.button(crate::i18n::tr("layout_grids.clear")).clicked();
++            });
++        });
++    if apply {
++        let page = app.doc().page(app.page).ok().map(|p| {
++            tracedraw_core::geometry::Rect::new(0.0, 0.0, p.size.width, p.size.height)
++        });
++        if let Some(b) = page {
++            let lines = page_grid(b, app.page_grid);
++            app.apply_grid_lines(lines, "Page Grid");
++        }
++    }
++    if clear {
++        app.clear_grid_lines();
++    }
++    if !open {
++        app.show_page_grid = false;
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn page() -> Rect {
++        Rect::new(0.0, 0.0, 210.0, 297.0)
++    }
++
++    /// Square cells and the golden section land where they should.
++    #[test]
++    fn square_and_golden_grids_place_their_lines() {
++        let s = square(Rect::new(0.0, 0.0, 30.0, 20.0), 10.0);
++        assert!(s.contains(&GuideLine::Vertical { x: 20.0 }));
++        assert!(s.contains(&GuideLine::Horizontal { y: 10.0 }));
++        assert!(square(page(), 0.0).is_empty());
++        assert!(square(page(), f64::NAN).is_empty());
++        let g = golden(page());
++        assert!(g.iter().any(|l| matches!(l, GuideLine::Vertical { x } if (x - 210.0 * 0.381_966).abs() < 0.01)));
++        assert!(g.iter().any(|l| matches!(l, GuideLine::Horizontal { y } if (y - 297.0 * 0.618_034).abs() < 0.01)));
++    }
++
++    /// Lockup is the thirds; clearspace sits `x` outside every edge.
++    #[test]
++    fn lockup_thirds_and_clearspace_distance() {
++        let b = Rect::new(10.0, 10.0, 40.0, 25.0);
++        let t = lockup(b);
++        assert!(t.contains(&GuideLine::Vertical { x: 20.0 }));
++        assert!(t.contains(&GuideLine::Horizontal { y: 15.0 }));
++        let c = clearspace(b, 5.0);
++        assert_eq!(c.len(), 4);
++        assert!(c.contains(&GuideLine::Vertical { x: 5.0 }));
++        assert!(c.contains(&GuideLine::Vertical { x: 45.0 }));
++        assert!(c.contains(&GuideLine::Horizontal { y: 5.0 }));
++        assert!(c.contains(&GuideLine::Horizontal { y: 30.0 }));
++        assert!(clearspace(b, 0.0).is_empty());
++        assert!(clearspace(b, -2.0).is_empty());
++    }
++
++    /// Construction has the centres, edges and diagonals, and the nodes'
++    /// own lines.
++    #[test]
++    fn construction_has_centres_edges_and_nodes() {
++        let b = Rect::new(0.0, 0.0, 40.0, 20.0);
++        let c = construction(b, &[Point::new(7.0, 3.0)]);
++        assert!(c.contains(&GuideLine::Vertical { x: 20.0 }));
++        assert!(c.contains(&GuideLine::Horizontal { y: 10.0 }));
++        assert!(c.contains(&GuideLine::Vertical { x: 7.0 }));
++        assert!(c.contains(&GuideLine::Horizontal { y: 3.0 }));
++        assert_eq!(c.iter().filter(|l| matches!(l, GuideLine::Angled { .. })).count(), 2);
++    }
++
++    /// A magazine grid: 3 columns, 5 mm gutters, 10 mm margins on A4 wide.
++    #[test]
++    fn page_grid_makes_columns_and_rows_inside_the_margins() {
++        let form = PageGridForm {
++            columns: 3,
++            rows: 1,
++            gutter: 5.0,
++            margin: 10.0,
++        };
++        let g = page_grid(page(), form);
++        for x in [10.0, 70.0, 75.0, 135.0, 140.0, 200.0] {
++            assert!(g.contains(&GuideLine::Vertical { x }), "{x}");
++        }
++        assert!(g.contains(&GuideLine::Horizontal { y: 10.0 }));
++        assert!(g.contains(&GuideLine::Horizontal { y: 287.0 }));
++        // Nothing is left for the columns: no lines at all.
++        let tight = PageGridForm { columns: 30, gutter: 10.0, ..form };
++        assert!(page_grid(page(), tight).is_empty());
++        assert!(page_grid(page(), PageGridForm { columns: 0, ..form }).is_empty());
++    }
++
++    /// The line count stays under the cap however small the cells.
++    #[test]
++    fn a_grid_stops_at_the_cap() {
++        let s = square(Rect::new(0.0, 0.0, 1000.0, 1000.0), 0.5);
++        assert!(s.len() <= MAX_LINES);
++    }
++}
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/src/lib.rs b/apps/tracedraw/src/lib.rs
+--- orig/tracedraw-0.53.0/apps/tracedraw/src/lib.rs	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/src/lib.rs	2026-11-28 03:56:39.055468270 +0000
+@@ -224,6 +224,8 @@
+ mod pixel_spray;
+ mod pixel_surface;
+ mod pixel_view;
++mod layout_grids;
++mod pixel_persp;
+ mod pixel_warp;
+ mod placeholder;
+ mod plugins;
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/src/pixel_edit.rs b/apps/tracedraw/src/pixel_edit.rs
+--- orig/tracedraw-0.53.0/apps/tracedraw/src/pixel_edit.rs	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/src/pixel_edit.rs	2026-11-28 03:56:39.060040681 +0000
+@@ -295,6 +295,10 @@
+     pub desaturate: bool,
+     /// The gradient goes from the colour to see-through (else to white).
+     pub gradient_to_clear: bool,
++    /// The gradient ends in `gradient_second` (a colour of its own) instead.
++    pub gradient_use_second: bool,
++    /// That end colour, straight RGBA.
++    pub gradient_second: [u8; 4],
+     /// How the gradient spreads.
+     pub gradient: crate::pixel_paint::GradientKind,
+     /// Brush tip: the distance between dabs as a share of the size, how
+@@ -356,6 +360,8 @@
+             contiguous: true,
+             desaturate: false,
+             gradient_to_clear: true,
++            gradient_use_second: false,
++            gradient_second: [255, 255, 255, 255],
+             gradient: crate::pixel_paint::GradientKind::Linear,
+             spacing: 0.25,
+             scatter: 0.0,
+@@ -825,7 +831,9 @@
+ /// `b`.
+ pub fn gradient(pi: &mut PixelImage, a: (f32, f32), b: (f32, f32), o: &BrushOpts) -> Option<Dirty> {
+     let bounds = pi.sel_bounds()?;
+-    let end = if o.gradient_to_clear {
++    let end = if o.gradient_use_second {
++        o.gradient_second
++    } else if o.gradient_to_clear {
+         [o.color[0], o.color[1], o.color[2], 0]
+     } else {
+         [255, 255, 255, 255]
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/src/pixel_edit_app.rs b/apps/tracedraw/src/pixel_edit_app.rs
+--- orig/tracedraw-0.53.0/apps/tracedraw/src/pixel_edit_app.rs	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/src/pixel_edit_app.rs	2026-11-28 03:56:39.060198068 +0000
+@@ -116,6 +116,9 @@
+     /// Warp: the grid being dragged, the box it covers and its points
+     /// across and down.
+     pub warp: Option<crate::pixel_warp::Warp>,
++    /// Perspective (see `pixel_persp.rs`): the kind and the amount in per cent.
++    pub persp_kind: crate::pixel_persp::Persp,
++    pub persp_amount: f32,
+     pub warp_box: Dirty,
+     pub warp_grid: usize,
+     /// The picture as it was when the editing began (Restore paints it
+@@ -714,6 +717,8 @@
+             target: MaskTarget::Pixels,
+             mask_stroke: None,
+             saved_sels: Vec::new(),
++            persp_kind: Default::default(),
++            persp_amount: 0.0,
+             warp: None,
+             warp_box: [0, 0, 0, 0],
+             warp_grid: 4,
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/src/pixel_persp.rs b/apps/tracedraw/src/pixel_persp.rs
+--- orig/tracedraw-0.53.0/apps/tracedraw/src/pixel_persp.rs	1970-01-01 00:00:00.000000000 +0000
++++ b/apps/tracedraw/src/pixel_persp.rs	2026-11-28 03:56:39.079114086 +0000
+@@ -0,0 +1,164 @@
++//! Perspective for the picture editor's layer in use: the picture's
++//! corners move so that one side gets shorter than the other, sideways
++//! (the left or the right side) or up and down (the top or the bottom),
++//! as Photoshop's Edit > Transform > Perspective does in one step. It
++//! maps every pixel of the picture through a projective transform; the
++//! pixels outside the new corners are clear. The Warp tool's grid is a
++//! different thing (`pixel_warp`): this is one move of four corners.
++//! See docs/behavior/edit-inside-picture.md.
++
++use image::{Rgba, RgbaImage};
++
++/// Which way the perspective narrows.
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
++pub enum Persp {
++    /// The left or the right side gets shorter (`amount` below zero makes
++    /// the left side the short one).
++    #[default]
++    Sideways,
++    /// The top or the bottom gets narrower (`amount` below zero makes the
++    /// bottom the narrow one).
++    UpDown,
++}
++
++/// Solve the projective map from the picture's corners (0,0), (w,0), (w,h),
++/// (0,h) to the four `dst` corners: eight numbers, by Gauss-Jordan.
++fn homography(dst: [(f64, f64); 4], w: f64, h: f64) -> Option<[f64; 8]> {
++    let src = [(0.0, 0.0), (w, 0.0), (w, h), (0.0, h)];
++    let mut m = [[0.0f64; 9]; 8];
++    for i in 0..4 {
++        let (x, y) = dst[i];
++        let (u, v) = src[i];
++        m[2 * i] = [x, y, 1.0, 0.0, 0.0, 0.0, -x * u, -y * u, u];
++        m[2 * i + 1] = [0.0, 0.0, 0.0, x, y, 1.0, -x * v, -y * v, v];
++    }
++    for c in 0..8 {
++        let mut best = c;
++        for r in c + 1..8 {
++            if m[r][c].abs() > m[best][c].abs() {
++                best = r;
++            }
++        }
++        if m[best][c].abs() < 1e-12 {
++            return None;
++        }
++        m.swap(c, best);
++        let p = m[c][c];
++        for k in c..9 {
++            m[c][k] /= p;
++        }
++        for r in 0..8 {
++            if r != c {
++                let f = m[r][c];
++                if f != 0.0 {
++                    for k in c..9 {
++                        m[r][k] -= f * m[c][k];
++                    }
++                }
++            }
++        }
++    }
++    let mut out = [0.0; 8];
++    for (i, o) in out.iter_mut().enumerate() {
++        *o = m[i][8];
++    }
++    Some(out)
++}
++
++/// Nearest-pixel sample of `src` at (x, y) in its pixel units; outside is
++/// clear.
++fn sample(src: &RgbaImage, x: f64, y: f64) -> Rgba<u8> {
++    let (w, h) = src.dimensions();
++    if x < 0.0 || y < 0.0 || x >= w as f64 || y >= h as f64 {
++        return Rgba([0, 0, 0, 0]);
++    }
++    *src.get_pixel(x as u32, y as u32)
++}
++
++/// The picture with its corners moved to `dst` (top left, top right,
++/// bottom right, bottom left, in pixels). None when the corners are
++/// degenerate.
++pub fn quad(src: &RgbaImage, dst: [(f64, f64); 4]) -> Option<RgbaImage> {
++    let (w, h) = src.dimensions();
++    if w == 0 || h == 0 {
++        return None;
++    }
++    let k = homography(dst, w as f64, h as f64)?;
++    let mut out = RgbaImage::new(w, h);
++    for (x, y, q) in out.enumerate_pixels_mut() {
++        let (cx, cy) = (x as f64 + 0.5, y as f64 + 0.5);
++        let den = k[6] * cx + k[7] * cy + 1.0;
++        if den.abs() < 1e-9 {
++            continue;
++        }
++        let u = (k[0] * cx + k[1] * cy + k[2]) / den;
++        let v = (k[3] * cx + k[4] * cy + k[5]) / den;
++        *q = sample(src, u, v);
++    }
++    Some(out)
++}
++
++/// The corners for a perspective of `kind` by `amount` (-1 to 1; 0 is the
++/// picture as it is). The short side loses `|amount| * 40` per cent of the
++/// other dimension at its two ends.
++pub fn corners(w: f64, h: f64, kind: Persp, amount: f64) -> [(f64, f64); 4] {
++    let a = amount.clamp(-1.0, 1.0);
++    let t = a.abs() * 0.4;
++    match (kind, a >= 0.0) {
++        (Persp::Sideways, true) => {
++            // The right side is the long one: the left shrinks top and bottom.
++            let d = t * h;
++            [(0.0, d), (w, 0.0), (w, h), (0.0, h - d)]
++        }
++        (Persp::Sideways, false) => {
++            let d = t * h;
++            [(0.0, 0.0), (w, d), (w, h - d), (0.0, h)]
++        }
++        (Persp::UpDown, true) => {
++            let d = t * w;
++            [(d, 0.0), (w - d, 0.0), (w, h), (0.0, h)]
++        }
++        (Persp::UpDown, false) => {
++            let d = t * w;
++            [(0.0, 0.0), (w, 0.0), (w - d, h), (d, h)]
++        }
++    }
++}
++
++/// The picture in perspective of `kind` by `amount`; unchanged at 0.
++pub fn apply(src: &RgbaImage, kind: Persp, amount: f64) -> RgbaImage {
++    if amount.abs() < 1e-9 {
++        return src.clone();
++    }
++    let (w, h) = src.dimensions();
++    let dst = corners(w as f64, h as f64, kind, amount);
++    quad(src, dst).unwrap_or_else(|| src.clone())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    /// No amount is the picture; a sideways perspective takes the corners
++    /// of the short side off, and up and down the narrow end's.
++    #[test]
++    fn perspective_takes_the_corners_of_the_short_side() {
++        let img = RgbaImage::from_pixel(100, 100, Rgba([255, 255, 255, 255]));
++        assert_eq!(apply(&img, Persp::Sideways, 0.0), img);
++        let s = apply(&img, Persp::Sideways, 1.0);
++        assert_eq!(s.get_pixel(1, 1)[3], 0, "the short side's top corner");
++        assert_eq!(s.get_pixel(98, 1)[3], 255, "the long side stays");
++        let v = apply(&img, Persp::UpDown, 1.0);
++        assert_eq!(v.get_pixel(1, 98)[3], 0, "the narrow bottom corner");
++        assert_eq!(v.get_pixel(98, 98)[3], 0, "the narrow bottom corner, right");
++        assert_eq!(v.get_pixel(50, 4)[3], 255, "the top stays");
++    }
++
++    /// The corners map back and degenerate ones give nothing, not a panic.
++    #[test]
++    fn a_degenerate_corner_gives_no_picture() {
++        let img = RgbaImage::from_pixel(10, 10, Rgba([0, 0, 0, 255]));
++        assert!(quad(&img, [(0.0, 0.0), (0.0, 0.0), (0.0, 0.0), (0.0, 0.0)]).is_none());
++        assert!(quad(&RgbaImage::new(0, 0), [(0.0, 0.0); 4]).is_none());
++    }
++}
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/src/ui/menus.rs b/apps/tracedraw/src/ui/menus.rs
+--- orig/tracedraw-0.53.0/apps/tracedraw/src/ui/menus.rs	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/src/ui/menus.rs	2026-11-28 03:56:39.074044765 +0000
+@@ -3884,6 +3884,55 @@
+     ) {
+         app.fit_page_to_drawing();
+     }
++    sub(ui, "menu.layout.grids", |ui| {
++        use crate::layout_grids as lg;
++        let page_rect = app
++            .doc()
++            .page(app.page)
++            .ok()
++            .map(|p| tracedraw_core::geometry::Rect::new(0.0, 0.0, p.size.width, p.size.height));
++        let geom = app.selection_geometry();
++        let cell = app.logo_cell;
++        let clear = app.clearspace_mm;
++        if item(ui, "menu.layout.grid_square", "", page_rect.is_some()) {
++            if let Some(b) = page_rect {
++                app.apply_grid_lines(lg::square(b, cell), "Square Grid");
++            }
++        }
++        if item(ui, "menu.layout.grid_isometric", "", page_rect.is_some()) {
++            if let Some(b) = page_rect {
++                app.apply_grid_lines(lg::isometric(b, 20.0), "Isometric Grid");
++            }
++        }
++        if item(ui, "menu.layout.grid_golden", "", page_rect.is_some()) {
++            if let Some(b) = page_rect {
++                app.apply_grid_lines(lg::golden(b), "Golden Ratio Grid");
++            }
++        }
++        sep(ui);
++        if item(ui, "menu.layout.grid_construction", "", geom.is_some()) {
++            if let Some((b, nodes)) = &geom {
++                app.apply_grid_lines(lg::construction(*b, nodes), "Construction Grid");
++            }
++        }
++        if item(ui, "menu.layout.grid_lockup", "", geom.is_some()) {
++            if let Some((b, _)) = &geom {
++                app.apply_grid_lines(lg::lockup(*b), "Lockup Grid");
++            }
++        }
++        if item(ui, "menu.layout.grid_clearspace", "", geom.is_some()) {
++            if let Some((b, _)) = &geom {
++                app.apply_grid_lines(lg::clearspace(*b, clear), "Clearspace Grid");
++            }
++        }
++        sep(ui);
++        if item(ui, "menu.layout.grid_page", "", true) {
++            app.show_page_grid = true;
++        }
++        if item(ui, "menu.layout.grid_clear", "", !app.grid_lines.is_empty()) {
++            app.clear_grid_lines();
++        }
++    });
+     if item(ui, "menu.layout.page_background", "", true) {
+         app.dialog = Dialog::Options;
+         app.options_page = crate::ui::dialogs::OptionsPage::Background;
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/src/ui/mod.rs b/apps/tracedraw/src/ui/mod.rs
+--- orig/tracedraw-0.53.0/apps/tracedraw/src/ui/mod.rs	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/src/ui/mod.rs	2026-11-28 03:56:39.074167095 +0000
+@@ -976,6 +976,7 @@
+     update_card::show(app, &ctx);
+     command_search::show(app, &ctx);
+     dialogs::show(app, &ctx);
++    crate::layout_grids::page_grid_window(app, &ctx);
+     // A change this frame made to a master shows on its clones at once.
+     let before = app.engine.revision();
+     app.sync_object_clones();
+diff -ruN orig/tracedraw-0.53.0/apps/tracedraw/src/ui/pixel_bar.rs b/apps/tracedraw/src/ui/pixel_bar.rs
+--- orig/tracedraw-0.53.0/apps/tracedraw/src/ui/pixel_bar.rs	2026-11-26 03:13:36.000000000 +0000
++++ b/apps/tracedraw/src/ui/pixel_bar.rs	2026-11-28 03:56:39.075343668 +0000
+@@ -258,6 +258,21 @@
+                     }
+                 });
+             ui.checkbox(&mut o.gradient_to_clear, tr("pixel.opt.to_clear"));
++            ui.checkbox(&mut o.gradient_use_second, tr("pixel.opt.to_second"));
++            if o.gradient_use_second {
++                let g = o.gradient_second;
++                let mut c = egui::Color32::from_rgba_unmultiplied(g[0], g[1], g[2], g[3]);
++                if egui::color_picker::color_edit_button_srgba(
++                    ui,
++                    &mut c,
++                    egui::color_picker::Alpha::OnlyBlend,
++                )
++                .changed()
++                {
++                    let [r, gg, b, a] = c.to_srgba_unmultiplied();
++                    o.gradient_second = [r, gg, b, a];
++                }
++            }
+         }
+         _ => {}
+     }
+@@ -987,6 +1002,49 @@
+             }
+         }
+     });
++    perspective_row(ui, pe);
++}
++
++/// Perspective of the layer in use: the corners move so one side is the
++/// short one (sideways or up and down), by an amount, applied in one undo
++/// step to the whole layer. Separate from the Warp grid.
++pub(crate) fn perspective_row(ui: &mut egui::Ui, pe: &mut crate::pixel_edit_app::PixelEdit) {
++    use crate::pixel_persp::Persp;
++    ui.label(RichText::new(tr("pixel.persp.title")).strong());
++    ui.horizontal_wrapped(|ui| {
++        for (kind, key) in [
++            (Persp::Sideways, "pixel.persp.sideways"),
++            (Persp::UpDown, "pixel.persp.updown"),
++        ] {
++            if ui
++                .selectable_label(pe.persp_kind == kind, tr(key))
++                .clicked()
++            {
++                pe.persp_kind = kind;
++            }
++        }
++    });
++    ui.add(
++        egui::Slider::new(&mut pe.persp_amount, -100.0..=100.0)
++            .suffix(" %")
++            .text(tr("pixel.persp.amount")),
++    );
++    let locked = pe.pi.active_locked();
++    let (w, h) = pe.pi.img.dimensions();
++    ui.horizontal_wrapped(|ui| {
++        if ui
++            .add_enabled(!locked && pe.persp_amount != 0.0, egui::Button::new(tr("pixel.persp.apply")))
++            .rich_tip(tr("pixel.persp.apply_tip"))
++            .clicked()
++        {
++            let (kind, amt) = (pe.persp_kind, (pe.persp_amount / 100.0) as f64);
++            pe.apply(true, |pi| {
++                pi.img = crate::pixel_persp::apply(&pi.img, kind, amt);
++                Some([0, 0, w, h])
++            });
++            pe.persp_amount = 0.0;
++        }
++    });
+ }
+ 
+ pub(crate) fn picture_section(ui: &mut egui::Ui, pe: &mut crate::pixel_edit_app::PixelEdit) {
+diff -ruN orig/tracedraw-0.53.0/docs/behavior/rulers-grid-guidelines.md b/docs/behavior/rulers-grid-guidelines.md
+--- orig/tracedraw-0.53.0/docs/behavior/rulers-grid-guidelines.md	2026-11-26 03:13:36.000000000 +0000
++++ b/docs/behavior/rulers-grid-guidelines.md	2026-11-28 03:56:39.098924691 +0000
+@@ -340,3 +340,26 @@
+ - `drawing_scale::tests::presets_have_the_ratio_their_label_says`
+ - `drawing_scale::tests::the_settings_find_their_preset_and_label`
+ - `drawing_scale::tests::world_distances_go_through_the_scale`
++
++## Layout > Grids (`layout_grids.rs`)
++
++Grids made as guidelines on the page, in one undo step each. Applying a
++grid again replaces the one made last (its lines are taken away first;
++Layout > Grids > Clear the grid made last takes them off). At most 200
++lines per grid.
++
++- Base: **Square grid** (cell from the Document Setup grid, 10 mm to
++  start), **Isometric grid** (verticals and lines at 30 and 150 degrees,
++  20 mm apart), **Golden ratio grid** (0.382 and 0.618 of the width and
++  of the height).
++- Logo, of the selection: **Construction lines** (centres, edges, the
++  two diagonals of the box and a vertical and horizontal through every
++  node), **Lockup thirds** (the thirds in both directions), **Clearspace**
++  (lines the clearspace distance, 5 mm to start, outside each edge).
++- Magazine and poster: **Magazine and poster grid...** opens a window with
++  columns and rows (1 to 24), gutter and margin (mm). Apply draws the
++  column and row edges inside the margins; changing the numbers and
++  applying again moves the grid. Too narrow a page for the gutters gives no
++  lines.
++
++Tests: `layout_grids::tests`.

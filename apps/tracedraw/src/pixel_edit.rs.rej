@@ -1,0 +1,32 @@
+diff a/apps/tracedraw/src/pixel_edit.rs b/apps/tracedraw/src/pixel_edit.rs	(rejected hunks)
+@@ -295,6 +295,10 @@
+     pub desaturate: bool,
+     /// The gradient goes from the colour to see-through (else to white).
+     pub gradient_to_clear: bool,
++    /// The gradient ends in `gradient_second` (a colour of its own) instead.
++    pub gradient_use_second: bool,
++    /// That end colour, straight RGBA.
++    pub gradient_second: [u8; 4],
+     /// How the gradient spreads.
+     pub gradient: crate::pixel_paint::GradientKind,
+     /// Brush tip: the distance between dabs as a share of the size, how
+@@ -356,6 +360,8 @@
+             contiguous: true,
+             desaturate: false,
+             gradient_to_clear: true,
++            gradient_use_second: false,
++            gradient_second: [255, 255, 255, 255],
+             gradient: crate::pixel_paint::GradientKind::Linear,
+             spacing: 0.25,
+             scatter: 0.0,
+@@ -825,7 +831,9 @@
+ /// `b`.
+ pub fn gradient(pi: &mut PixelImage, a: (f32, f32), b: (f32, f32), o: &BrushOpts) -> Option<Dirty> {
+     let bounds = pi.sel_bounds()?;
+-    let end = if o.gradient_to_clear {
++    let end = if o.gradient_use_second {
++        o.gradient_second
++    } else if o.gradient_to_clear {
+         [o.color[0], o.color[1], o.color[2], 0]
+     } else {
+         [255, 255, 255, 255]
